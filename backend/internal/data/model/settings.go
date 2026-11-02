@@ -94,10 +94,11 @@ type (
 
 	// FileSettings is the files section.
 	FileSettings struct {
-		MaxUploadMB            int    `json:"maxUploadMb"`
-		AnonymousMaxTTLMinutes int    `json:"anonymousMaxTtlMinutes"`
-		Subdomains             bool   `json:"subdomains"`
-		PublicDomain           string `json:"publicDomain"`
+		MaxUploadMB              int    `json:"maxUploadMb"`
+		AnonymousMaxTTLMinutes   int    `json:"anonymousMaxTtlMinutes"`
+		AnonymousUploadsDisabled bool   `json:"anonymousUploadsDisabled"`
+		Subdomains               bool   `json:"subdomains"`
+		PublicDomain             string `json:"publicDomain"`
 	}
 
 	// AuthSettings is the auth section.

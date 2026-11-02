@@ -61,7 +61,7 @@ const _settingsJSON = `{
 		"postgres": {"dsn": "postgres://u:p@h/d"}},
 	"storage": {"s3": {"enabled": true, "endpoint": "https://s3", "region": "r", "bucket": "b",
 		"accessKeyId": "a", "secretAccessKey": "s", "usePathStyle": true}},
-	"files": {"maxTtlMinutes": 60, "maxUploadMb": 2, "anonymousMaxTtlMinutes": 7, "subdomains": true, "publicDomain": "x.io"},
+	"files": {"maxTtlMinutes": 60, "maxUploadMb": 2, "anonymousMaxTtlMinutes": 7, "anonymousUploadsDisabled": true, "subdomains": true, "publicDomain": "x.io"},
 	"auth": {"google": {"clientId": "g", "clientSecret": "gs"}, "github": {"clientId": "h", "clientSecret": "hs"},
 		"providers": [{"id": "okta", "name": "Okta", "icon": "<svg/>", "clientId": "o", "clientSecret": "os", "authUrl": "https://okta.example.com"}]}
 }`
@@ -73,7 +73,7 @@ func TestSettingsMapping(t *testing.T) {
 	assert.Equal(t, 300, got.Settings.Credits.MonthlyGrant)
 	assert.Equal(t, "postgres://u:p@h/d", got.Settings.Database.Postgres.DSN)
 	assert.Equal(t, "hs", got.Settings.Auth.GitHub.ClientSecret)
-	assert.Equal(t, entity.FileSettings{MaxUploadMB: 2, AnonymousMaxTTLMinutes: 7, Subdomains: true, PublicDomain: "x.io"}, got.Settings.Files)
+	assert.Equal(t, entity.FileSettings{MaxUploadMB: 2, AnonymousMaxTTLMinutes: 7, AnonymousUploadsDisabled: true, Subdomains: true, PublicDomain: "x.io"}, got.Settings.Files)
 	assert.Equal(t, entity.DomainSettings{AppURL: "https://app.permahost.io", SitesDomain: "permahost.io"}, got.Settings.Domain)
 	assert.Equal(t, entity.TLSSettings{
 		Enabled: true, Port: 8443, Email: "ops@permahost.io",

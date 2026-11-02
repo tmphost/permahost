@@ -74,6 +74,7 @@ describe('UploadView', () => {
 
   it('shows the anonymous limits and links to sign-in', async () => {
     const wrapper = await mountView()
+    expect(wrapper.find('[data-test="upload-title"]').text()).toBe('Upload without an account')
     expect(wrapper.find('[data-test="upload-limits"]').text()).toBe(
       'Up to 4.0 MB per file and 5 files every 30 min. Links expire after 10 min.',
     )
@@ -82,12 +83,23 @@ describe('UploadView', () => {
   })
 
   it('reports a limits failure', async () => {
-    fetchLimits.mockRejectedValue(new Error('Failed to load limits (401)'))
+    fetchLimits.mockRejectedValue(new Error('Failed to load limits (503)'))
     const wrapper = await mountView()
     expect(wrapper.find('[data-test="upload-limits"]').exists()).toBe(false)
-    expect(lastToast()).toMatchObject({ type: 'error', message: 'Failed to load limits (401)' })
+    expect(lastToast()).toMatchObject({ type: 'error', message: 'Failed to load limits (503)' })
     await pick(wrapper, '[data-test="pick-files"]', [file('a.txt')])
     expect(wrapper.find('[data-test="upload-start"]').attributes('disabled')).toBeDefined()
+  })
+
+  it('asks to sign in when uploads without an account are off', async () => {
+    fetchLimits.mockRejectedValue(Object.assign(new Error('unauthorized'), { status: 401 }))
+    const wrapper = await mountView()
+    expect(wrapper.find('[data-test="upload-title"]').text()).toBe('Sign in to upload')
+    expect(wrapper.find('[data-test="upload-disabled"]').text()).toContain('turned off on this server')
+    expect(wrapper.find('[data-test="upload-disabled-sign-in"]').attributes('href')).toBe('/login')
+    expect(wrapper.find('[data-test="upload-card"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="upload-sign-in"]').exists()).toBe(false)
+    expect(lastToast()).toBeUndefined()
   })
 
   it('uploads files into a new folder and lists their links', async () => {

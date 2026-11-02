@@ -56,10 +56,10 @@ describe('api', () => {
     expect(await api.fetchUser()).toEqual({ id: 'u2' })
   })
 
-  it('fetchAuthConfig returns providers', async () => {
+  it('fetchAuthConfig returns providers and whether anonymous uploads are on', async () => {
     const api = await loadApi('')
-    fetch.mockResolvedValue(json({ providers: ['google'] }))
-    expect(await api.fetchAuthConfig()).toEqual(['google'])
+    fetch.mockResolvedValue(json({ providers: ['google'], anonymousUploads: true, extra: 1 }))
+    expect(await api.fetchAuthConfig()).toEqual({ providers: ['google'], anonymousUploads: true })
     fetch.mockResolvedValue(json({}, 503))
     await expect(api.fetchAuthConfig()).rejects.toThrow('Failed to load sign-in options (503)')
   })

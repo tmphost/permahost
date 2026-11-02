@@ -33,7 +33,10 @@ Go (Fiber v3, GORM) backend and Vue 3 (Vite, Tailwind) frontend.
   counts toward storage.
 - Without signing in, the web app's Upload page makes folders that live at
   most `files.anonymousMaxTtlMinutes` (`PERMAHOSTIO_FILES_ANONYMOUS_MAX_TTL_MINUTES`,
-  10 minutes by default; root can change it on /setup).
+  10 minutes by default; root can change it on /setup). Root can turn uploads
+  without an account off on /setup, or with
+  `PERMAHOSTIO_FILES_ANONYMOUS_UPLOADS_DISABLED=true`; every upload then needs
+  an account.
 - Storage is local disk (`PERMAHOSTIO_STORAGE_LOCAL_PATH`) or an S3 bucket, under
   `u<userId>/<folderId>/<path>`. Paths are at most 5 directories deep and are
   validated server-side, so a file can never leave its folder. The database

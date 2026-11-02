@@ -18,6 +18,7 @@ const { notifyError } = useToasts()
 
 const loading = ref(true)
 const providers = ref([])
+const anonymousUploads = ref(false)
 const configError = ref('')
 
 const redirect = computed(() => (typeof route.query.redirect === 'string' ? route.query.redirect : ''))
@@ -33,7 +34,9 @@ const buttons = computed(() =>
 
 onMounted(async () => {
   try {
-    providers.value = await fetchAuthConfig()
+    const config = await fetchAuthConfig()
+    providers.value = config.providers
+    anonymousUploads.value = config.anonymousUploads
   } catch (err) {
     configError.value = 'Sign-in is unavailable right now.'
     notifyError(err.message)
@@ -102,7 +105,7 @@ onMounted(async () => {
         </p>
       </div>
 
-      <p class="mt-6 text-center text-xs text-gray-500 dark:text-zinc-400">
+      <p v-if="anonymousUploads" class="mt-6 text-center text-xs text-gray-500 dark:text-zinc-400">
         No account?
         <router-link to="/upload" class="font-bold text-gray-900 dark:text-zinc-100 hover:underline" data-test="login-upload">
           Upload without signing in

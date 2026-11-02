@@ -169,6 +169,7 @@ func TestUpdateSettings_CreditsApplyLive(t *testing.T) {
 	next := e.ctrl.GetSettings(ctx).Settings // secrets blank: kept
 	next.Credits.MonthlyGrant = 400
 	next.Files.AnonymousMaxTTLMinutes = 5
+	next.Files.AnonymousUploadsDisabled = true
 	next.Files.Subdomains = true
 	next.Files.PublicDomain = " Files.Example.com:8443 "
 
@@ -181,9 +182,9 @@ func TestUpdateSettings_CreditsApplyLive(t *testing.T) {
 	})
 	rs, err := e.ctrl.UpdateSettings(ctx, &entity.UpdateSettingsRequest{Settings: next})
 	require.NoError(t, err)
-	assert.False(t, rs.RestartRequired, "credits, max TTLs and public URLs apply without a restart")
+	assert.False(t, rs.RestartRequired, "credits, anonymous uploads, max TTLs and public URLs apply without a restart")
 	assert.Equal(t, 400, e.ctrl.MonthlyGrant())
-	assert.Equal(t, entity.FileSettings{MaxUploadMB: 16, AnonymousMaxTTLMinutes: 5, Subdomains: true, PublicDomain: "files.example.com:8443"}, e.ctrl.FileLimits())
+	assert.Equal(t, entity.FileSettings{MaxUploadMB: 16, AnonymousMaxTTLMinutes: 5, AnonymousUploadsDisabled: true, Subdomains: true, PublicDomain: "files.example.com:8443"}, e.ctrl.FileLimits())
 	assert.Empty(t, rs.Settings.Auth.Google.ClientSecret)
 }
 

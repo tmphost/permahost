@@ -44,7 +44,7 @@ describe('LoginView', () => {
   it('renders a button per provider, carrying the redirect', async () => {
     const okta = { id: 'okta', name: 'Okta', icon: '<svg xmlns="http://www.w3.org/2000/svg"><script>x</script></svg>' }
     const bare = { id: 'bare', name: 'Bare', icon: '' }
-    fetchAuthConfig.mockResolvedValue([GOOGLE, GITHUB, okta, bare])
+    fetchAuthConfig.mockResolvedValue({ providers: [GOOGLE, GITHUB, okta, bare], anonymousUploads: true })
     const wrapper = await mountAt('/login?redirect=/deep')
     await flushPromises()
     const google = wrapper.find('[data-test="login-google"]')
@@ -70,14 +70,21 @@ describe('LoginView', () => {
   })
 
   it('ignores a non-string redirect', async () => {
-    fetchAuthConfig.mockResolvedValue([GOOGLE])
+    fetchAuthConfig.mockResolvedValue({ providers: [GOOGLE], anonymousUploads: true })
     const wrapper = await mountAt('/login?redirect=a&redirect=b')
     await flushPromises()
     expect(wrapper.find('[data-test="login-google"]').attributes('href')).toBe('/auth/google/login')
   })
 
+  it('hides the upload link when uploads without an account are off', async () => {
+    fetchAuthConfig.mockResolvedValue({ providers: [GOOGLE], anonymousUploads: false })
+    const wrapper = await mountAt('/login')
+    await flushPromises()
+    expect(wrapper.find('[data-test="login-upload"]').exists()).toBe(false)
+  })
+
   it('explains when no provider is configured', async () => {
-    fetchAuthConfig.mockResolvedValue([])
+    fetchAuthConfig.mockResolvedValue({ providers: [], anonymousUploads: true })
     const wrapper = await mountAt('/login')
     await flushPromises()
     expect(wrapper.find('[data-test="login-no-providers"]').exists()).toBe(true)
@@ -92,7 +99,7 @@ describe('LoginView', () => {
   })
 
   it('shows the callback error from the query', async () => {
-    fetchAuthConfig.mockResolvedValue([GOOGLE])
+    fetchAuthConfig.mockResolvedValue({ providers: [GOOGLE], anonymousUploads: true })
     const wrapper = await mountAt('/login?error=invalid_state')
     await flushPromises()
     expect(wrapper.find('[data-test="login-error"]').text()).toContain('sign-in session expired')

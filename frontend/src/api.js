@@ -34,12 +34,14 @@ export function clearUserCache() {
   userCache = null
 }
 
-// fetchAuthConfig lists the sign-in providers the server has enabled.
+// fetchAuthConfig returns { providers, anonymousUploads }: the sign-in
+// providers the server has enabled, and whether visitors may upload without
+// signing in.
 export async function fetchAuthConfig() {
   const res = await fetch(`${BASE_PATH}/auth/config`)
   if (!res.ok) throw new Error(`Failed to load sign-in options (${res.status})`)
   const body = await res.json()
-  return body.providers
+  return { providers: body.providers, anonymousUploads: body.anonymousUploads }
 }
 
 // providerLoginUrl is the server route that starts an OAuth round trip.

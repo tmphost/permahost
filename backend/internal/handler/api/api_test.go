@@ -66,11 +66,11 @@ func cookieNamed(res *http.Response, name string) *http.Cookie {
 
 func TestConfig(t *testing.T) {
 	app, ctrl := newApp(t)
-	ctrl.EXPECT().GetAuthConfig(gomock.Any()).Return(&entity.GetAuthConfigResponse{Providers: []entity.AuthProvider{{ID: "google", Name: "Google"}}})
+	ctrl.EXPECT().GetAuthConfig(gomock.Any()).Return(&entity.GetAuthConfigResponse{Providers: []entity.AuthProvider{{ID: "google", Name: "Google"}}, AnonymousUploads: true})
 	res, body := do(t, app, http.MethodGet, "/auth/config")
 	assert.Equal(t, http.StatusOK, res.StatusCode)
 	assert.Equal(t, fiber.MIMEApplicationJSON, res.Header.Get(fiber.HeaderContentType))
-	assert.JSONEq(t, `{"providers":[{"id":"google","name":"Google","icon":""}]}`, body)
+	assert.JSONEq(t, `{"providers":[{"id":"google","name":"Google","icon":""}],"anonymousUploads":true}`, body)
 }
 
 func TestLogin(t *testing.T) {

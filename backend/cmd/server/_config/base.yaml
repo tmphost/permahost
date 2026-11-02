@@ -78,6 +78,8 @@ files:
   # signing in. An account's folders do not expire.
   maxUploadMb: ${PERMAHOSTIO_FILES_MAX_UPLOAD_MB:16}
   anonymousMaxTtlMinutes: ${PERMAHOSTIO_FILES_ANONYMOUS_MAX_TTL_MINUTES:10}
+  # true turns off the Upload page: every upload then needs an account.
+  anonymousUploadsDisabled: ${PERMAHOSTIO_FILES_ANONYMOUS_UPLOADS_DISABLED:false}
   # Folders are served at <baseUrl>/files/<userId>/<folderId>/, or with
   # subdomains on, at f<folderId>.<publicDomain> (needs a wildcard DNS record
   # and certificate). publicDomain defaults to the sites domain, else the

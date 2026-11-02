@@ -72,7 +72,10 @@ type (
 		// BaseURL is the app's public URL; its origin is the only one
 		// anonymous requests are accepted from.
 		BaseURL string
-		Now     func() time.Time
+		// Limits returns the current file settings; anonymous requests are
+		// refused while they disable anonymous uploads.
+		Limits func() entity.FileSettings
+		Now    func() time.Time
 	}
 
 	controller struct {
@@ -84,6 +87,7 @@ type (
 		grant     func() int
 		basePath  string
 		webOrigin string
+		limits    func() entity.FileSettings
 		now       func() time.Time
 	}
 )
@@ -98,10 +102,14 @@ func New(p Params) Controller {
 		grant:     credit.GrantOrDefault(p.Grant),
 		basePath:  strings.TrimRight(p.BasePath, "/"),
 		webOrigin: origin(p.BaseURL),
+		limits:    p.Limits,
 		now:       p.Now,
 	}
 	if c.now == nil {
 		c.now = time.Now
+	}
+	if c.limits == nil {
+		c.limits = func() entity.FileSettings { return entity.FileSettings{} }
 	}
 	for _, provider := range p.Providers {
 		c.providers[provider.Name()] = provider
@@ -116,7 +124,7 @@ func (c *controller) GetAuthConfig(_ context.Context) *entity.GetAuthConfigRespo
 		p := c.providers[name]
 		providers[i] = entity.AuthProvider{ID: name, Name: p.Label(), Icon: p.Icon()}
 	}
-	return &entity.GetAuthConfigResponse{Providers: providers}
+	return &entity.GetAuthConfigResponse{Providers: providers, AnonymousUploads: !c.limits().AnonymousUploadsDisabled}
 }
 
 func (c *controller) StartLogin(ctx context.Context, rq *entity.StartLoginRequest) (*entity.StartLoginResponse, error) {
@@ -203,7 +211,12 @@ func (c *controller) Authenticate(_ context.Context, rq *entity.AuthenticateRequ
 // its Origin header or, without one, its Referer, as the anonymous user of
 // its IP address. Non-browser clients could forge either header; this
 // keeps anonymous use to the web app, while the per-IP limits bound it.
+// Root can turn anonymous uploads off, and then every request needs a
+// session.
 func (c *controller) AuthenticateAnonymous(_ context.Context, rq *entity.AuthenticateAnonymousRequest) (*entity.AuthenticateResponse, error) {
+	if c.limits().AnonymousUploadsDisabled {
+		return nil, ErrUnauthorized
+	}
 	from := rq.Origin
 	if from == "" {
 		from = origin(rq.Referer)

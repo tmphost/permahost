@@ -408,7 +408,25 @@ onMounted(refresh)
           <h2 class="text-sm font-bold text-gray-900 dark:text-zinc-100">Files</h2>
           <p class="text-xs text-gray-500 dark:text-zinc-400 mb-4" data-test="setup-files-help">
             Limits for every upload and the form of public URLs. Account folders are permanent; only uploads without
-            sign-in expire. The anonymous max TTL and public URLs apply immediately; max upload size needs a restart.
+            sign-in expire. Uploads without sign-in, their max TTL and public URLs apply immediately; max upload size needs a
+            restart.
+          </p>
+          <label class="flex items-center gap-2 text-xs font-bold text-gray-700 dark:text-zinc-300 mb-1">
+            <input
+              :checked="!form.files.anonymousUploadsDisabled"
+              type="checkbox"
+              class="accent-black dark:accent-white"
+              data-test="setup-anonymous-uploads"
+              @change="form.files.anonymousUploadsDisabled = !$event.target.checked"
+            />
+            Allow uploads without an account
+          </label>
+          <p class="text-[11px] text-gray-400 dark:text-zinc-500 mb-4" data-test="setup-anonymous-uploads-hint">
+            {{
+              form.files.anonymousUploadsDisabled
+                ? 'Off: the public Upload page is closed and every upload needs an account.'
+                : 'Visitors can upload from the public Upload page, with lower limits, into folders that expire.'
+            }}
           </p>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
@@ -431,7 +449,8 @@ onMounted(refresh)
                 type="number"
                 min="1"
                 max="10080"
-                :class="INPUT"
+                :disabled="form.files.anonymousUploadsDisabled"
+                :class="[INPUT, 'disabled:opacity-50']"
                 data-test="setup-anonymous-max-ttl"
               />
               <p class="mt-1 text-[11px] text-gray-400 dark:text-zinc-500" data-test="setup-anonymous-max-ttl-hint">

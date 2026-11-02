@@ -8,7 +8,8 @@ package view
 type (
 	// AuthConfig lists the enabled sign-in providers.
 	AuthConfig struct {
-		Providers []AuthProvider `json:"providers"`
+		Providers        []AuthProvider `json:"providers"`
+		AnonymousUploads bool           `json:"anonymousUploads"`
 	}
 
 	// AuthProvider is a sign-in button.

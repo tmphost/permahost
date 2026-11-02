@@ -32,7 +32,7 @@ function state(overrides = {}) {
         local: { path: './_storage/files' },
         s3: { endpoint: '', region: '', bucket: '', accessKeyId: '', secretAccessKey: '', usePathStyle: false },
       },
-      files: { maxUploadMb: 16, anonymousMaxTtlMinutes: 10, subdomains: false, publicDomain: '' },
+      files: { maxUploadMb: 16, anonymousMaxTtlMinutes: 10, anonymousUploadsDisabled: false, subdomains: false, publicDomain: '' },
       auth: {
         google: { clientId: 'g', clientSecret: '' },
         github: { clientId: '', clientSecret: '' },
@@ -137,6 +137,10 @@ describe('SetupView', () => {
     await wrapper.find('#s3-bucket').setValue('files')
     await wrapper.find('[data-test="setup-max-upload"]').setValue('64')
     await wrapper.find('[data-test="setup-anonymous-max-ttl"]').setValue('5')
+    expect(wrapper.find('[data-test="setup-anonymous-uploads-hint"]').text()).toContain('Visitors can upload')
+    await wrapper.find('[data-test="setup-anonymous-uploads"]').setValue(false)
+    expect(wrapper.find('[data-test="setup-anonymous-uploads-hint"]').text()).toContain('every upload needs an account')
+    expect(wrapper.find('[data-test="setup-anonymous-max-ttl"]').attributes('disabled')).toBeDefined()
     await wrapper.find('#github-id').setValue('h')
     await wrapper.find('#github-secret').setValue('hsecret')
     await wrapper.find('[data-test="setup-form"]').trigger('submit')
@@ -147,7 +151,7 @@ describe('SetupView', () => {
     expect(sent.storage.driver).toBe('s3')
     expect(sent.storage.s3).toMatchObject({ bucket: 'files' })
     expect(sent.storage.s3).not.toHaveProperty('enabled')
-    expect(sent.files).toEqual({ maxUploadMb: 64, anonymousMaxTtlMinutes: 5, subdomains: false, publicDomain: '' })
+    expect(sent.files).toEqual({ maxUploadMb: 64, anonymousMaxTtlMinutes: 5, anonymousUploadsDisabled: true, subdomains: false, publicDomain: '' })
     expect(sent.auth.github).toEqual({ clientId: 'h', clientSecret: 'hsecret' })
     expect(wrapper.find('[data-test="setup-restart"]').exists()).toBe(true)
     expect(wrapper.find('#github-secret').element.value).toBe('', 'secret cleared after save')
@@ -217,6 +221,7 @@ describe('SetupView', () => {
     expect(saveSettings.mock.calls.at(-1)[0].files).toEqual({
       maxUploadMb: 16,
       anonymousMaxTtlMinutes: 10,
+      anonymousUploadsDisabled: false,
       subdomains: true,
       publicDomain: 'files.example.com',
     })

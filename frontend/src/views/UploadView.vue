@@ -30,6 +30,8 @@ const { notifyError, notifySuccess } = useToasts()
 const { copy } = useClipboard()
 
 const limits = ref(null)
+// Root turned uploads without an account off: the server refuses them.
+const disabled = ref(false)
 const selected = ref([])
 const dragging = ref(false)
 const uploading = ref(false)
@@ -101,7 +103,8 @@ onMounted(async () => {
   try {
     limits.value = await fetchLimits()
   } catch (err) {
-    notifyError(err.message)
+    if (err.status === 401) disabled.value = true
+    else notifyError(err.message)
   }
 })
 </script>
@@ -111,7 +114,9 @@ onMounted(async () => {
     <div class="w-full max-w-md bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl shadow-sm p-8">
       <div class="text-center mb-6">
         <BrandLogo tile class="w-12 h-12 mx-auto mb-5" />
-        <h1 class="text-2xl font-black text-gray-900 dark:text-zinc-100 tracking-tight">Upload without an account</h1>
+        <h1 class="text-2xl font-black text-gray-900 dark:text-zinc-100 tracking-tight" data-test="upload-title">
+          {{ disabled ? 'Sign in to upload' : 'Upload without an account' }}
+        </h1>
         <p v-if="limits" class="mt-1.5 text-sm text-gray-500 dark:text-zinc-400" data-test="upload-limits">
           Up to {{ formatBytes(limits.maxUploadBytes) }} per file and {{ limits.fileOps }} files every
           {{ formatMinutes(limits.fileOpsWindowMinutes) }}. Links expire after
@@ -119,7 +124,15 @@ onMounted(async () => {
         </p>
       </div>
 
+      <div v-if="disabled" class="text-center" data-test="upload-disabled">
+        <p class="text-sm text-gray-500 dark:text-zinc-400">
+          Uploading without an account is turned off on this server. Sign in to upload files.
+        </p>
+        <router-link to="/login" :class="[PRIMARY, 'mt-5 inline-block']" data-test="upload-disabled-sign-in">Sign in</router-link>
+      </div>
+
       <div
+        v-else
         :class="[
           'rounded-xl border border-dashed p-5 text-center transition-colors',
           dragging ? 'border-gray-400 dark:border-zinc-500 bg-zinc-50 dark:bg-zinc-950' : 'border-gray-200 dark:border-zinc-800 hover:border-gray-300 dark:hover:border-zinc-600',
@@ -241,7 +254,7 @@ onMounted(async () => {
 
       <div class="mt-8 pt-5 border-t border-gray-100 dark:border-zinc-800 flex items-center justify-between text-[11px] font-bold text-gray-400 dark:text-zinc-500">
         <span>&copy; {{ new Date().getFullYear() }} permahost.io</span>
-        <router-link to="/login" class="hover:text-gray-900 dark:hover:text-zinc-100 transition-colors" data-test="upload-sign-in">
+        <router-link v-if="!disabled" to="/login" class="hover:text-gray-900 dark:hover:text-zinc-100 transition-colors" data-test="upload-sign-in">
           Sign in for more
         </router-link>
       </div>

@@ -71,7 +71,7 @@ func TestNew_WiresProvidersAndRoutes(t *testing.T) {
 
 	res, body := get(t, a, "/auth/config")
 	assert.Equal(t, http.StatusOK, res.StatusCode)
-	assert.JSONEq(t, `{"providers":[{"id":"google","name":"Google","icon":""},{"id":"github","name":"GitHub","icon":""}]}`, body)
+	assert.JSONEq(t, `{"providers":[{"id":"google","name":"Google","icon":""},{"id":"github","name":"GitHub","icon":""}],"anonymousUploads":true}`, body)
 
 	res, _ = get(t, a, "/auth/github/login")
 	assert.Equal(t, http.StatusFound, res.StatusCode)
@@ -207,7 +207,7 @@ func TestSetupFlow_SettingsApplyAndPersist(t *testing.T) {
 
 	body := `{"settings":{"credits":{"monthlyGrant":500},"database":{"driver":"sqlite","sqlite":{"dsn":"` + cfg.SQLite.DSN + `"}},
 		"domain":{"appUrl":"http://localhost:3000"},
-		"storage":{"driver":"local","local":{"path":"` + cfg.Storage.LocalPath + `"}},"files":{"maxUploadMb":1,"anonymousMaxTtlMinutes":10},
+		"storage":{"driver":"local","local":{"path":"` + cfg.Storage.LocalPath + `"}},"files":{"maxUploadMb":1,"anonymousMaxTtlMinutes":10,"anonymousUploadsDisabled":true},
 		"auth":{"github":{"clientId":"h"},"providers":[{"name":"Okta","icon":"<svg></svg>","clientId":"o","clientSecret":"okta-client-secret","authUrl":"https://okta.example.com"}]}}}`
 	req = httptest.NewRequest(http.MethodPut, "/api/v1/setup/settings", strings.NewReader(body))
 	req.AddCookie(root)
@@ -222,12 +222,20 @@ func TestSetupFlow_SettingsApplyAndPersist(t *testing.T) {
 	var u model.User
 	require.NoError(t, a.db.First(&u, 1).Error)
 	assert.Equal(t, 500, u.Credits)
+	// ...and so does turning anonymous uploads off.
+	_, live := get(t, a, "/auth/config")
+	assert.Contains(t, live, `"anonymousUploads":false`)
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/limits", nil)
+	req.Header.Set("Origin", "http://localhost:3000")
+	res, err = a.Handler().Test(req)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusUnauthorized, res.StatusCode)
 
 	// ...and saved settings override the config on the next start.
 	b, err := New(cfg, fstest.MapFS{})
 	require.NoError(t, err)
 	_, cfgBody := get(t, b, "/auth/config")
-	assert.JSONEq(t, `{"providers":[{"id":"github","name":"GitHub","icon":""},{"id":"okta","name":"Okta","icon":"<svg></svg>"}]}`,
+	assert.JSONEq(t, `{"providers":[{"id":"github","name":"GitHub","icon":""},{"id":"okta","name":"Okta","icon":"<svg></svg>"}],"anonymousUploads":false}`,
 		cfgBody, "google cleared, github secret kept, okta added")
 
 	// The file on disk is encrypted, and only the same master key opens it.

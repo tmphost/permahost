@@ -184,6 +184,8 @@ type (
 	FilesConfig struct {
 		MaxUploadMB            int `yaml:"maxUploadMb"`
 		AnonymousMaxTTLMinutes int `yaml:"anonymousMaxTtlMinutes"`
+		// AnonymousUploadsDisabled rejects uploads without signing in.
+		AnonymousUploadsDisabled bool `yaml:"anonymousUploadsDisabled"`
 		// Subdomains serves each folder on its own host,
 		// <folderID>-<userID>.<PublicDomain>, instead of below BaseURL.
 		Subdomains bool `yaml:"subdomains"`
@@ -264,6 +266,7 @@ func New(cfg Config, web fs.FS) (*App, error) {
 		Grant:     setup.MonthlyGrant,
 		BasePath:  basePath,
 		BaseURL:   baseURL,
+		Limits:    setup.FileLimits,
 	})
 	folderRepo, domainRepo := repository.NewFolderRepository(db), repository.NewDomainRepository(db)
 	folders := folderctrl.New(folderctrl.Params{

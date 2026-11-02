@@ -32,7 +32,7 @@ func TestSettingsRoundTrip(t *testing.T) {
 			Local:  entity.LocalStorageSettings{Path: "/files"},
 			S3:     entity.S3Settings{Endpoint: "https://s3", Region: "r", Bucket: "b", AccessKeyID: "a", SecretAccessKey: "s", UsePathStyle: true},
 		},
-		Files: entity.FileSettings{MaxUploadMB: 2, AnonymousMaxTTLMinutes: 7, Subdomains: true, PublicDomain: "x.io"},
+		Files: entity.FileSettings{MaxUploadMB: 2, AnonymousMaxTTLMinutes: 7, AnonymousUploadsDisabled: true, Subdomains: true, PublicDomain: "x.io"},
 		Auth: entity.AuthSettings{
 			Google: entity.OAuthClientSettings{ClientID: "g", ClientSecret: "gs"},
 			GitHub: entity.OAuthClientSettings{ClientID: "h", ClientSecret: "hs"},

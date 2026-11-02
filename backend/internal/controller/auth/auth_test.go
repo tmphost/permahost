@@ -83,6 +83,10 @@ func TestGetAuthConfig(t *testing.T) {
 		{ID: "google", Name: "Google"},
 		{ID: "github", Name: "GitHub", Icon: "<svg/>"},
 	}, rs.Providers)
+	assert.True(t, rs.AnonymousUploads, "on unless root turns them off")
+
+	off := New(Params{Limits: func() entity.FileSettings { return entity.FileSettings{AnonymousUploadsDisabled: true} }})
+	assert.False(t, off.GetAuthConfig(context.Background()).AnonymousUploads)
 }
 
 func TestStartLogin(t *testing.T) {
@@ -339,6 +343,15 @@ func TestAuthenticateAnonymous(t *testing.T) {
 			assert.ErrorIs(t, err, ErrUnauthorized)
 		})
 	}
+
+	t.Run("anonymous uploads disabled", func(t *testing.T) {
+		c := New(Params{
+			BaseURL: "https://permahost.io",
+			Limits:  func() entity.FileSettings { return entity.FileSettings{AnonymousUploadsDisabled: true} },
+		})
+		_, err := c.AuthenticateAnonymous(ctx, &entity.AuthenticateAnonymousRequest{IP: "203.0.113.7", Origin: "https://permahost.io"})
+		assert.ErrorIs(t, err, ErrUnauthorized)
+	})
 
 	t.Run("no base url", func(t *testing.T) {
 		_, err := New(Params{}).AuthenticateAnonymous(ctx, &entity.AuthenticateAnonymousRequest{IP: "203.0.113.7"})

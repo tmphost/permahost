@@ -103,6 +103,9 @@ type (
 		// AnonymousMaxTTLMinutes is the longest lifetime of a folder made
 		// without signing in. An account's folders do not expire.
 		AnonymousMaxTTLMinutes int
+		// AnonymousUploadsDisabled turns off uploads without signing in:
+		// requests without a session are rejected. Off by default.
+		AnonymousUploadsDisabled bool
 		// Subdomains serves each folder on its own host,
 		// <folderID>-<userID>.<PublicDomain>; otherwise folders are served
 		// at <base URL>/files/<userID>/<folderID>/.

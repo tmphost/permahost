@@ -8,6 +8,9 @@ type (
 	// GetAuthConfigResponse lists the sign-in providers that are configured.
 	GetAuthConfigResponse struct {
 		Providers []AuthProvider
+		// AnonymousUploads is whether visitors may upload without signing
+		// in.
+		AnonymousUploads bool
 	}
 
 	// AuthProvider is a sign-in button.
