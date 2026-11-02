@@ -23,6 +23,7 @@ import (
 	"github.com/mustafaturan/monoflake"
 
 	authctrl "github.com/tmphost/permahost/backend/internal/controller/auth"
+	"github.com/tmphost/permahost/backend/internal/controller/credit"
 	folderctrl "github.com/tmphost/permahost/backend/internal/controller/folder"
 	"github.com/tmphost/permahost/backend/internal/data/entity"
 	"github.com/tmphost/permahost/backend/internal/service/idgen"
@@ -42,14 +43,22 @@ const (
 	FormatText   = "textContent"
 )
 
-const _toolDescription = `Permanent file hosting on permahost.io. Files live in folders; each file is served at a public URL for as long as the account's credits pay for its folder.
+// _toolDescription tells agents what each action does and what it costs, so
+// they reuse folders instead of paying for new ones.
+var _toolDescription = fmt.Sprintf(`Permanent file hosting on permahost.io. Files live in folders; each file is served at a public URL for as long as the account has credits.
 Actions:
-- upload: store a file (fileName, its content in base64Content or textContent as format says, optional path inside the folder). Without id a new folder is created; with id the file goes into that folder, and a file already at that path is replaced in place (an update; its url stays the same). Returns id and url. A new folder costs 500 credits a month, and storage 500 credits a month per started 25 MB the account stores; creditsSpent is what this upload took.
+- upload: store a file (fileName, its content in base64Content or textContent as format says, optional path inside the folder). Without id a new folder is created; with id the file goes into that existing folder, and a file already at that path is replaced in place (an update; its url stays the same). Returns id, url and creditsSpent.
 - download: read a file (id, fileName, optional path). Returns its content in base64Content or, for UTF-8 text, in textContent as format says.
 - get: list a folder's files (id).
 - url: build the public URL of a folder (id), a directory (id, path) or a file (id, fileName, optional path).
+Credits (monthly, charged upfront when the cost starts):
+- A new folder costs %[1]d credits a month. Only upload without id creates one.
+- Uploading with id into an existing folder never costs folder credits again, however many files it adds or replaces.
+- Storage costs %[2]d credits a month per started %[3]d MB the whole account stores. An upload pays only when it pushes the total into a block not paid for this month, so most uploads cost 0; replacing a file counts only the size difference.
+So to publish a site or several related files: upload the first file without id, keep the id it returns, and pass that id for every other file. Never upload without id just to add files.
 Paths are slash-separated directories inside the folder, at most 5 levels deep.
-format is base64Content (the default, for any file) or textContent (UTF-8 text such as HTML, CSS or JSON, sent as is).`
+format is base64Content (the default, for any file) or textContent (UTF-8 text such as HTML, CSS or JSON, sent as is).`,
+	credit.FolderCredits, credit.StorageCredits, credit.StorageBlockBytes>>20)
 
 type (
 	// Params are the transport's dependencies.
@@ -67,7 +76,7 @@ type (
 	// FileInput is the file tool's arguments.
 	FileInput struct {
 		Action   string `json:"action" jsonschema:"what to do: upload, download, get or url"`
-		ID       string `json:"id,omitempty" jsonschema:"folder id; upload without it creates a new folder, with it adds or replaces files in that folder"`
+		ID       string `json:"id,omitempty" jsonschema:"folder id; upload without it creates (and pays for) a new folder, with it adds or replaces files in that existing folder at no folder cost"`
 		FileName string `json:"fileName,omitempty" jsonschema:"file name, without directories"`
 		Path     string `json:"path,omitempty" jsonschema:"directory inside the folder, such as site/css, at most 5 levels; empty for the folder root"`
 		Format   string `json:"format,omitempty" jsonschema:"which field carries the content: base64Content (default) or textContent; upload and download only"`

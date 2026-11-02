@@ -410,7 +410,9 @@ onMounted(() => {
             <h2 class="text-sm font-bold text-gray-900 dark:text-zinc-100">
               Upload to {{ folderTitle(target) }}
             </h2>
-            <p class="text-xs text-gray-500 dark:text-zinc-400">Files with the same path are replaced and keep their links.</p>
+            <p class="text-xs text-gray-500 dark:text-zinc-400" data-test="upload-target-hint">
+              Files with the same path are replaced and keep their links. No folder charge: only storage blocks the files start cost credits.
+            </p>
           </div>
           <div v-else class="grow min-w-0">
             <h2 class="text-sm font-bold text-gray-900 dark:text-zinc-100">New folder</h2>

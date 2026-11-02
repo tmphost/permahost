@@ -114,6 +114,14 @@ func TestListTools(t *testing.T) {
 	schema, _ := json.Marshal(rs.Tools[0].InputSchema)
 	assert.Contains(t, string(schema), `"enum":["upload","download","get","url"]`)
 	assert.Contains(t, string(schema), `"enum":["base64Content","textContent"]`)
+	assert.Contains(t, string(schema), "at no folder cost")
+
+	// The description spells out that only a new folder pays folder credits.
+	desc := rs.Tools[0].Description
+	assert.Contains(t, desc, "A new folder costs 500 credits a month. Only upload without id creates one.")
+	assert.Contains(t, desc, "Uploading with id into an existing folder never costs folder credits again")
+	assert.Contains(t, desc, "Storage costs 500 credits a month per started 25 MB the whole account stores.")
+	assert.Contains(t, desc, "keep the id it returns, and pass that id for every other file")
 }
 
 func TestUnknownAction(t *testing.T) {

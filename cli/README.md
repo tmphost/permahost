@@ -101,7 +101,8 @@ Folders stay up until you delete them. Hosting is paid for with a monthly
 credit grant, by the month (`permahost whoami` shows the server's prices and
 what you use):
 
-- each folder, charged when it is created (500 credits);
+- each folder, charged when it is created (500 credits); uploading into an
+  existing folder with `--id` never costs folder credits again;
 - each started 25 MB block your account stores, charged when an upload starts
   a block not yet paid for this month (500 credits);
 - each custom domain, charged with a one-time setup fee when it is verified

@@ -348,6 +348,7 @@ describe('FilesView', () => {
     await flushPromises()
     expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
     expect(wrapper.find('[data-test="upload-target"]').text()).toContain('Upload to new')
+    expect(wrapper.find('[data-test="upload-target-hint"]').text()).toContain('No folder charge')
     expect(wrapper.find('[data-test="upload-new-hint"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="folder-new"]').classes()).toContain('border-gray-900')
     expect(wrapper.find('[data-test="folder-old"]').classes()).not.toContain('border-gray-900')
