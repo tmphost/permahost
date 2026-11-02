@@ -1,7 +1,7 @@
 {
   "name": "permahost",
   "displayName": "permahost",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Host files and static sites at permanent public URLs on permahost.io from Cursor: upload, download, list and link files in folders that stay up while your account has credits.",
   "author": {
     "name": "permahost",
