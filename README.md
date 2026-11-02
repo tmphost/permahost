@@ -104,6 +104,23 @@ make build   # bin/permahost with the frontend embedded
 make test    # 100% coverage is enforced on both sides
 ```
 
+## Agent plugins
+
+[plugin/](plugin/) packages the MCP server for AI clients, each with
+instructions on when and how to use the `file` tool (Apache-2.0, unlike the
+AGPL server). Each package connects to `https://app.permahost.io/mcp`:
+
+| Client | Install |
+| --- | --- |
+| Claude Code | `/plugin marketplace add tmphost/permahost`, then `/plugin install permahost@permahost` |
+| Codex | `codex plugin marketplace add tmphost/permahost`, then `codex plugin add permahost@permahost` |
+| Cursor | import this repository as a marketplace (`.cursor-plugin/marketplace.json`) |
+| Gemini CLI | `gemini extensions install https://github.com/tmphost/permahost` |
+
+`backend/internal/handler/mcp/plugin_docs_test.go` fails the build when a
+plugin's docs miss an action, quote other prices than the server charges, or
+point at another MCP URL.
+
 ## Setup page
 
 `/setup` opens only with the root access token (`PERMAHOSTIO_AUTH_ROOT_ACCESS_TOKEN`;

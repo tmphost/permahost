@@ -1,0 +1,20 @@
+{
+  "name": "permahost",
+  "version": "0.1.0",
+  "description": "Host files and static sites at permanent public URLs on permahost.io (or your own permahost server) from Claude Code: upload, download, list and link files in folders that stay up while your account has credits.",
+  "icon": "./.claude-plugin/icon.png",
+  "author": {
+    "name": "permahost",
+    "url": "https://permahost.io"
+  },
+  "homepage": "https://permahost.io",
+  "repository": "https://github.com/tmphost/permahost",
+  "license": "Apache-2.0",
+  "keywords": ["file-hosting", "static-site", "upload", "share", "mcp", "permanent"],
+  "mcpServers": {
+    "permahost": {
+      "type": "http",
+      "url": "https://app.permahost.io/mcp"
+    }
+  }
+}

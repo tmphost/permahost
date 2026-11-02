@@ -1,0 +1,12 @@
+{
+  "name": "permahost",
+  "version": "0.1.0",
+  "description": "Host files and static sites at permanent public URLs on permahost.io: upload, download, list and link files in folders that stay up while your account has credits.",
+  "mcpServers": {
+    "permahost": {
+      "type": "http",
+      "url": "https://app.permahost.io/mcp"
+    }
+  },
+  "contextFileName": "plugin/gemini/GEMINI.md"
+}

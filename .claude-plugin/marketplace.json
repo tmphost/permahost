@@ -1,0 +1,18 @@
+{
+  "name": "permahost",
+  "owner": {
+    "name": "permahost",
+    "url": "https://permahost.io"
+  },
+  "metadata": {
+    "description": "Claude Code plugins for permahost.io permanent file hosting."
+  },
+  "plugins": [
+    {
+      "name": "permahost",
+      "source": "./plugin/claude",
+      "description": "Host files and static sites at permanent public URLs on permahost.io (or your own permahost server) from Claude Code.",
+      "category": "productivity"
+    }
+  ]
+}

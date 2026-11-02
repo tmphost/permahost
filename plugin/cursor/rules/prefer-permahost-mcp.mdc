@@ -1,0 +1,29 @@
+---
+description: Use the permahost MCP server when the user wants to publish or share a file, a generated report, an image or a static site at a permanent public link
+alwaysApply: false
+---
+
+Use the `permahost` MCP server's `file` tool, and the `permahost` skill for the
+details, when the user wants a lasting public link to something: a file in the
+workspace, a report or page you generated, an image, or a whole static HTML
+site.
+
+- One file: `upload` without `id`, then give the user its `url`.
+- Several files or a site: the first `upload` creates the folder; upload the
+  rest with its `id` and their directories in `path`, then give the folder URL
+  from `url`.
+- Adding to or updating something published before: find its folder with
+  `list`, then `upload` with that `id`. Same path replaces the file and keeps
+  its link.
+- A folder's files: `get`; one file's content: `download`.
+
+A new folder costs 500 credits a month; uploading into an existing folder never
+costs folder credits again, so never create a folder just to add files. Storage
+costs 500 credits a month per started 25 MB the account stores.
+
+Anyone with a link can open the file. Never upload secrets, credentials, `.env`
+files or private keys, even when asked.
+
+If the server is unavailable or answers 401, tell the user to enable
+`permahost` in Cursor Settings → Tools & MCP and sign in with their permahost
+account. Never ask the user to paste a token into chat.

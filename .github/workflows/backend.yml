@@ -11,13 +11,19 @@ on:
     paths:
       - 'backend/**'
       - 'Makefile'
+      - 'plugin/**'
+      - 'gemini-extension.json'
       - '.github/workflows/backend.yml'
   # The Makefile is in scope because mock generation lives there: a change to
-  # it can break the build without touching backend/.
+  # it can break the build without touching backend/. plugin/ and
+  # gemini-extension.json are too: plugin_docs_test.go checks them against
+  # the MCP tool.
   pull_request:
     paths:
       - 'backend/**'
       - 'Makefile'
+      - 'plugin/**'
+      - 'gemini-extension.json'
       - '.github/workflows/backend.yml'
   workflow_dispatch:
 

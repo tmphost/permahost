@@ -1,0 +1,20 @@
+{
+  "name": "permahost",
+  "interface": {
+    "displayName": "permahost"
+  },
+  "plugins": [
+    {
+      "name": "permahost",
+      "source": {
+        "source": "local",
+        "path": "./plugin/codex"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_USE"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

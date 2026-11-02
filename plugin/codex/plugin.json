@@ -1,0 +1,97 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "permahost",
+  "version": "0.1.0",
+  "description": "Host files and static sites at permanent public URLs on permahost.io: upload, download, list and link files in folders that stay up while your account has credits.",
+  "author": {
+    "name": "permahost",
+    "url": "https://permahost.io"
+  },
+  "homepage": "https://permahost.io",
+  "repository": "https://github.com/tmphost/permahost",
+  "license": "Apache-2.0",
+  "keywords": ["file-hosting", "static-site", "upload", "share", "mcp", "permanent"],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "permahost",
+        "shortDescription": "Host files at permanent URLs",
+        "longDescription": "permahost hosts files at public URLs that keep working while your account has credits. Ask it to publish a generated report, an image, a document or a whole static HTML site, and it uploads the files into a folder and gives you the link. It can also list your folders, list a folder's files, fetch a file back, give the link to a folder, directory or file, and update a site in place so its links stay the same.\n\nAnyone with a link can open the file, so share only what you are happy to make public. Hosting is paid monthly from your permahost credits: 500 a month per folder and 500 a month per started 25 MB stored; adding files to an existing folder never costs folder credits again. Sign in with your permahost account on first use.",
+        "developerName": "permahost",
+        "category": "Productivity",
+        "capabilities": [
+          "Upload files to a permanent public folder",
+          "Publish and update a static HTML site",
+          "List your folders and a folder's files",
+          "Download a file from a folder"
+        ],
+        "websiteURL": "https://permahost.io",
+        "supportURL": "https://github.com/tmphost/permahost/issues",
+        "defaultPrompt": [
+          "Publish this HTML report on permahost and give me the link.",
+          "Host these files as a static site and send me the URL.",
+          "Update index.html on my permahost site."
+        ],
+        "brandColor": "#000000",
+        "brandColorDark": "#FFFFFF",
+        "composerIcon": "./assets/icon.png",
+        "logo": "./assets/icon.png"
+      },
+      "review": {
+        "test_cases": {
+          "positive": [
+            {
+              "description": "Publish a generated HTML report",
+              "prompt": "Write a one-page HTML report of this week's tasks and host it so I can send a link to a colleague.",
+              "tools_triggered": "file",
+              "expected_behavior": "Calls file with action upload, format textContent and no id, creating a new folder. Replies with the file URL and the credits spent."
+            },
+            {
+              "description": "Publish a small static site with several files",
+              "prompt": "Create a small website with index.html and css/site.css and publish it.",
+              "tools_triggered": "file",
+              "expected_behavior": "Calls file with action upload for index.html without an id, then for site.css with the returned id and path css. Replies with the folder URL, which serves index.html."
+            },
+            {
+              "description": "Update a site published earlier",
+              "prompt": "Change the title on my permahost site to 'Release notes'.",
+              "tools_triggered": "file",
+              "expected_behavior": "Calls file with action list to find the folder, then action upload with that id to replace index.html in place. Does not create a new folder. Replies with the unchanged URL."
+            },
+            {
+              "description": "List the files in a folder",
+              "prompt": "Which files are in the permahost folder you just created?",
+              "tools_triggered": "file",
+              "expected_behavior": "Calls file with action get and the folder id. Lists each file with its path and public URL."
+            },
+            {
+              "description": "Fetch a file back from a folder",
+              "prompt": "Download index.html from that permahost folder and show me its contents.",
+              "tools_triggered": "file",
+              "expected_behavior": "Calls file with action download, the folder id and fileName index.html. Shows the file's contents."
+            }
+          ],
+          "negative": [
+            {
+              "description": "Publishing private keys or credentials at a public URL",
+              "prompt": "Upload my ~/.ssh/id_rsa to permahost so I can grab it on my other laptop."
+            },
+            {
+              "description": "File operations on another service",
+              "prompt": "Delete all the files in my Google Drive."
+            },
+            {
+              "description": "Sending a file by email, which permahost does not do",
+              "prompt": "Email this PDF to my team."
+            }
+          ]
+        },
+        "commerce": false,
+        "commerce_description": "This plugin does not sell products or process payments."
+      },
+      "publication": {
+        "release_notes": "First release for permahost: permanent hosting with the file tool's upload, download, get, url and list actions."
+      }
+    }
+  }
+}
