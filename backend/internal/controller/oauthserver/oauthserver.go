@@ -10,7 +10,9 @@
 // redirect URIs, and the consent, code and tokens are signed tokens too.
 // The permahost CLI needs no registration: it uses the fixed CLIClientID.
 // Every authorization uses PKCE with S256, and the user approves each
-// client on a consent page.
+// client on a consent page. Where no browser can reach the CLI, as over
+// SSH, it uses the device authorization grant instead (RFC 8628); those
+// pending authorizations are the only OAuth state kept in the database.
 package oauthserver
 
 //go:generate mockgen -source=oauthserver.go -destination=mocks/oauthserver.go -package=mocks
@@ -34,6 +36,7 @@ import (
 
 	"github.com/tmphost/permahost/backend/internal/data/entity"
 	"github.com/tmphost/permahost/backend/internal/repository"
+	"github.com/tmphost/permahost/backend/internal/service/quota"
 	"github.com/tmphost/permahost/backend/internal/service/token"
 )
 
@@ -42,12 +45,17 @@ const (
 	AuthorizePath = "/oauth2/authorize"
 	TokenPath     = "/oauth2/token"
 	RegisterPath  = "/oauth2/register"
+	// DeviceCodePath is the device authorization endpoint (RFC 8628).
+	DeviceCodePath = "/oauth2/device/code"
+	// DevicePath is where the user enters a device's user code.
+	DevicePath = "/auth/device"
 )
 
 // Grant and response types, and the PKCE method.
 const (
 	GrantAuthorizationCode = "authorization_code"
 	GrantRefreshToken      = "refresh_token"
+	GrantDeviceCode        = "urn:ietf:params:oauth:grant-type:device_code"
 	ResponseTypeCode       = "code"
 	MethodS256             = "S256"
 	// AuthMethodNone is the only token endpoint auth method: every client
@@ -96,6 +104,22 @@ var (
 	// ErrUnsupportedGrantType is returned for a grant type other than
 	// authorization_code and refresh_token.
 	ErrUnsupportedGrantType = errors.New("unsupported_grant_type")
+	// ErrAuthorizationPending is returned while the user has not answered
+	// a device authorization yet.
+	ErrAuthorizationPending = errors.New("authorization_pending")
+	// ErrSlowDown is returned to a device polling faster than
+	// DeviceInterval.
+	ErrSlowDown = errors.New("slow_down")
+	// ErrAccessDenied is returned once the user denied a device.
+	ErrAccessDenied = errors.New("access_denied")
+	// ErrExpiredToken is returned for an expired device code.
+	ErrExpiredToken = errors.New("expired_token")
+	// ErrInvalidUserCode is returned for a user code that matches no
+	// pending device authorization.
+	ErrInvalidUserCode = errors.New("invalid user code")
+	// ErrTooManyAttempts is returned when an IP address asked for too
+	// many device codes, or typed too many user codes.
+	ErrTooManyAttempts = errors.New("too many attempts")
 )
 
 var (
@@ -124,12 +148,25 @@ type (
 		// the client.
 		Consent(ctx context.Context, rq *entity.ConsentRequest) (*entity.ConsentResponse, error)
 		Token(ctx context.Context, rq *entity.TokenRequest) (*entity.TokenResponse, error)
+		// AuthorizeDevice starts a device authorization.
+		AuthorizeDevice(ctx context.Context, rq *entity.AuthorizeDeviceRequest) (*entity.AuthorizeDeviceResponse, error)
+		// VerifyDevice finds the device a user code belongs to and
+		// prepares its consent page.
+		VerifyDevice(ctx context.Context, rq *entity.VerifyDeviceRequest) (*entity.VerifyDeviceResponse, error)
+		// ConsentDevice records the user's answer for the device.
+		ConsentDevice(ctx context.Context, rq *entity.ConsentDeviceRequest) (*entity.ConsentDeviceResponse, error)
+		// SweepDeviceCodes deletes expired device authorizations.
+		SweepDeviceCodes(ctx context.Context) error
 	}
 
 	// Params are the controller's dependencies.
 	Params struct {
-		Token token.Service
-		Users repository.UserRepository
+		Token   token.Service
+		Users   repository.UserRepository
+		Devices repository.DeviceCodeRepository
+		// DeviceQuota limits the device codes asked for, and the user codes
+		// typed, per IP address.
+		DeviceQuota quota.Service
 		// Issuer is the server's public base URL.
 		Issuer string
 		// Resource is the protected resource's URL, the MCP endpoint.
@@ -138,22 +175,26 @@ type (
 	}
 
 	controller struct {
-		token    token.Service
-		users    repository.UserRepository
-		issuer   string
-		resource string
-		now      func() time.Time
+		token       token.Service
+		users       repository.UserRepository
+		devices     repository.DeviceCodeRepository
+		deviceQuota quota.Service
+		issuer      string
+		resource    string
+		now         func() time.Time
 	}
 )
 
 // New returns the authorization server controller.
 func New(p Params) Controller {
 	c := &controller{
-		token:    p.Token,
-		users:    p.Users,
-		issuer:   strings.TrimRight(p.Issuer, "/"),
-		resource: p.Resource,
-		now:      p.Now,
+		token:       p.Token,
+		users:       p.Users,
+		devices:     p.Devices,
+		deviceQuota: p.DeviceQuota,
+		issuer:      strings.TrimRight(p.Issuer, "/"),
+		resource:    p.Resource,
+		now:         p.Now,
 	}
 	if c.now == nil {
 		c.now = time.Now
@@ -163,10 +204,11 @@ func New(p Params) Controller {
 
 func (c *controller) GetServerMetadata(_ context.Context) *entity.GetOAuthServerMetadataResponse {
 	return &entity.GetOAuthServerMetadataResponse{
-		Issuer:                c.issuer,
-		AuthorizationEndpoint: c.issuer + AuthorizePath,
-		TokenEndpoint:         c.issuer + TokenPath,
-		RegistrationEndpoint:  c.issuer + RegisterPath,
+		Issuer:                      c.issuer,
+		AuthorizationEndpoint:       c.issuer + AuthorizePath,
+		TokenEndpoint:               c.issuer + TokenPath,
+		RegistrationEndpoint:        c.issuer + RegisterPath,
+		DeviceAuthorizationEndpoint: c.issuer + DeviceCodePath,
 	}
 }
 
@@ -273,6 +315,8 @@ func (c *controller) Token(ctx context.Context, rq *entity.TokenRequest) (*entit
 		return c.exchangeCode(ctx, rq)
 	case GrantRefreshToken:
 		return c.refresh(ctx, rq)
+	case GrantDeviceCode:
+		return c.exchangeDeviceCode(ctx, rq)
 	default:
 		return nil, ErrUnsupportedGrantType
 	}

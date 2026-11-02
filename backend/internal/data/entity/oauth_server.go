@@ -14,6 +14,8 @@ type (
 		AuthorizationEndpoint string
 		TokenEndpoint         string
 		RegistrationEndpoint  string
+		// DeviceAuthorizationEndpoint is empty where there is none.
+		DeviceAuthorizationEndpoint string
 	}
 
 	// GetProtectedResourceMetadataResponse is the protected resource
@@ -92,6 +94,7 @@ type (
 		ClientID     string
 		CodeVerifier string
 		RefreshToken string
+		DeviceCode   string
 	}
 
 	// TokenResponse carries the issued tokens.
@@ -99,5 +102,60 @@ type (
 		AccessToken  string
 		RefreshToken string
 		ExpiresIn    time.Duration
+	}
+
+	// AuthorizeDeviceRequest asks for a device authorization (RFC 8628
+	// §3.1), from IP.
+	AuthorizeDeviceRequest struct {
+		ClientID string
+		IP       string
+	}
+
+	// AuthorizeDeviceResponse is a device authorization (RFC 8628 §3.2).
+	AuthorizeDeviceResponse struct {
+		DeviceCode              string
+		UserCode                string
+		VerificationURI         string
+		VerificationURIComplete string
+		ExpiresIn               time.Duration
+		Interval                time.Duration
+	}
+
+	// VerifyDeviceRequest is a user code the signed-in user typed, from IP.
+	VerifyDeviceRequest struct {
+		// UserID is the signed-in user, or 0.
+		UserID   int64
+		UserCode string
+		IP       string
+	}
+
+	// VerifyDeviceResponse asks the user to consent.
+	VerifyDeviceResponse struct {
+		Consent *DeviceConsent
+	}
+
+	// DeviceConsent is what the device consent page shows.
+	DeviceConsent struct {
+		ClientName string
+		// Verified is true for permahost's own client.
+		Verified bool
+		// UserCode is the code the device shows, to compare.
+		UserCode string
+		Email    string
+		// Token carries the authorization to the user's answer.
+		Token string
+	}
+
+	// ConsentDeviceRequest is the user's answer on the device consent page.
+	ConsentDeviceRequest struct {
+		UserID int64
+		Token  string
+		Allow  bool
+	}
+
+	// ConsentDeviceResponse tells the user what happens next.
+	ConsentDeviceResponse struct {
+		ClientName string
+		Allowed    bool
 	}
 )

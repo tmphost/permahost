@@ -61,6 +61,7 @@ describe('ConnectView', () => {
       'irm https://raw.githubusercontent.com/tmphost/permahost/main/install.ps1 | iex',
     )
     expect(wrapper.find('[data-test="snippet-cli-login"]').text()).toBe(`permahost login --server ${server()}`)
+    expect(wrapper.find('[data-test="snippet-cli-login-device"]').text()).toBe(`permahost login --device --server ${server()}`)
     expect(wrapper.find('[data-test="snippet-cli-examples"]').text().split('\n')).toEqual([
       'permahost file upload ./index.html',
       'permahost file get --id <id>',

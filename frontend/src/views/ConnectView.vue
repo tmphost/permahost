@@ -57,6 +57,11 @@ const CLI_SNIPPETS = [
   { id: 'cli-install-windows', label: 'Install on Windows (PowerShell)', text: `irm ${INSTALL_BASE}/install.ps1 | iex` },
   { id: 'cli-login', label: 'Sign in (opens the browser)', text: `permahost login --server ${serverUrl}` },
   {
+    id: 'cli-login-device',
+    label: 'Sign in without a browser (SSH, containers)',
+    text: `permahost login --device --server ${serverUrl}`,
+  },
+  {
     id: 'cli-examples',
     label: 'Examples',
     text: ['permahost file upload ./index.html', 'permahost file get --id <id>', 'permahost file url --id <id>'].join('\n'),

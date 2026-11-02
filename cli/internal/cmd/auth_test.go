@@ -5,6 +5,7 @@
 package cmd
 
 import (
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -53,6 +54,52 @@ func TestLogin(t *testing.T) {
 	// The saved server is used next time, and --json prints the user.
 	assert.Equal(t, 0, h.run("login", "--json"), h.stderr.String())
 	assert.Equal(t, "ada@example.com", h.decode()["user"].(map[string]any)["email"])
+}
+
+func TestLogin_device(t *testing.T) {
+	h := newHarness(t)
+	h.saveConfig(config.Config{})
+	// interval 0 polls after the CLI's minimum of a second.
+	h.reply("POST /oauth2/device/code", 200, `{"device_code":"dc","user_code":"WDJB-MJHT","verification_uri":"`+h.srv.URL+`/auth/device","expires_in":600,"interval":0}`)
+	h.reply("POST /oauth2/token", 200, tokenJSON)
+	h.reply("GET /api/v1/users/me", 200, meJSON)
+	h.browser = func(string) error { return errors.New("no browser here") }
+
+	// Over SSH the device flow is the default.
+	h.env["SSH_CONNECTION"] = "1.2.3.4 5 6.7.8.9 22"
+	assert.Equal(t, 0, h.run("login", "--server", h.srv.URL), h.stderr.String())
+	assert.Equal(t, "Logged in to "+h.srv.URL+" as ada@example.com (40/100 credits)\n", h.stdout.String())
+	assert.Contains(t, h.stderr.String(), "and enter the code:\n\n  WDJB-MJHT\n")
+	assert.Equal(t, config.Config{Server: h.srv.URL, AccessToken: "at", RefreshToken: "rt", Expiry: now.Add(time.Hour)}, h.loadConfig())
+
+	// --browser overrides it, and the flags exclude each other.
+	h.approve()
+	assert.Equal(t, 0, h.run("login", "--browser"), h.stderr.String())
+	assert.Contains(t, h.stderr.String(), "/oauth2/authorize?")
+	assert.Equal(t, 1, h.run("login", "--device", "--browser"))
+	assert.Contains(t, h.stderr.String(), "none of the others can be")
+}
+
+func TestHeadless(t *testing.T) {
+	orig := goos
+	t.Cleanup(func() { goos = orig })
+	for _, tc := range []struct {
+		goos string
+		env  map[string]string
+		want bool
+	}{
+		{"linux", map[string]string{"DISPLAY": ":0"}, false},
+		{"linux", map[string]string{"WAYLAND_DISPLAY": "wayland-0"}, false},
+		{"linux", map[string]string{}, true},
+		{"linux", map[string]string{"DISPLAY": ":0", "SSH_TTY": "/dev/pts/0"}, true},
+		{"darwin", map[string]string{}, false},
+		{"darwin", map[string]string{"SSH_CONNECTION": "x"}, true},
+		{"windows", map[string]string{}, false},
+	} {
+		goos = tc.goos
+		a := &app{opts: Options{Getenv: func(k string) string { return tc.env[k] }}}
+		assert.Equal(t, tc.want, a.headless(), "%s %v", tc.goos, tc.env)
+	}
 }
 
 func TestLogin_errors(t *testing.T) {

@@ -225,6 +225,19 @@ func TestGrantTokens(t *testing.T) {
 	_, err = svc.ValidateConsentToken(code)
 	assert.ErrorIs(t, err, ErrInvalidToken)
 
+	// A device consent carries the device code's digest, and is no
+	// browser consent.
+	device := OAuthGrant{UserID: "u1", ClientID: "c1", DeviceCode: "dch"}
+	deviceConsent, err := svc.CreateDeviceConsentToken(device)
+	require.NoError(t, err)
+	got, err = svc.ValidateDeviceConsentToken(deviceConsent)
+	require.NoError(t, err)
+	assert.Equal(t, device, got)
+	_, err = svc.ValidateConsentToken(deviceConsent)
+	assert.ErrorIs(t, err, ErrInvalidToken)
+	_, err = svc.ValidateDeviceConsentToken(consent)
+	assert.ErrorIs(t, err, ErrInvalidToken)
+
 	// Expiry.
 	later := newService(t, func() time.Time { return now.Add(AuthorizationCodeTTL + time.Second) })
 	_, err = later.ValidateAuthorizationCode(code)

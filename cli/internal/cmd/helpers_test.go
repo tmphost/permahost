@@ -59,7 +59,8 @@ func newHarness(t *testing.T) *harness {
 		h.mux.ServeHTTP(w, r)
 	}))
 	t.Cleanup(h.srv.Close)
-	h.env = map[string]string{"PERMAHOSTIO_CONFIG": filepath.Join(t.TempDir(), "config.json")}
+	// A display, so login uses the browser unless a test says otherwise.
+	h.env = map[string]string{"PERMAHOSTIO_CONFIG": filepath.Join(t.TempDir(), "config.json"), "DISPLAY": ":0"}
 	h.saveConfig(config.Config{Server: h.srv.URL, AccessToken: "at", RefreshToken: "rt", Expiry: now.Add(time.Hour)})
 	return h
 }

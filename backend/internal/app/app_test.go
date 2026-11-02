@@ -364,6 +364,87 @@ func TestOAuth(t *testing.T) {
 	assert.Equal(t, "/base/login?redirect="+url.QueryEscape(target), res.Header.Get("Location"))
 }
 
+// TestDeviceLogin runs the CLI's device flow end to end: the device asks
+// for a code, the signed-in user types it and allows, and the device's poll
+// gets tokens that work on the API. Expired codes are swept.
+func TestDeviceLogin(t *testing.T) {
+	a, err := New(testConfig(t), fstest.MapFS{})
+	require.NoError(t, err)
+	require.NoError(t, a.db.Create(&model.User{ID: 7, Email: "a@x", Credits: 10, CreditsRenewAt: time.Now().Add(time.Hour)}).Error)
+	tokens, err := token.New(token.Config{Secret: "secret"})
+	require.NoError(t, err)
+	session, err := tokens.CreateSessionToken(monoflake.ID(7).String())
+	require.NoError(t, err)
+
+	post := func(target string, form url.Values, signedIn bool) (*http.Response, string) {
+		t.Helper()
+		req := httptest.NewRequest(http.MethodPost, target, strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		if signedIn {
+			req.AddCookie(&http.Cookie{Name: "permahost_session", Value: session})
+		}
+		res, err := a.Handler().Test(req)
+		require.NoError(t, err)
+		body, _ := io.ReadAll(res.Body)
+		return res, string(body)
+	}
+
+	_, metadata := get(t, a, "/.well-known/oauth-authorization-server")
+	assert.Contains(t, metadata, `"device_authorization_endpoint":"http://localhost:3000/oauth2/device/code"`)
+
+	res, body := post("/oauth2/device/code", url.Values{"client_id": {"00000000001"}}, false)
+	require.Equal(t, http.StatusOK, res.StatusCode, body)
+	var device struct {
+		DeviceCode              string `json:"device_code"`
+		UserCode                string `json:"user_code"`
+		VerificationURIComplete string `json:"verification_uri_complete"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(body), &device))
+	assert.Equal(t, "http://localhost:3000/auth/device?user_code="+device.UserCode, device.VerificationURIComplete)
+
+	poll := url.Values{"grant_type": {"urn:ietf:params:oauth:grant-type:device_code"}, "device_code": {device.DeviceCode}, "client_id": {"00000000001"}}
+	res, body = post("/oauth2/token", poll, false)
+	assert.Equal(t, http.StatusBadRequest, res.StatusCode)
+	assert.JSONEq(t, `{"error":"authorization_pending"}`, body)
+
+	req := httptest.NewRequest(http.MethodGet, "/auth/device?user_code="+device.UserCode, nil)
+	req.AddCookie(&http.Cookie{Name: "permahost_session", Value: session})
+	res, err = a.Handler().Test(req)
+	require.NoError(t, err)
+	page, _ := io.ReadAll(res.Body)
+	require.Equal(t, http.StatusOK, res.StatusCode, string(page))
+	consent := _consentInput.FindStringSubmatch(string(page))
+	require.Len(t, consent, 2)
+
+	res, body = post("/auth/device", url.Values{"consent": {consent[1]}, "decision": {"allow"}}, true)
+	require.Equal(t, http.StatusOK, res.StatusCode, body)
+	assert.Contains(t, body, "permahost CLI is signed in")
+
+	// Once allowed, the next poll gets tokens.
+	res, body = post("/oauth2/token", poll, false)
+	require.Equal(t, http.StatusOK, res.StatusCode, body)
+	var out struct {
+		AccessToken string `json:"access_token"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(body), &out))
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/users/me", nil)
+	req.Header.Set("Authorization", "Bearer "+out.AccessToken)
+	res, err = a.Handler().Test(req)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, res.StatusCode)
+
+	// Expired codes are swept; a failing sweep is logged, not fatal.
+	require.NoError(t, a.db.Create(&model.DeviceCode{DeviceCodeHash: "h", UserCode: "BCDFGHJK", ClientID: "c", Status: model.DeviceCodePending, ExpiresAt: time.Now().Add(-time.Second)}).Error)
+	a.sweepDeviceCodes()
+	var n int64
+	require.NoError(t, a.db.Model(&model.DeviceCode{}).Count(&n).Error)
+	assert.Zero(t, n)
+	sqlDB, err := a.db.DB()
+	require.NoError(t, err)
+	require.NoError(t, sqlDB.Close())
+	a.sweepDeviceCodes()
+}
+
 var _consentInput = regexp.MustCompile(`name="consent" value="([^"]+)"`)
 
 // accessToken signs user 7 in, allows clientID on the consent page and

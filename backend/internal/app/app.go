@@ -215,6 +215,7 @@ type (
 		credits   credit.Controller
 		folders   folderctrl.Controller
 		domains   domainctrl.Controller
+		oauth     oauthctrl.Controller
 		scheduler scheduler.Service
 		// The rest is set only with TLS enabled.
 		tlsAddr  string
@@ -312,6 +313,14 @@ func New(cfg Config, web fs.FS) (*App, error) {
 	})
 	f := fiber.New(fiberConfig(cfg.App, bodyLimit))
 	f.Use(recover.New())
+	a.oauth = oauthctrl.New(oauthctrl.Params{
+		Token:       tokens,
+		Users:       users,
+		Devices:     repository.NewDeviceCodeRepository(db),
+		DeviceQuota: quota.New(quota.Params{Limit: oauthctrl.DeviceAttempts, Window: oauthctrl.DeviceWindow}),
+		Issuer:      baseURL,
+		Resource:    baseURL + MCPPath,
+	})
 	api.New(api.Params{
 		Router:       f,
 		Hosts:        hostRouter(h, api.NewCustomDomainHandler(folders, domains)),
@@ -321,7 +330,7 @@ func New(cfg Config, web fs.FS) (*App, error) {
 		Domains:      domains,
 		Credits:      credits,
 		Admin:        adminctrl.New(adminctrl.Params{Users: users, Credits: credits, Grant: setup.MonthlyGrant, NewID: ids.NextID}),
-		OAuth:        oauthctrl.New(oauthctrl.Params{Token: tokens, Users: users, Issuer: baseURL, Resource: baseURL + MCPPath}),
+		OAuth:        a.oauth,
 		FileSettings: setup.FileLimits,
 		BasePath:     basePath,
 		// A session cookie for an https app must never travel over plain
@@ -341,6 +350,7 @@ func New(cfg Config, web fs.FS) (*App, error) {
 	_ = a.scheduler.AddFunc(credit.RenewalSchedule, a.renewCredits)
 	_ = a.scheduler.AddFunc(folderctrl.SweepSchedule, a.sweepFolders)
 	_ = a.scheduler.AddFunc(domainctrl.VerifySchedule, a.verifyDomains)
+	_ = a.scheduler.AddFunc(oauthctrl.DeviceSweepSchedule, a.sweepDeviceCodes)
 	if cfg.TLS.Enabled {
 		a.setupTLS(cfg, enc, h)
 	}
@@ -452,6 +462,14 @@ func (a *App) sweepFolders() {
 	}
 	if rs.Deleted > 0 {
 		log.Printf("folder sweep: deleted %d expired anonymous folders", rs.Deleted)
+	}
+}
+
+func (a *App) sweepDeviceCodes() {
+	ctx, cancel := context.WithTimeout(context.Background(), _sweepTimeout)
+	defer cancel()
+	if err := a.oauth.SweepDeviceCodes(ctx); err != nil {
+		log.Printf("device code sweep: failed: %v", err)
 	}
 }
 

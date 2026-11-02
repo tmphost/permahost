@@ -118,10 +118,81 @@ func (h *OAuth) Token(c fiber.Ctx) error {
 		return sendOAuthError(c, fiber.StatusBadRequest, oauthctrl.ErrInvalidGrant, err)
 	case errors.Is(err, oauthctrl.ErrUnsupportedGrantType):
 		return sendOAuthError(c, fiber.StatusBadRequest, oauthctrl.ErrUnsupportedGrantType, err)
+	case errors.Is(err, oauthctrl.ErrAuthorizationPending):
+		return sendOAuthError(c, fiber.StatusBadRequest, oauthctrl.ErrAuthorizationPending, err)
+	case errors.Is(err, oauthctrl.ErrSlowDown):
+		return sendOAuthError(c, fiber.StatusBadRequest, oauthctrl.ErrSlowDown, err)
+	case errors.Is(err, oauthctrl.ErrAccessDenied):
+		return sendOAuthError(c, fiber.StatusBadRequest, oauthctrl.ErrAccessDenied, err)
+	case errors.Is(err, oauthctrl.ErrExpiredToken):
+		return sendOAuthError(c, fiber.StatusBadRequest, oauthctrl.ErrExpiredToken, err)
 	default:
 		return sendOAuthError(c, fiber.StatusInternalServerError, errServerError, nil)
 	}
 	return sendJSON(c, fiber.StatusOK, mapper.FromTokenResponseEntityToHTTPResponse(rs))
+}
+
+// DeviceCode starts a device authorization (RFC 8628 §3.1).
+func (h *OAuth) DeviceCode(c fiber.Ctx) error {
+	c.Set(fiber.HeaderCacheControl, "no-store")
+	rs, err := h.controller.AuthorizeDevice(c.Context(), mapper.FromHTTPRequestToAuthorizeDeviceRequestEntity(c))
+	switch {
+	case err == nil:
+	case errors.Is(err, oauthctrl.ErrInvalidRequest):
+		return sendOAuthError(c, fiber.StatusBadRequest, oauthctrl.ErrInvalidRequest, err)
+	case errors.Is(err, oauthctrl.ErrInvalidClient):
+		return sendOAuthError(c, fiber.StatusUnauthorized, oauthctrl.ErrInvalidClient, errors.New("only the permahost CLI may use the device flow"))
+	case errors.Is(err, oauthctrl.ErrTooManyAttempts):
+		return sendOAuthError(c, fiber.StatusTooManyRequests, oauthctrl.ErrSlowDown, errors.New("too many device codes from this address; try again later"))
+	default:
+		return sendOAuthError(c, fiber.StatusInternalServerError, errServerError, nil)
+	}
+	return sendJSON(c, fiber.StatusOK, mapper.FromAuthorizeDeviceResponseEntityToHTTPResponse(rs))
+}
+
+// Device asks for a device's user code, then for consent, after sign-in if
+// needed.
+func (h *OAuth) Device(c fiber.Ctx) error {
+	rq := mapper.FromHTTPRequestToVerifyDeviceRequestEntity(c)
+	if rq.UserID == 0 {
+		return h.login(c)
+	}
+	if rq.UserCode == "" {
+		return h.page(c, fiber.StatusOK, deviceEntryPage(h.basePath+oauthctrl.DevicePath, "", ""))
+	}
+	rs, err := h.controller.VerifyDevice(c.Context(), rq)
+	switch {
+	case err == nil:
+	case errors.Is(err, oauthctrl.ErrLoginRequired):
+		return h.login(c)
+	case errors.Is(err, oauthctrl.ErrInvalidUserCode):
+		return h.page(c, fiber.StatusBadRequest, deviceEntryPage(h.basePath+oauthctrl.DevicePath, rq.UserCode,
+			"That code doesn't match a sign-in in progress. Check the code in your terminal, or run permahost login again: codes expire after 10 minutes."))
+	case errors.Is(err, oauthctrl.ErrTooManyAttempts):
+		return h.errorPage(c, fiber.StatusTooManyRequests, "Too many codes were tried from this address. Wait a few minutes and try again.")
+	default:
+		return h.errorPage(c, fiber.StatusInternalServerError, "Something went wrong. Try again in a moment.")
+	}
+	return h.page(c, fiber.StatusOK, deviceConsentPage(rs.Consent))
+}
+
+// DeviceConsent takes the user's answer for a device.
+func (h *OAuth) DeviceConsent(c fiber.Ctx) error {
+	rq := mapper.FromHTTPRequestToConsentDeviceRequestEntity(c)
+	if rq == nil {
+		return h.errorPage(c, fiber.StatusBadRequest, "The answer was incomplete. Run permahost login again.")
+	}
+	if rq.UserID == 0 {
+		return h.login(c)
+	}
+	rs, err := h.controller.ConsentDevice(c.Context(), rq)
+	if errors.Is(err, oauthctrl.ErrInvalidConsent) {
+		return h.errorPage(c, fiber.StatusBadRequest, "This sign-in expired, was already answered, or was made for another account. Run permahost login again.")
+	}
+	if err != nil {
+		return h.errorPage(c, fiber.StatusInternalServerError, "Something went wrong. Try again in a moment.")
+	}
+	return h.page(c, fiber.StatusOK, deviceDonePage(rs))
 }
 
 // login sends the browser to sign in, then back here.

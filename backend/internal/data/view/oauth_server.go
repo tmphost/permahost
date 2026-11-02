@@ -16,6 +16,7 @@ type (
 		CodeChallengeMethodsSupported              []string `json:"code_challenge_methods_supported"`
 		TokenEndpointAuthMethodsSupported          []string `json:"token_endpoint_auth_methods_supported"`
 		AuthorizationResponseIssParameterSupported bool     `json:"authorization_response_iss_parameter_supported"`
+		DeviceAuthorizationEndpoint                string   `json:"device_authorization_endpoint,omitempty"`
 	}
 
 	// ProtectedResourceMetadata is the protected resource metadata
@@ -53,6 +54,17 @@ type (
 		TokenType    string `json:"token_type"`
 		ExpiresIn    int    `json:"expires_in"`
 		RefreshToken string `json:"refresh_token"`
+	}
+
+	// DeviceAuthorizationResponse is a device authorization (RFC 8628
+	// §3.2).
+	DeviceAuthorizationResponse struct {
+		DeviceCode              string `json:"device_code"`
+		UserCode                string `json:"user_code"`
+		VerificationURI         string `json:"verification_uri"`
+		VerificationURIComplete string `json:"verification_uri_complete"`
+		ExpiresIn               int    `json:"expires_in"`
+		Interval                int    `json:"interval"`
 	}
 
 	// OAuthError is an OAuth error response (RFC 6749 §5.2).

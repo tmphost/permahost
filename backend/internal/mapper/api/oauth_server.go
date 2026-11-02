@@ -5,6 +5,7 @@
 package api
 
 import (
+	"slices"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -22,16 +23,21 @@ var _grantTypes = []string{oauthctrl.GrantAuthorizationCode, oauthctrl.GrantRefr
 // FromGetOAuthServerMetadataResponseEntityToHTTPResponse maps the
 // authorization server metadata.
 func FromGetOAuthServerMetadataResponseEntityToHTTPResponse(rs *entity.GetOAuthServerMetadataResponse) []byte {
+	grantTypes := _grantTypes
+	if rs.DeviceAuthorizationEndpoint != "" {
+		grantTypes = append(slices.Clone(_grantTypes), oauthctrl.GrantDeviceCode)
+	}
 	return marshal(view.OAuthServerMetadata{
 		Issuer:                                     rs.Issuer,
 		AuthorizationEndpoint:                      rs.AuthorizationEndpoint,
 		TokenEndpoint:                              rs.TokenEndpoint,
 		RegistrationEndpoint:                       rs.RegistrationEndpoint,
 		ResponseTypesSupported:                     []string{oauthctrl.ResponseTypeCode},
-		GrantTypesSupported:                        _grantTypes,
+		GrantTypesSupported:                        grantTypes,
 		CodeChallengeMethodsSupported:              []string{oauthctrl.MethodS256},
 		TokenEndpointAuthMethodsSupported:          []string{oauthctrl.AuthMethodNone},
 		AuthorizationResponseIssParameterSupported: true,
+		DeviceAuthorizationEndpoint:                rs.DeviceAuthorizationEndpoint,
 	})
 }
 
@@ -113,6 +119,7 @@ func FromHTTPRequestToTokenRequestEntity(c fiber.Ctx) *entity.TokenRequest {
 		ClientID:     c.FormValue("client_id"),
 		CodeVerifier: c.FormValue("code_verifier"),
 		RefreshToken: c.FormValue("refresh_token"),
+		DeviceCode:   c.FormValue("device_code"),
 	}
 }
 
@@ -129,4 +136,44 @@ func FromTokenResponseEntityToHTTPResponse(rs *entity.TokenResponse) []byte {
 // FromOAuthErrorToHTTPResponse maps an OAuth error code and description.
 func FromOAuthErrorToHTTPResponse(code, description string) []byte {
 	return marshal(view.OAuthError{Error: code, ErrorDescription: description})
+}
+
+// FromHTTPRequestToAuthorizeDeviceRequestEntity reads a form-encoded device
+// authorization request.
+func FromHTTPRequestToAuthorizeDeviceRequestEntity(c fiber.Ctx) *entity.AuthorizeDeviceRequest {
+	return &entity.AuthorizeDeviceRequest{ClientID: c.FormValue("client_id"), IP: c.IP()}
+}
+
+// FromAuthorizeDeviceResponseEntityToHTTPResponse maps a device
+// authorization.
+func FromAuthorizeDeviceResponseEntityToHTTPResponse(rs *entity.AuthorizeDeviceResponse) []byte {
+	return marshal(view.DeviceAuthorizationResponse{
+		DeviceCode:              rs.DeviceCode,
+		UserCode:                rs.UserCode,
+		VerificationURI:         rs.VerificationURI,
+		VerificationURIComplete: rs.VerificationURIComplete,
+		ExpiresIn:               int(rs.ExpiresIn / time.Second),
+		Interval:                int(rs.Interval / time.Second),
+	})
+}
+
+// FromHTTPRequestToVerifyDeviceRequestEntity reads the user code from the
+// query, with the signed-in user if any.
+func FromHTTPRequestToVerifyDeviceRequestEntity(c fiber.Ctx) *entity.VerifyDeviceRequest {
+	return &entity.VerifyDeviceRequest{UserID: localUserID(c), UserCode: c.Query("user_code"), IP: c.IP()}
+}
+
+// FromHTTPRequestToConsentDeviceRequestEntity reads the device consent
+// form, with the signed-in user if any. It returns nil without a consent
+// token.
+func FromHTTPRequestToConsentDeviceRequestEntity(c fiber.Ctx) *entity.ConsentDeviceRequest {
+	consent := c.FormValue("consent")
+	if consent == "" {
+		return nil
+	}
+	return &entity.ConsentDeviceRequest{
+		UserID: localUserID(c),
+		Token:  consent,
+		Allow:  c.FormValue("decision") == ConsentDecisionAllow,
+	}
 }

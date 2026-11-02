@@ -32,6 +32,7 @@ From source: `cd cli && go build -o permahost .` (or `make cli`, which writes
 ```sh
 permahost login                              # https://app.permahost.io
 permahost login --server https://files.example.com
+permahost login --device                     # no browser here, e.g. over SSH
 ```
 
 `login` opens the browser to approve the CLI (OAuth 2.1 with PKCE; the URL is
@@ -40,6 +41,13 @@ The tokens are saved to `$PERMAHOSTIO_CONFIG`, or `permahost/config.json` under 
 user config directory, readable only by you, and refreshed automatically.
 `permahost logout` forgets them. `--server` or `PERMAHOSTIO_SERVER` picks the server;
 tokens are only ever sent to the server that issued them.
+
+On a machine without a browser (over SSH, in a container, on a server),
+`login` prints a link and a code instead (the OAuth device flow, RFC 8628):
+open the link on any device, enter the code, approve, and the CLI picks up
+the tokens. That is the default when `$SSH_CONNECTION` or `$SSH_TTY` is set,
+or on Linux without `$DISPLAY` or `$WAYLAND_DISPLAY`; `--device` and
+`--browser` choose a flow yourself.
 
 ## Usage
 
@@ -67,7 +75,7 @@ permahost whoami                                 # credits, usage and prices
 
 | Command | Description |
 | --- | --- |
-| `permahost login [--server URL]` | Sign in with the browser |
+| `permahost login [--server URL] [--device \| --browser]` | Sign in with the browser, or with a code on another device |
 | `permahost logout` | Forget the saved tokens |
 | `permahost whoami` | Show the user, credits, renewal time, usage and prices |
 | `permahost file upload <local path>... [--id ID] [--path DIR] [--name NAME]` | Upload files and print their URLs, the folder id and the credits spent |

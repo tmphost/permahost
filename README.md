@@ -80,7 +80,10 @@ Go (Fiber v3, GORM) backend and Vue 3 (Vite, Tailwind) frontend.
   (`/oauth2/authorize`) and refresh tokens (`/oauth2/token`), discovered via
   `/.well-known/oauth-authorization-server` and
   `/.well-known/oauth-protected-resource/mcp`. The CLI uses the built-in
-  public client ID `00000000001` with a loopback redirect. Access tokens also
+  public client ID `00000000001` with a loopback redirect, or, where no
+  browser can reach it (SSH, containers), the device flow (RFC 8628):
+  `/oauth2/device/code` hands out a code the user enters at `/auth/device`
+  while the CLI polls `/oauth2/token`. Access tokens also
   work as Bearer tokens on `/api/v1`.
 
 ## Development

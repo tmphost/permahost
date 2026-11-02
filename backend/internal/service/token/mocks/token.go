@@ -94,6 +94,21 @@ func (mr *MockServiceMockRecorder) CreateConsentToken(grant interface{}) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateConsentToken", reflect.TypeOf((*MockService)(nil).CreateConsentToken), grant)
 }
 
+// CreateDeviceConsentToken mocks base method.
+func (m *MockService) CreateDeviceConsentToken(grant token.OAuthGrant) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateDeviceConsentToken", grant)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateDeviceConsentToken indicates an expected call of CreateDeviceConsentToken.
+func (mr *MockServiceMockRecorder) CreateDeviceConsentToken(grant interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateDeviceConsentToken", reflect.TypeOf((*MockService)(nil).CreateDeviceConsentToken), grant)
+}
+
 // CreateRefreshToken mocks base method.
 func (m *MockService) CreateRefreshToken(userID, clientID string) (string, error) {
 	m.ctrl.T.Helper()
@@ -212,6 +227,21 @@ func (m *MockService) ValidateConsentToken(consent string) (token.OAuthGrant, er
 func (mr *MockServiceMockRecorder) ValidateConsentToken(consent interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateConsentToken", reflect.TypeOf((*MockService)(nil).ValidateConsentToken), consent)
+}
+
+// ValidateDeviceConsentToken mocks base method.
+func (m *MockService) ValidateDeviceConsentToken(consent string) (token.OAuthGrant, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ValidateDeviceConsentToken", consent)
+	ret0, _ := ret[0].(token.OAuthGrant)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ValidateDeviceConsentToken indicates an expected call of ValidateDeviceConsentToken.
+func (mr *MockServiceMockRecorder) ValidateDeviceConsentToken(consent interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateDeviceConsentToken", reflect.TypeOf((*MockService)(nil).ValidateDeviceConsentToken), consent)
 }
 
 // ValidateRefreshToken mocks base method.

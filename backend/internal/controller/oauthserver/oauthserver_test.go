@@ -107,10 +107,11 @@ func TestNew_DefaultsClock(t *testing.T) {
 func TestMetadata(t *testing.T) {
 	e := newEnv(t)
 	assert.Equal(t, &entity.GetOAuthServerMetadataResponse{
-		Issuer:                _issuer,
-		AuthorizationEndpoint: _issuer + "/oauth2/authorize",
-		TokenEndpoint:         _issuer + "/oauth2/token",
-		RegistrationEndpoint:  _issuer + "/oauth2/register",
+		Issuer:                      _issuer,
+		AuthorizationEndpoint:       _issuer + "/oauth2/authorize",
+		TokenEndpoint:               _issuer + "/oauth2/token",
+		RegistrationEndpoint:        _issuer + "/oauth2/register",
+		DeviceAuthorizationEndpoint: _issuer + "/oauth2/device/code",
 	}, e.ctrl.GetServerMetadata(context.Background()))
 	assert.Equal(t, &entity.GetProtectedResourceMetadataResponse{
 		Resource: _issuer + "/mcp", AuthorizationServers: []string{_issuer},

@@ -244,6 +244,10 @@ func TestOAuth_Token(t *testing.T) {
 		{fmt.Errorf("%w: code is required", oauthctrl.ErrInvalidRequest), http.StatusBadRequest, `{"error":"invalid_request","error_description":"code is required"}`},
 		{fmt.Errorf("%w: expired", oauthctrl.ErrInvalidGrant), http.StatusBadRequest, `{"error":"invalid_grant","error_description":"expired"}`},
 		{oauthctrl.ErrUnsupportedGrantType, http.StatusBadRequest, `{"error":"unsupported_grant_type"}`},
+		{oauthctrl.ErrAuthorizationPending, http.StatusBadRequest, `{"error":"authorization_pending"}`},
+		{oauthctrl.ErrSlowDown, http.StatusBadRequest, `{"error":"slow_down"}`},
+		{oauthctrl.ErrAccessDenied, http.StatusBadRequest, `{"error":"access_denied"}`},
+		{oauthctrl.ErrExpiredToken, http.StatusBadRequest, `{"error":"expired_token"}`},
 		{errBoom, http.StatusInternalServerError, `{"error":"server_error"}`},
 	} {
 		e.oauth.EXPECT().Token(gomock.Any(), gomock.Any()).Return(nil, tc.err)
@@ -251,4 +255,164 @@ func TestOAuth_Token(t *testing.T) {
 		assert.Equal(t, tc.status, res.StatusCode)
 		assert.JSONEq(t, tc.want, body)
 	}
+}
+
+func TestOAuth_DeviceCode(t *testing.T) {
+	const form = "application/x-www-form-urlencoded"
+	e := newFilesApp(t)
+	e.oauth.EXPECT().AuthorizeDevice(gomock.Any(), &entity.AuthorizeDeviceRequest{ClientID: "00000000001", IP: "0.0.0.0"}).
+		Return(&entity.AuthorizeDeviceResponse{DeviceCode: "dc", UserCode: "WDJB-MJHT", VerificationURI: "https://t.io/auth/device", ExpiresIn: 10 * time.Minute, Interval: 5 * time.Second}, nil)
+	res, body := e.send(t, http.MethodPost, oauthctrl.DeviceCodePath, form, "client_id=00000000001", "")
+	assert.Equal(t, http.StatusOK, res.StatusCode)
+	assert.Equal(t, "no-store", res.Header.Get("Cache-Control"))
+	assert.Contains(t, body, `"user_code":"WDJB-MJHT"`)
+	assert.Contains(t, body, `"interval":5`)
+
+	for _, tc := range []struct {
+		err    error
+		status int
+		want   string
+	}{
+		{fmt.Errorf("%w: client_id is required", oauthctrl.ErrInvalidRequest), http.StatusBadRequest, `{"error":"invalid_request","error_description":"client_id is required"}`},
+		{oauthctrl.ErrInvalidClient, http.StatusUnauthorized, `{"error":"invalid_client","error_description":"only the permahost CLI may use the device flow"}`},
+		{oauthctrl.ErrTooManyAttempts, http.StatusTooManyRequests, `{"error":"slow_down","error_description":"too many device codes from this address; try again later"}`},
+		{errBoom, http.StatusInternalServerError, `{"error":"server_error"}`},
+	} {
+		e.oauth.EXPECT().AuthorizeDevice(gomock.Any(), gomock.Any()).Return(nil, tc.err)
+		res, body = e.send(t, http.MethodPost, oauthctrl.DeviceCodePath, form, "", "")
+		assert.Equal(t, tc.status, res.StatusCode)
+		assert.JSONEq(t, tc.want, body)
+	}
+}
+
+func TestOAuth_Device(t *testing.T) {
+	const target = oauthctrl.DevicePath + "?user_code=WDJB-MJHT"
+
+	t.Run("signed out", func(t *testing.T) {
+		e := newFilesApp(t)
+		res, _ := e.send(t, http.MethodGet, target, "", "", "")
+		assert.Equal(t, http.StatusFound, res.StatusCode)
+		assert.Equal(t, "/base/login?redirect=%2Fauth%2Fdevice%3Fuser_code%3DWDJB-MJHT", res.Header.Get("Location"))
+	})
+
+	t.Run("asks for the code", func(t *testing.T) {
+		e := newFilesApp(t)
+		e.signedIn()
+		res, body := e.send(t, http.MethodGet, oauthctrl.DevicePath, "", "", "s")
+		assert.Equal(t, http.StatusOK, res.StatusCode)
+		assert.Equal(t, _pageCSP, res.Header.Get("Content-Security-Policy"))
+		assert.Contains(t, body, `<title>Sign in a device to permahost.io</title>`)
+		assert.Contains(t, body, `action="/base/auth/device"`)
+		assert.Contains(t, body, `data-test="device-code-input"`)
+		assert.NotContains(t, body, `data-test="device-error"`)
+	})
+
+	t.Run("consent", func(t *testing.T) {
+		e := newFilesApp(t)
+		e.signedIn()
+		e.oauth.EXPECT().VerifyDevice(gomock.Any(), &entity.VerifyDeviceRequest{UserID: 7, UserCode: "WDJB-MJHT", IP: "0.0.0.0"}).
+			Return(&entity.VerifyDeviceResponse{Consent: &entity.DeviceConsent{ClientName: "permahost CLI", Verified: true, UserCode: "WDJB-MJHT", Email: "a@b.c", Token: "ct"}}, nil)
+		res, body := e.send(t, http.MethodGet, target, "", "", "s")
+		assert.Equal(t, http.StatusOK, res.StatusCode)
+		assert.Contains(t, body, `<title>Allow access to permahost.io?</title>`)
+		assert.Contains(t, body, `data-test="consent-verified"`)
+		assert.Contains(t, body, `<dd class="code" data-test="device-code">WDJB-MJHT</dd>`)
+		assert.Contains(t, body, `<dd data-test="consent-account">a@b.c</dd>`)
+		assert.Contains(t, body, `name="consent" value="ct"`)
+		assert.Contains(t, body, `value="allow"`)
+	})
+
+	t.Run("unverified client", func(t *testing.T) {
+		e := newFilesApp(t)
+		e.signedIn()
+		e.oauth.EXPECT().VerifyDevice(gomock.Any(), gomock.Any()).
+			Return(&entity.VerifyDeviceResponse{Consent: &entity.DeviceConsent{ClientName: "X", UserCode: "WDJB-MJHT", Token: "ct"}}, nil)
+		_, body := e.send(t, http.MethodGet, target, "", "", "s")
+		assert.NotContains(t, body, `data-test="consent-verified"`)
+	})
+
+	t.Run("wrong code", func(t *testing.T) {
+		e := newFilesApp(t)
+		e.signedIn()
+		e.oauth.EXPECT().VerifyDevice(gomock.Any(), gomock.Any()).Return(nil, oauthctrl.ErrInvalidUserCode)
+		res, body := e.send(t, http.MethodGet, oauthctrl.DevicePath+"?user_code=%3Cb%3E", "", "", "s")
+		assert.Equal(t, http.StatusBadRequest, res.StatusCode)
+		assert.Contains(t, body, `data-test="device-error"`)
+		assert.Contains(t, body, `value="&lt;b&gt;"`, "what was typed comes back, escaped")
+	})
+
+	for name, tc := range map[string]struct {
+		err    error
+		status int
+		want   string
+	}{
+		"login":    {oauthctrl.ErrLoginRequired, http.StatusFound, ""},
+		"too many": {oauthctrl.ErrTooManyAttempts, http.StatusTooManyRequests, "Too many codes"},
+		"failure":  {errBoom, http.StatusInternalServerError, "Something went wrong"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			e := newFilesApp(t)
+			e.signedIn()
+			e.oauth.EXPECT().VerifyDevice(gomock.Any(), gomock.Any()).Return(nil, tc.err)
+			res, body := e.send(t, http.MethodGet, target, "", "", "s")
+			assert.Equal(t, tc.status, res.StatusCode)
+			assert.Contains(t, body, tc.want)
+		})
+	}
+}
+
+func TestOAuth_DeviceConsent(t *testing.T) {
+	const form = "application/x-www-form-urlencoded"
+
+	t.Run("allow", func(t *testing.T) {
+		e := newFilesApp(t)
+		e.signedIn()
+		e.oauth.EXPECT().ConsentDevice(gomock.Any(), &entity.ConsentDeviceRequest{UserID: 7, Token: "ct", Allow: true}).
+			Return(&entity.ConsentDeviceResponse{ClientName: "permahost CLI", Allowed: true}, nil)
+		res, body := e.send(t, http.MethodPost, oauthctrl.DevicePath, form, "consent=ct&decision=allow", "s")
+		assert.Equal(t, http.StatusOK, res.StatusCode)
+		assert.Contains(t, body, `data-test="device-done"`)
+		assert.Contains(t, body, "permahost CLI is signed in")
+	})
+
+	t.Run("deny", func(t *testing.T) {
+		e := newFilesApp(t)
+		e.signedIn()
+		e.oauth.EXPECT().ConsentDevice(gomock.Any(), &entity.ConsentDeviceRequest{UserID: 7, Token: "ct"}).
+			Return(&entity.ConsentDeviceResponse{ClientName: "permahost CLI"}, nil)
+		res, body := e.send(t, http.MethodPost, oauthctrl.DevicePath, form, "consent=ct&decision=deny", "s")
+		assert.Equal(t, http.StatusOK, res.StatusCode)
+		assert.Contains(t, body, `data-test="device-denied"`)
+	})
+
+	t.Run("no token", func(t *testing.T) {
+		e := newFilesApp(t)
+		res, body := e.send(t, http.MethodPost, oauthctrl.DevicePath, form, "decision=allow", "")
+		assert.Equal(t, http.StatusBadRequest, res.StatusCode)
+		assert.Contains(t, body, "incomplete")
+	})
+
+	t.Run("signed out", func(t *testing.T) {
+		e := newFilesApp(t)
+		res, _ := e.send(t, http.MethodPost, oauthctrl.DevicePath, form, "consent=ct&decision=allow", "")
+		assert.Equal(t, http.StatusFound, res.StatusCode)
+		assert.Equal(t, "/base/login?redirect=%2Fauth%2Fdevice", res.Header.Get("Location"))
+	})
+
+	t.Run("invalid", func(t *testing.T) {
+		e := newFilesApp(t)
+		e.signedIn()
+		e.oauth.EXPECT().ConsentDevice(gomock.Any(), gomock.Any()).Return(nil, oauthctrl.ErrInvalidConsent)
+		res, body := e.send(t, http.MethodPost, oauthctrl.DevicePath, form, "consent=ct", "s")
+		assert.Equal(t, http.StatusBadRequest, res.StatusCode)
+		assert.Contains(t, body, "already answered")
+	})
+
+	t.Run("failure", func(t *testing.T) {
+		e := newFilesApp(t)
+		e.signedIn()
+		e.oauth.EXPECT().ConsentDevice(gomock.Any(), gomock.Any()).Return(nil, errBoom)
+		res, _ := e.send(t, http.MethodPost, oauthctrl.DevicePath, form, "consent=ct", "s")
+		assert.Equal(t, http.StatusInternalServerError, res.StatusCode)
+	})
 }

@@ -50,6 +50,21 @@ func (mr *MockControllerMockRecorder) Authorize(ctx, rq interface{}) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Authorize", reflect.TypeOf((*MockController)(nil).Authorize), ctx, rq)
 }
 
+// AuthorizeDevice mocks base method.
+func (m *MockController) AuthorizeDevice(ctx context.Context, rq *entity.AuthorizeDeviceRequest) (*entity.AuthorizeDeviceResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AuthorizeDevice", ctx, rq)
+	ret0, _ := ret[0].(*entity.AuthorizeDeviceResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AuthorizeDevice indicates an expected call of AuthorizeDevice.
+func (mr *MockControllerMockRecorder) AuthorizeDevice(ctx, rq interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AuthorizeDevice", reflect.TypeOf((*MockController)(nil).AuthorizeDevice), ctx, rq)
+}
+
 // Consent mocks base method.
 func (m *MockController) Consent(ctx context.Context, rq *entity.ConsentRequest) (*entity.ConsentResponse, error) {
 	m.ctrl.T.Helper()
@@ -63,6 +78,21 @@ func (m *MockController) Consent(ctx context.Context, rq *entity.ConsentRequest)
 func (mr *MockControllerMockRecorder) Consent(ctx, rq interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Consent", reflect.TypeOf((*MockController)(nil).Consent), ctx, rq)
+}
+
+// ConsentDevice mocks base method.
+func (m *MockController) ConsentDevice(ctx context.Context, rq *entity.ConsentDeviceRequest) (*entity.ConsentDeviceResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ConsentDevice", ctx, rq)
+	ret0, _ := ret[0].(*entity.ConsentDeviceResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ConsentDevice indicates an expected call of ConsentDevice.
+func (mr *MockControllerMockRecorder) ConsentDevice(ctx, rq interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConsentDevice", reflect.TypeOf((*MockController)(nil).ConsentDevice), ctx, rq)
 }
 
 // GetProtectedResourceMetadata mocks base method.
@@ -108,6 +138,20 @@ func (mr *MockControllerMockRecorder) RegisterClient(ctx, rq interface{}) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterClient", reflect.TypeOf((*MockController)(nil).RegisterClient), ctx, rq)
 }
 
+// SweepDeviceCodes mocks base method.
+func (m *MockController) SweepDeviceCodes(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SweepDeviceCodes", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SweepDeviceCodes indicates an expected call of SweepDeviceCodes.
+func (mr *MockControllerMockRecorder) SweepDeviceCodes(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SweepDeviceCodes", reflect.TypeOf((*MockController)(nil).SweepDeviceCodes), ctx)
+}
+
 // Token mocks base method.
 func (m *MockController) Token(ctx context.Context, rq *entity.TokenRequest) (*entity.TokenResponse, error) {
 	m.ctrl.T.Helper()
@@ -121,4 +165,19 @@ func (m *MockController) Token(ctx context.Context, rq *entity.TokenRequest) (*e
 func (mr *MockControllerMockRecorder) Token(ctx, rq interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Token", reflect.TypeOf((*MockController)(nil).Token), ctx, rq)
+}
+
+// VerifyDevice mocks base method.
+func (m *MockController) VerifyDevice(ctx context.Context, rq *entity.VerifyDeviceRequest) (*entity.VerifyDeviceResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "VerifyDevice", ctx, rq)
+	ret0, _ := ret[0].(*entity.VerifyDeviceResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// VerifyDevice indicates an expected call of VerifyDevice.
+func (mr *MockControllerMockRecorder) VerifyDevice(ctx, rq interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VerifyDevice", reflect.TypeOf((*MockController)(nil).VerifyDevice), ctx, rq)
 }

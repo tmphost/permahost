@@ -28,8 +28,8 @@ var _themeScriptHash = func() string {
 	return "'sha256-" + base64.StdEncoding.EncodeToString(sum[:]) + "'"
 }()
 
-// _pageTemplate is the consent page and its error variant, styled like the
-// web app's sign-in card. Without _themeScript's choice, the theme follows
+// _pageTemplate is the consent page, the device sign-in pages and the error
+// page, styled like the web app's sign-in card. Without _themeScript's choice, the theme follows
 // the system's.
 var _pageTemplate = template.Must(template.New("page").Parse(`<!doctype html>
 <html lang="en">
@@ -37,7 +37,7 @@ var _pageTemplate = template.Must(template.New("page").Parse(`<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>{{if .Consent}}Allow access to permahost.io?{{else}}permahost.io{{end}}</title>
+<title>{{if or .Consent .DeviceConsent}}Allow access to permahost.io?{{else if .DeviceEntry}}Sign in a device to permahost.io{{else}}permahost.io{{end}}</title>
 <script>` + _themeScript + `</script>
 <style>
 :root {
@@ -90,6 +90,11 @@ button { flex: 1; padding: 12px 16px; border-radius: 8px; font: inherit; font-si
 button:focus-visible { outline: 2px solid var(--muted); outline-offset: 2px; }
 .deny { background: var(--secondary); color: var(--secondary-text); border: 1px solid var(--border); }
 .allow { background: var(--primary); color: var(--primary-text); border: 1px solid var(--primary); }
+.entry { flex-direction: column; }
+label { font-size: 10px; font-weight: 900; letter-spacing: 0.1em; text-transform: uppercase; color: var(--label); }
+input { width: 100%; padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--row); color: var(--text); font: inherit; font-size: 22px; font-weight: 700; letter-spacing: 0.2em; text-align: center; text-transform: uppercase; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+input:focus-visible { outline: 2px solid var(--muted); outline-offset: 2px; }
+.code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 18px; font-weight: 700; letter-spacing: 0.15em; }
 </style>
 </head>
 <body>
@@ -101,7 +106,7 @@ button:focus-visible { outline: 2px solid var(--muted); outline-offset: 2px; }
       <path d="m8 9.5-2.5 2.5 2.5 2.5" /><path d="m16 9.5 2.5 2.5-2.5 2.5" /><path d="m13.5 7.5-3 9" />
     </svg>
   </div>
-{{with .Consent}}
+{{if .Consent}}{{with .Consent}}
   <h1 data-test="consent-client">{{if .ClientName}}{{.ClientName}}{{else}}An unnamed app{{end}}</h1>
   <p class="lead">wants to use your permahost.io account.</p>
   {{if .Verified}}
@@ -120,7 +125,41 @@ button:focus-visible { outline: 2px solid var(--muted); outline-offset: 2px; }
     <button type="submit" name="decision" value="deny" class="deny" data-test="consent-deny">Deny</button>
     <button type="submit" name="decision" value="{{$.Allow}}" class="allow" data-test="consent-allow">Allow</button>
   </form>
-{{else}}
+{{end}}{{else if .DeviceEntry}}{{with .DeviceEntry}}
+  <h1>Sign in a device</h1>
+  <p class="lead">Enter the code that <strong>permahost login</strong> shows in your terminal.</p>
+  {{if .Error}}<p class="note error" role="alert" data-test="device-error">{{.Error}}</p>{{end}}
+  <form method="get" action="{{.Action}}" class="entry">
+    <label for="user_code">Code</label>
+    <input id="user_code" name="user_code" value="{{.UserCode}}" placeholder="XXXX-XXXX" maxlength="16" autocomplete="off" autocapitalize="characters" spellcheck="false" autofocus required data-test="device-code-input">
+    <button type="submit" class="allow" data-test="device-continue">Continue</button>
+  </form>
+{{end}}{{else if .DeviceConsent}}{{with .DeviceConsent}}
+  <h1 data-test="consent-client">{{.ClientName}}</h1>
+  <p class="lead">on another device wants to use your permahost.io account.</p>
+  {{if .Verified}}
+  <p class="note ok" data-test="consent-verified">This is the official permahost.io command line tool.</p>
+  {{end}}
+  <dl>
+    <div><dt>It will be able to</dt><dd>Upload, list and download your files, and spend your credits</dd></div>
+    <div><dt>Code</dt><dd class="code" data-test="device-code">{{.UserCode}}</dd></div>
+    <div><dt>Signed in as</dt><dd data-test="consent-account">{{.Email}}</dd></div>
+  </dl>
+  <p class="hint">Only allow if you just ran permahost login yourself and this code matches your terminal. If someone sent you this link, deny.</p>
+  <form method="post">
+    <input type="hidden" name="consent" value="{{.Token}}">
+    <button type="submit" name="decision" value="deny" class="deny" data-test="consent-deny">Deny</button>
+    <button type="submit" name="decision" value="{{$.Allow}}" class="allow" data-test="consent-allow">Allow</button>
+  </form>
+{{end}}{{else if .DeviceDone}}{{with .DeviceDone}}
+  {{if .Allowed}}
+  <h1>Device signed in</h1>
+  <p class="note ok" role="status" data-test="device-done">{{.ClientName}} is signed in. You can close this tab and go back to your terminal.</p>
+  {{else}}
+  <h1>Access denied</h1>
+  <p class="note warn" role="status" data-test="device-denied">{{.ClientName}} was not signed in. You can close this tab.</p>
+  {{end}}
+{{end}}{{else}}
   <h1>Can't connect</h1>
   <p class="note error" role="alert" data-test="consent-error">{{.Error}}</p>
 {{end}}
@@ -129,14 +168,38 @@ button:focus-visible { outline: 2px solid var(--muted); outline-offset: 2px; }
 </html>
 `))
 
-type pageData struct {
-	Consent *entity.Consent
-	Error   string
-	Allow   string
-}
+type (
+	pageData struct {
+		Consent       *entity.Consent
+		DeviceEntry   *deviceEntry
+		DeviceConsent *entity.DeviceConsent
+		DeviceDone    *entity.ConsentDeviceResponse
+		Error         string
+		Allow         string
+	}
+
+	// deviceEntry is the form a user types a device's code into.
+	deviceEntry struct {
+		Action   string
+		UserCode string
+		Error    string
+	}
+)
 
 func consentPage(consent *entity.Consent) []byte {
 	return renderPage(pageData{Consent: consent, Allow: mapper.ConsentDecisionAllow})
+}
+
+func deviceEntryPage(action, userCode, msg string) []byte {
+	return renderPage(pageData{DeviceEntry: &deviceEntry{Action: action, UserCode: userCode, Error: msg}})
+}
+
+func deviceConsentPage(consent *entity.DeviceConsent) []byte {
+	return renderPage(pageData{DeviceConsent: consent, Allow: mapper.ConsentDecisionAllow})
+}
+
+func deviceDonePage(rs *entity.ConsentDeviceResponse) []byte {
+	return renderPage(pageData{DeviceDone: rs})
 }
 
 func errorPage(msg string) []byte {
