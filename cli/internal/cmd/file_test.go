@@ -12,7 +12,7 @@ import (
 )
 
 // folderJSON uses the subdomain URL style; the CLI must use it as given.
-const folderJSON = `{"folder":{"id":"rs","expiresAt":"2026-10-18T12:30:00Z","url":"https://rs-u1.permahost.test/"},` +
+const folderJSON = `{"folder":{"id":"rs","sizeBytes":2051,"url":"https://rs-u1.permahost.test/"},` +
 	`"files":[{"path":"site/css/app.css","size":2048,"url":"https://rs-u1.permahost.test/site/css/app.css"},{"path":"a.txt","size":3,"url":"https://rs-u1.permahost.test/a.txt"}]}`
 
 func TestValidPath(t *testing.T) {
@@ -52,18 +52,18 @@ func TestSplitAndJoinPath(t *testing.T) {
 func TestFileGet(t *testing.T) {
 	h := newHarness(t)
 	h.reply("GET /api/v1/folders/rs", 200, folderJSON)
-	h.reply("GET /api/v1/folders/ab", 200, `{"folder":{"id":"ab","expiresAt":"2026-10-18T13:00:00Z","url":"https://h.test/files/u1/ab/"},"files":[]}`)
+	h.reply("GET /api/v1/folders/ab", 200, `{"folder":{"id":"ab","url":"https://h.test/files/u1/ab/"},"files":[]}`)
 	h.reply("GET /api/v1/folders/zz", 404, `{"error":"folder not found"}`)
 
 	assert.Equal(t, 0, h.run("file", "get", "--id", "rs"))
 	assert.Equal(t, "FILE NAME  PATH      SIZE     URL\n"+
 		"app.css    site/css  2.0 KiB  https://rs-u1.permahost.test/site/css/app.css\n"+
 		"a.txt                3 B      https://rs-u1.permahost.test/a.txt\n\n"+
-		"id:      rs\nurl:     https://rs-u1.permahost.test/\nexpires: "+formatTime(now.Add(30*60e9))+" (in 30m)\n", h.stdout.String())
+		"id:      rs\nurl:     https://rs-u1.permahost.test/\nsize:    2.0 KiB\n", h.stdout.String())
 
 	assert.Equal(t, 0, h.run("file", "get", "--id", "rs", "--json"))
 	assert.Equal(t, map[string]any{
-		"id": "rs", "url": "https://rs-u1.permahost.test/", "expiresAt": "2026-10-18T12:30:00Z",
+		"id": "rs", "url": "https://rs-u1.permahost.test/",
 		"files": []any{
 			map[string]any{"fileName": "app.css", "path": "site/css", "size": float64(2048), "url": "https://rs-u1.permahost.test/site/css/app.css"},
 			map[string]any{"fileName": "a.txt", "path": "", "size": float64(3), "url": "https://rs-u1.permahost.test/a.txt"},
@@ -83,7 +83,7 @@ func TestFileGet(t *testing.T) {
 func TestFileURL(t *testing.T) {
 	h := newHarness(t)
 	h.reply("GET /api/v1/folders/rs", 200, folderJSON)
-	h.reply("GET /api/v1/folders/ab", 200, `{"folder":{"id":"ab","expiresAt":"2026-10-18T13:00:00Z","url":"https://h.test/files/u1/ab/"},"files":[]}`)
+	h.reply("GET /api/v1/folders/ab", 200, `{"folder":{"id":"ab","url":"https://h.test/files/u1/ab/"},"files":[]}`)
 	h.reply("GET /api/v1/folders/zz", 404, `{"error":"folder not found"}`)
 
 	for _, tc := range []struct {
@@ -102,7 +102,7 @@ func TestFileURL(t *testing.T) {
 
 	assert.Equal(t, 0, h.run("file", "url", "--id", "rs", "--path", "site", "a.txt", "--json"))
 	assert.Equal(t, map[string]any{
-		"id": "rs", "url": "https://rs-u1.permahost.test/site/a.txt", "expiresAt": "2026-10-18T12:30:00Z",
+		"id": "rs", "url": "https://rs-u1.permahost.test/site/a.txt",
 		"fileName": "a.txt", "path": "site",
 	}, h.decode())
 
@@ -119,9 +119,9 @@ func TestFileURL(t *testing.T) {
 
 func TestFileLs(t *testing.T) {
 	h := newHarness(t)
-	h.reply("GET /api/v1/folders", 200, `{"folders":[{"id":"rs","expiresAt":"2026-10-18T14:00:00Z","url":"https://rs-u1.permahost.test/"},{"id":"a1","expiresAt":"2026-10-18T12:10:00Z","url":"https://h.test/files/u1/a1/"}]}`)
+	h.reply("GET /api/v1/folders", 200, `{"folders":[{"id":"rs","sizeBytes":3000000,"title":"Docs","defaultTitle":"rs","url":"https://rs-u1.permahost.test/"},{"id":"a1","sizeBytes":3,"title":"","defaultTitle":"a.txt","url":"https://h.test/files/u1/a1/"}]}`)
 	assert.Equal(t, 0, h.run("file", "ls"))
-	assert.Equal(t, "ID  EXPIRES IN  URL\nrs  2h0m        https://rs-u1.permahost.test/\na1  10m         https://h.test/files/u1/a1/\n", h.stdout.String())
+	assert.Equal(t, "ID  TITLE  SIZE     URL\nrs  Docs   2.9 MiB  https://rs-u1.permahost.test/\na1  a.txt  3 B      https://h.test/files/u1/a1/\n", h.stdout.String())
 
 	assert.Equal(t, 0, h.run("file", "ls", "--json"))
 	assert.Len(t, h.decode()["folders"], 2)

@@ -10,14 +10,12 @@ import { creditsPercent, renewsIn } from '../src/utils/credits'
 import { loginErrorMessage } from '../src/utils/loginErrors'
 import {
   droppedFiles,
-  expiresIn,
   fileItems,
   formatBytes,
   formatMinutes,
   isFileDrag,
   relativePath,
-  TTL_CHOICES,
-  ttlOptions,
+  storageBlocks,
   uploadCost,
 } from '../src/utils/files'
 import { dataTransfer, dirEntry, fileEntry } from './dropEntries'
@@ -115,12 +113,6 @@ describe('providers', () => {
 })
 
 describe('files utils', () => {
-  it('ttlOptions caps the choices', () => {
-    expect(ttlOptions(432000)).toEqual(TTL_CHOICES)
-    expect(ttlOptions(120)).toEqual([30, 60, 120])
-    expect(ttlOptions(10)).toEqual([])
-  })
-
   it('formatMinutes picks a readable unit', () => {
     expect(formatMinutes(30)).toBe('30 min')
     expect(formatMinutes(60)).toBe('1 h')
@@ -132,17 +124,21 @@ describe('files utils', () => {
     expect(formatMinutes(1500)).toBe('25 h')
   })
 
-  it('uploadCost charges per started MB per started block', () => {
-    const MB = 1 << 20
-    expect(uploadCost([1, 1, 1], 30, 30, MB)).toBe(3)
-    expect(uploadCost([1, 1, 1], 31, 30, MB)).toBe(6)
-    expect(uploadCost([1, 1], 10080, 30, MB)).toBe(672)
-    expect(uploadCost([], 60, 30, MB)).toBe(0)
-    expect(uploadCost([MB], 30, 30, MB)).toBe(1)
-    expect(uploadCost([MB * 1.01], 30, 30, MB)).toBe(2)
-    expect(uploadCost([MB * 2.01], 30, 30, MB)).toBe(3)
-    expect(uploadCost([MB * 2.01], 60, 30, MB)).toBe(6)
-    expect(uploadCost([0], 0, 30, MB)).toBe(1)
+  it('storageBlocks counts started blocks', () => {
+    expect(storageBlocks(0, 100)).toBe(0)
+    expect(storageBlocks(-5, 100)).toBe(0)
+    expect(storageBlocks(1, 100)).toBe(1)
+    expect(storageBlocks(100, 100)).toBe(1)
+    expect(storageBlocks(101, 100)).toBe(2)
+  })
+
+  it('uploadCost charges a new folder and each storage block started', () => {
+    const pricing = { storageBlockBytes: 100, storageCredits: 500, folderCredits: 300 }
+    expect(uploadCost({ newFolder: true, storedBytes: 0, addedBytes: 0, pricing })).toBe(300)
+    expect(uploadCost({ newFolder: true, storedBytes: 0, addedBytes: 1, pricing })).toBe(800)
+    expect(uploadCost({ newFolder: false, storedBytes: 50, addedBytes: 50, pricing })).toBe(0)
+    expect(uploadCost({ newFolder: false, storedBytes: 50, addedBytes: 151, pricing })).toBe(1000)
+    expect(uploadCost({ newFolder: false, storedBytes: 250, addedBytes: -200, pricing })).toBe(0)
   })
 
   it('formatBytes scales units', () => {
@@ -152,18 +148,6 @@ describe('files utils', () => {
     expect(formatBytes(16 * 1024 * 1024)).toBe('16.0 MB')
     expect(formatBytes(3 * 1024 ** 3)).toBe('3.0 GB')
     expect(formatBytes(2048 * 1024 ** 3)).toBe('2048.0 GB')
-  })
-
-  it('expiresIn counts down', () => {
-    const now = Date.parse('2026-10-18T12:00:00Z')
-    expect(expiresIn('nope', now)).toBe('')
-    expect(expiresIn('2026-10-18T11:00:00Z', now)).toBe('Expired')
-    expect(expiresIn('2026-10-18T12:00:00Z', now)).toBe('Expired')
-    expect(expiresIn('2026-10-18T12:00:01Z', now)).toBe('1m')
-    expect(expiresIn('2026-10-18T12:45:00Z', now)).toBe('45m')
-    expect(expiresIn('2026-10-18T17:12:00Z', now)).toBe('5h 12m')
-    expect(expiresIn('2026-10-21T16:30:00Z', now)).toBe('3d 4h')
-    expect(expiresIn(new Date(Date.now() + 10 * 60000).toISOString())).toBe('10m')
   })
 
   it('relativePath prefers the folder-relative path', () => {

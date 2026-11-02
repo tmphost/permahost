@@ -6,28 +6,39 @@ Go (Fiber v3, GORM) backend and Vue 3 (Vite, Tailwind) frontend.
 
 - Sign in with Google or GitHub (OAuth). Accounts are keyed by verified email,
   so both providers reach the same account.
-- Every account gets **250 operations** per period. A cron job running daily at
-  00:00 UTC resets due accounts to 250 (unused credits do not carry over) and
-  moves their renewal 30 days forward.
+- Every account gets a monthly grant of credits (2000 by default; root can
+  change it on /setup). A cron job running daily at 00:00 UTC renews due
+  accounts: the balance is reset to the grant minus the month's hosting cost
+  (unused credits do not carry over) and the renewal moves 30 days forward.
+- Hosting is permanent while the account has credits. Monthly prices:
+
+  | What | Credits |
+  | --- | --- |
+  | Folder | 500 a month, charged when it is created |
+  | Storage | 500 a month per started 25 MB of the account's files, charged when an upload starts a new block |
+  | Custom domain | 500 setup + 500 a month, charged when its CNAME is verified |
+
+- A balance below zero after renewal pauses every site of the account (HTTP
+  402) until a later renewal brings it back to zero or above. Nothing is
+  deleted. `GET /api/v1/users/me/usage` shows what an account hosts and its
+  monthly cost.
 
 ## File hosting
 
-- Files live in folders that expire after a TTL (default 30 minutes, at most
-  `files.maxTtlMinutes`, 7200 hours by default). Each file written costs 1
-  credit per started MB (1 MiB) of its size per started 30 minutes of the
-  folder's remaining lifetime: a 1.01 MB file kept for an hour costs 2 x 2 = 4.
+- Files live in folders that never expire for a signed-in account. A folder
+  records its size, so the storage charge follows what is actually stored.
 - Files can be added to an existing folder (web app, MCP `upload` with `id`,
   CLI `--id`). Uploading to a path that is already there replaces the file
-  in place, an update: its URL stays the same and the folder keeps its
-  expiry. The write is charged like any other.
+  in place, an update: its URL stays the same and only the size difference
+  counts toward storage.
 - Without signing in, the web app's Upload page makes folders that live at
   most `files.anonymousMaxTtlMinutes` (`PERMAHOSTIO_FILES_ANONYMOUS_MAX_TTL_MINUTES`,
   10 minutes by default; root can change it on /setup).
 - Storage is local disk (`PERMAHOSTIO_STORAGE_LOCAL_PATH`) or an S3 bucket, under
   `u<userId>/<folderId>/<path>`. Paths are at most 5 directories deep and are
   validated server-side, so a file can never leave its folder. The database
-  stores only each folder's ID, owner and expiry; a job deletes expired
-  folders every minute. Folder IDs are 11 random lowercase base36
+  stores each folder's ID, owner, size and, for an anonymous folder, its
+  expiry; a job deletes expired anonymous folders every minute. Folder IDs are 11 random lowercase base36
   characters, so public URLs can't be guessed.
 - Public URLs: `<PERMAHOSTIO_BASE_URL>/files/<userId>/<folderId>/<path>` by
   default, or `f<folderId>.<publicDomain>/<path>` with subdomains on
@@ -35,6 +46,23 @@ Go (Fiber v3, GORM) backend and Vue 3 (Vite, Tailwind) frontend.
   to the sites domain; needs wildcard DNS and a certificate, which the
   built-in TLS obtains when it is the sites domain). Both are served with `Content-Security-Policy:
   sandbox`, so hosted pages never run with the app's origin.
+
+## Custom domains
+
+- A folder can be served on any number of the owner's hostnames (web app:
+  the globe button on a folder; CLI: `permahost domain add --id <folder>
+  www.example.com`; API: `/api/v1/folders/:id/domains`).
+- Each hostname needs a CNAME record pointing at the folder's own host,
+  `f<folderId>.<publicDomain>` with subdomains on (otherwise the app host).
+  The server looks the record up directly at public resolvers (`dns.resolvers`
+  / `PERMAHOSTIO_DNS_RESOLVERS`, default `1.1.1.1:53,8.8.8.8:53`). It checks
+  pending domains every 5 minutes for 7 days, and also on demand ("Verify now").
+- Once the CNAME matches, the setup and first month are charged, the domain
+  turns active, and with TLS on a Let's Encrypt certificate is obtained for it
+  in the background (TLS-ALPN-01, so even with the wildcard DNS-01 mode).
+- A pending claim reserves nothing: only a verified domain is unique, so a
+  hostname can't be squatted by adding it first. Apex domains can't hold a
+  CNAME, so use a subdomain such as `www`.
 
 ## MCP, CLI and OAuth
 
@@ -78,7 +106,7 @@ make test    # 100% coverage is enforced on both sides
 
 `/setup` opens only with the root access token (`PERMAHOSTIO_AUTH_ROOT_ACCESS_TOKEN`;
 when it is empty, a random one is generated and printed at startup). There you
-can change the monthly credit grant, the maximum TTL and the public URL mode
+can change the monthly credit grant, the anonymous maximum TTL and the public URL mode
 (these apply immediately), and these, which apply after a restart:
 
 - **Domains**: the app URL (default `http://localhost:2027`; e.g.
@@ -95,7 +123,7 @@ can change the monthly credit grant, the maximum TTL and the public URL mode
     domain), or, with an optional Cloudflare API token, one `*.<sites domain>`
     wildcard over DNS-01 with no such limit.
 - **Database** (SQLite or PostgreSQL) and **file storage** (local disk or S3).
-- **Files**: the maximum TTL and upload size, and whether folders are served
+- **Files**: the upload size, the anonymous maximum TTL, and whether folders are served
   at paths or on `f<folder ID>.<public domain>` subdomains.
 - **Sign-in providers**: Google, GitHub, and any number of custom OpenID
   Connect providers (name, SVG icon, client ID, client secret, auth URL = the

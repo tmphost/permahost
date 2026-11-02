@@ -30,21 +30,63 @@ type User struct {
 	CreatedAt      time.Time `json:"createdAt"`
 }
 
-// Limits are the server's upload and billing rules.
+// Limits are the server's upload limit and pricing.
 type Limits struct {
-	DefaultTTLMinutes   int   `json:"defaultTtlMinutes"`
-	MaxTTLMinutes       int   `json:"maxTtlMinutes"`
-	MaxUploadBytes      int64 `json:"maxUploadBytes"`
-	BillingBlockMinutes int   `json:"billingBlockMinutes"`
-	BillingUnitBytes    int64 `json:"billingUnitBytes"`
+	MaxUploadBytes int64   `json:"maxUploadBytes"`
+	Pricing        Pricing `json:"pricing"`
 }
 
-// Folder is a temporary public folder.
+// Pricing is what hosting costs, in credits per month.
+type Pricing struct {
+	// StorageCredits is charged for each started StorageBlockBytes the
+	// account stores.
+	StorageBlockBytes int64 `json:"storageBlockBytes"`
+	StorageCredits    int   `json:"storageCredits"`
+	FolderCredits     int   `json:"folderCredits"`
+	DomainCredits     int   `json:"domainCredits"`
+	// DomainSetupCredits is charged once, when a domain is verified.
+	DomainSetupCredits int `json:"domainSetupCredits"`
+}
+
+// Usage is what the account hosts and what that costs a month.
+type Usage struct {
+	Folders        int     `json:"folders"`
+	StorageBytes   int64   `json:"storageBytes"`
+	StorageBlocks  int     `json:"storageBlocks"`
+	Domains        int     `json:"domains"`
+	MonthlyCredits int     `json:"monthlyCredits"`
+	Pricing        Pricing `json:"pricing"`
+}
+
+// Folder is a permanent public folder.
 type Folder struct {
-	ID        string    `json:"id"`
-	CreatedAt time.Time `json:"createdAt"`
-	ExpiresAt time.Time `json:"expiresAt"`
-	URL       string    `json:"url"`
+	ID           string    `json:"id"`
+	CreatedAt    time.Time `json:"createdAt"`
+	SizeBytes    int64     `json:"sizeBytes"`
+	URL          string    `json:"url"`
+	Title        string    `json:"title"`
+	DefaultTitle string    `json:"defaultTitle"`
+}
+
+// CreateFolderResult is the response to creating a folder.
+type CreateFolderResult struct {
+	Folder       Folder `json:"folder"`
+	CreditsSpent int    `json:"creditsSpent"`
+}
+
+// Domain is a custom domain pointed at a folder.
+type Domain struct {
+	ID       string `json:"id"`
+	FolderID string `json:"folderId"`
+	Hostname string `json:"hostname"`
+	// Target is what the hostname's CNAME record must name.
+	Target string `json:"target"`
+	// Status is "pending" until the CNAME is verified, then "active".
+	Status     string    `json:"status"`
+	CreatedAt  time.Time `json:"createdAt"`
+	VerifiedAt time.Time `json:"verifiedAt,omitzero"`
+	CheckedAt  time.Time `json:"checkedAt,omitzero"`
+	LastError  string    `json:"lastError,omitempty"`
 }
 
 // File is a file inside a folder.
@@ -119,21 +161,27 @@ func (c *Client) Limits(ctx context.Context) (*Limits, error) {
 	return &out, nil
 }
 
-// CreateFolder creates an empty folder that expires after ttlMinutes.
-func (c *Client) CreateFolder(ctx context.Context, ttlMinutes int) (*Folder, error) {
-	in := struct {
-		TTLMinutes int `json:"ttlMinutes"`
-	}{ttlMinutes}
+// Usage returns what the account hosts and what that costs a month.
+func (c *Client) Usage(ctx context.Context) (*Usage, error) {
 	var out struct {
-		Folder Folder `json:"folder"`
+		Usage Usage `json:"usage"`
 	}
-	if err := c.doJSON(ctx, http.MethodPost, "/folders", in, &out); err != nil {
+	if err := c.doJSON(ctx, http.MethodGet, "/users/me/usage", nil, &out); err != nil {
 		return nil, err
 	}
-	return &out.Folder, nil
+	return &out.Usage, nil
 }
 
-// ListFolders returns the live folders, newest first.
+// CreateFolder creates an empty folder, which is charged for the month.
+func (c *Client) CreateFolder(ctx context.Context) (*CreateFolderResult, error) {
+	var out CreateFolderResult
+	if err := c.doJSON(ctx, http.MethodPost, "/folders", nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// ListFolders returns the folders, newest first.
 func (c *Client) ListFolders(ctx context.Context) ([]Folder, error) {
 	var out struct {
 		Folders []Folder `json:"folders"`
@@ -201,6 +249,53 @@ func (c *Client) GetFile(ctx context.Context, folderID, filePath string) (io.Rea
 // DeleteFile deletes one file from a folder.
 func (c *Client) DeleteFile(ctx context.Context, folderID, filePath string) error {
 	return c.doJSON(ctx, http.MethodDelete, filesPath(folderID, filePath), nil, nil)
+}
+
+// ListDomains returns a folder's custom domains.
+func (c *Client) ListDomains(ctx context.Context, folderID string) ([]Domain, error) {
+	var out struct {
+		Domains []Domain `json:"domains"`
+	}
+	if err := c.doJSON(ctx, http.MethodGet, domainsPath(folderID), nil, &out); err != nil {
+		return nil, err
+	}
+	return out.Domains, nil
+}
+
+// AddDomain adds hostname to a folder as a pending custom domain; it is
+// served once its CNAME record names Target and it is verified.
+func (c *Client) AddDomain(ctx context.Context, folderID, hostname string) (*Domain, error) {
+	in := struct {
+		Hostname string `json:"hostname"`
+	}{hostname}
+	var out struct {
+		Domain Domain `json:"domain"`
+	}
+	if err := c.doJSON(ctx, http.MethodPost, domainsPath(folderID), in, &out); err != nil {
+		return nil, err
+	}
+	return &out.Domain, nil
+}
+
+// VerifyDomain checks a domain's CNAME record now and activates the domain,
+// which is charged, when it points at the folder.
+func (c *Client) VerifyDomain(ctx context.Context, folderID, domainID string) (*Domain, error) {
+	var out struct {
+		Domain Domain `json:"domain"`
+	}
+	if err := c.doJSON(ctx, http.MethodPost, domainsPath(folderID)+"/"+url.PathEscape(domainID)+"/verify", nil, &out); err != nil {
+		return nil, err
+	}
+	return &out.Domain, nil
+}
+
+// DeleteDomain removes a custom domain from a folder.
+func (c *Client) DeleteDomain(ctx context.Context, folderID, domainID string) error {
+	return c.doJSON(ctx, http.MethodDelete, domainsPath(folderID)+"/"+url.PathEscape(domainID), nil, nil)
+}
+
+func domainsPath(folderID string) string {
+	return "/folders/" + url.PathEscape(folderID) + "/domains"
 }
 
 // filesPath escapes each segment on its own so that "/" keeps separating

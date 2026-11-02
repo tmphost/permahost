@@ -6,7 +6,6 @@ package cmd
 
 import (
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/tmphost/permahost/cli/internal/config"
@@ -25,19 +24,6 @@ func TestExecute_helpAndVersion(t *testing.T) {
 	assert.Contains(t, h.stdout.String(), "permahost login")
 	assert.Equal(t, 0, h.run("--version"))
 	assert.Equal(t, "permahost version v1.2.3\n", h.stdout.String())
-}
-
-func TestHumanDuration(t *testing.T) {
-	for d, want := range map[time.Duration]string{
-		-time.Minute:                  "expired",
-		0:                             "expired",
-		30 * time.Second:              "1m",
-		29 * time.Minute:              "29m",
-		2*time.Hour + 5*time.Minute:   "2h5m",
-		50*time.Hour + 10*time.Minute: "2d2h",
-	} {
-		assert.Equal(t, want, humanDuration(d), d)
-	}
 }
 
 func TestHumanSize(t *testing.T) {

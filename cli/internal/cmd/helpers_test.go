@@ -25,7 +25,13 @@ var now = time.Date(2026, 10, 18, 12, 0, 0, 0, time.UTC)
 
 const meJSON = `{"user":{"id":"u1","email":"ada@example.com","name":"Ada","credits":40,"creditsLimit":100,"creditsRenewAt":"2026-11-01T00:00:00Z"}}`
 
-const limitsJSON = `{"defaultTtlMinutes":30,"maxTtlMinutes":432000,"maxUploadBytes":16,"billingBlockMinutes":30,"billingUnitBytes":1048576}`
+// pricingJSON uses 4 byte storage blocks so small test files span several.
+const pricingJSON = `{"storageBlockBytes":4,"storageCredits":5,"folderCredits":10,"domainCredits":7,"domainSetupCredits":3}`
+
+const limitsJSON = `{"maxUploadBytes":16,"pricing":` + pricingJSON + `}`
+
+// usageJSON stores 6 bytes, which fill 2 of the 4 byte blocks.
+const usageJSON = `{"usage":{"folders":1,"storageBytes":6,"storageBlocks":2,"domains":1,"monthlyCredits":27,"pricing":` + pricingJSON + `}}`
 
 // harness runs commands against a fake server: mux holds the API and OAuth
 // handlers, and API requests must carry the access token in validToken.

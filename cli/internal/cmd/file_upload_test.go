@@ -5,7 +5,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,7 +13,6 @@ import (
 	"sort"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -104,75 +102,59 @@ func TestCollect_errors(t *testing.T) {
 	assert.ErrorIs(t, err, os.ErrPermission)
 }
 
-func TestTTLMinutes(t *testing.T) {
-	l := &client.Limits{DefaultTTLMinutes: 30, MaxTTLMinutes: 120}
-	m, err := ttlMinutes(time.Hour, false, l)
-	require.NoError(t, err)
-	assert.Equal(t, 30, m)
+func TestMaxCost(t *testing.T) {
+	u := &client.Usage{StorageBytes: 6, StorageBlocks: 2, Pricing: client.Pricing{StorageBlockBytes: 4, StorageCredits: 5, FolderCredits: 10}}
+	assert.Equal(t, 10, maxCost(true, 2, u), "fits in the started block")
+	assert.Equal(t, 0, maxCost(false, 2, u))
+	assert.Equal(t, 5, maxCost(false, 3, u), "starts a third block")
+	assert.Equal(t, 20, maxCost(true, 7, u))
 
-	m, err = ttlMinutes(2*time.Hour, true, l)
-	require.NoError(t, err)
-	assert.Equal(t, 120, m)
-
-	_, err = ttlMinutes(90*time.Second, true, l)
-	assert.EqualError(t, err, "--ttl 1m30s is not a whole number of minutes")
-	_, err = ttlMinutes(0, true, l)
-	assert.EqualError(t, err, "--ttl must be between 1m and 120m")
-	_, err = ttlMinutes(3*time.Hour, true, l)
-	assert.EqualError(t, err, "--ttl must be between 1m and 120m")
+	u.StorageBlocks = 4
+	assert.Equal(t, 0, maxCost(false, 1, u), "usage reports more blocks than stored")
 }
 
-func TestBillingBlocks(t *testing.T) {
-	assert.Equal(t, 1, billingBlocks(30, 30))
-	assert.Equal(t, 2, billingBlocks(31, 30))
-	assert.Equal(t, 1, billingBlocks(-5, 30), "expired folders still cost one block")
-	assert.Equal(t, 7, billingBlocks(7, 0), "a zero block size counts minutes")
-}
-
-func TestBillingUnits(t *testing.T) {
+func TestStorageBlocks(t *testing.T) {
 	const mb = 1 << 20
-	assert.Equal(t, 1, billingUnits(mb, mb))
-	assert.Equal(t, 2, billingUnits(mb+mb/100, mb), "1.01 MB")
-	assert.Equal(t, 3, billingUnits(2*mb+mb/100, mb), "2.01 MB")
-	assert.Equal(t, 1, billingUnits(0, mb), "empty files still cost one unit")
-	assert.Equal(t, 5, billingUnits(5, 0), "a zero unit size counts bytes")
+	assert.Equal(t, 0, storageBlocks(0, 25*mb))
+	assert.Equal(t, 1, storageBlocks(1, 25*mb))
+	assert.Equal(t, 1, storageBlocks(25*mb, 25*mb))
+	assert.Equal(t, 2, storageBlocks(25*mb+1, 25*mb))
+	assert.Equal(t, 5, storageBlocks(5, 0), "a zero block size counts bytes")
 }
 
 // fakeUploads serves the endpoints an upload touches and records the files.
 type fakeUploads struct {
-	ttl      int
+	usage    string
+	created  int
 	puts     map[string]string
 	failPath string
 }
 
 func newUploadHarness(t *testing.T) (*harness, *fakeUploads) {
 	h := newHarness(t)
-	f := &fakeUploads{puts: map[string]string{}}
+	f := &fakeUploads{usage: usageJSON, puts: map[string]string{}}
 	h.reply("GET /api/v1/limits", 200, limitsJSON)
 	h.reply("GET /api/v1/users/me", 200, meJSON)
-	h.mux.HandleFunc("POST /api/v1/folders", func(w http.ResponseWriter, r *http.Request) {
-		var in struct {
-			TTLMinutes int `json:"ttlMinutes"`
-		}
-		_ = json.NewDecoder(r.Body).Decode(&in)
-		f.ttl = in.TTLMinutes
-		exp := now.Add(time.Duration(in.TTLMinutes) * time.Minute).Format(time.RFC3339)
-		w.WriteHeader(201)
-		fmt.Fprintf(w, `{"folder":{"id":"rs","expiresAt":%q,"url":"https://rs-u1.permahost.test/"}}`, exp)
+	h.mux.HandleFunc("GET /api/v1/users/me/usage", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, f.usage)
 	})
-	h.reply("GET /api/v1/folders/ab", 200, `{"folder":{"id":"ab","expiresAt":"2026-10-18T12:45:00Z","url":"https://ab-u1.permahost.test/"},"files":[]}`)
-	h.reply("GET /api/v1/folders/dd", 200, `{"folder":{"id":"dd","expiresAt":"2026-10-18T11:00:00Z","url":"https://dd-u1.permahost.test/"},"files":[]}`)
+	h.mux.HandleFunc("POST /api/v1/folders", func(w http.ResponseWriter, _ *http.Request) {
+		f.created++
+		w.WriteHeader(201)
+		_, _ = io.WriteString(w, `{"folder":{"id":"rs","url":"https://rs-u1.permahost.test/"},"creditsSpent":10}`)
+	})
+	h.reply("GET /api/v1/folders/ab", 200, `{"folder":{"id":"ab","url":"https://ab-u1.permahost.test/"},"files":[]}`)
 	h.reply("GET /api/v1/folders/nope", 404, `{"error":"folder not found"}`)
 	h.mux.HandleFunc("PUT /api/v1/folders/{id}/files/{path...}", func(w http.ResponseWriter, r *http.Request) {
 		p := r.PathValue("path")
 		if p == f.failPath {
 			w.WriteHeader(402)
-			_, _ = w.Write([]byte(`{"error":"not enough credits"}`))
+			_, _ = w.Write([]byte(`{"error":"insufficient credits"}`))
 			return
 		}
 		b, _ := io.ReadAll(r.Body)
 		f.puts[r.PathValue("id")+"/"+p] = string(b)
-		fmt.Fprintf(w, `{"file":{"path":%q,"size":%d,"url":"https://%s-u1.permahost.test/%s"},"creditsSpent":1}`, p, len(b), r.PathValue("id"), p)
+		fmt.Fprintf(w, `{"file":{"path":%q,"size":%d,"url":"https://%s-u1.permahost.test/%s"},"creditsSpent":5}`, p, len(b), r.PathValue("id"), p)
 	})
 	return h, f
 }
@@ -182,17 +164,17 @@ func TestUpload_newFolder(t *testing.T) {
 	root := t.TempDir()
 	writeTree(t, root, map[string]string{"site/index.html": "<h1>", "site/my page.html": "x"})
 
+	// 6 stored + 5 new bytes start a third 4 byte block: 10 + 5 credits.
 	assert.Equal(t, 0, h.run("file", "upload", filepath.Join(root, "site")), h.stderr.String())
-	assert.Equal(t, 30, f.ttl, "server default TTL")
+	assert.Equal(t, 1, f.created)
 	assert.Equal(t, map[string]string{"rs/site/index.html": "<h1>", "rs/site/my page.html": "x"}, f.puts)
-	exp := now.Add(30 * time.Minute)
-	assert.Equal(t, "Uploading 2 files (cost: 2 credits)\n"+
+	assert.Equal(t, "Uploading 2 files (5 B, at most 15 credits; you have 40)\n"+
 		"https://rs-u1.permahost.test/site/index.html\nhttps://rs-u1.permahost.test/site/my page.html\n\n"+
-		"id:      rs\nurl:     https://rs-u1.permahost.test/\nexpires: "+formatTime(exp)+" (in 30m)\n", h.stdout.String())
+		"id:      rs\nurl:     https://rs-u1.permahost.test/\ncredits: 20 spent\n", h.stdout.String())
 
 	assert.Equal(t, 0, h.run("file", "upload", filepath.Join(root, "site")+"/", "--path", "/www/", "--json"), h.stderr.String())
 	assert.Equal(t, map[string]any{
-		"id": "rs", "url": "https://rs-u1.permahost.test/", "expiresAt": "2026-10-18T12:30:00Z", "creditsSpent": float64(2),
+		"id": "rs", "url": "https://rs-u1.permahost.test/", "creditsSpent": float64(20),
 		"files": []any{
 			map[string]any{"fileName": "index.html", "path": "www", "size": float64(4), "url": "https://rs-u1.permahost.test/www/index.html"},
 			map[string]any{"fileName": "my page.html", "path": "www", "size": float64(1), "url": "https://rs-u1.permahost.test/www/my page.html"},
@@ -205,18 +187,13 @@ func TestUpload_singleFileJSON(t *testing.T) {
 	root := t.TempDir()
 	writeTree(t, root, map[string]string{"a.txt": "abc"})
 
-	assert.Equal(t, 0, h.run("file", "upload", filepath.Join(root, "a.txt"), "--ttl", "2h", "--path", "logs/x", "--name", "today.txt", "--json"), h.stderr.String())
-	assert.Equal(t, 120, f.ttl)
+	assert.Equal(t, 0, h.run("file", "upload", filepath.Join(root, "a.txt"), "--path", "logs/x", "--name", "today.txt", "--json"), h.stderr.String())
 	assert.Equal(t, map[string]string{"rs/logs/x/today.txt": "abc"}, f.puts)
-	v := h.decode()
-	assert.Equal(t, "rs", v["id"])
-	assert.Equal(t, "https://rs-u1.permahost.test/logs/x/today.txt", v["url"])
-	assert.Equal(t, "today.txt", v["fileName"])
-	assert.Equal(t, "logs/x", v["path"])
-	assert.Equal(t, float64(3), v["size"])
-	assert.Equal(t, float64(1), v["creditsSpent"])
-	assert.Equal(t, "2026-10-18T14:00:00Z", v["expiresAt"])
-	assert.Len(t, v["files"], 1)
+	assert.Equal(t, map[string]any{
+		"id": "rs", "url": "https://rs-u1.permahost.test/logs/x/today.txt", "fileName": "today.txt", "path": "logs/x", "size": float64(3),
+		"creditsSpent": float64(15),
+		"files":        []any{map[string]any{"fileName": "today.txt", "path": "logs/x", "size": float64(3), "url": "https://rs-u1.permahost.test/logs/x/today.txt"}},
+	}, h.decode())
 }
 
 func TestUpload_existingFolder(t *testing.T) {
@@ -224,15 +201,12 @@ func TestUpload_existingFolder(t *testing.T) {
 	root := t.TempDir()
 	writeTree(t, root, map[string]string{"a.txt": "a"})
 
-	// 45 minutes left spans two 30 minute blocks.
+	// One byte fits in the started block and no folder is created.
 	assert.Equal(t, 0, h.run("file", "upload", filepath.Join(root, "a.txt"), "--id", "ab"), h.stderr.String())
-	assert.Contains(t, h.stdout.String(), "Uploading 1 files (cost: 2 credits)\n")
-	assert.Contains(t, h.stdout.String(), "id:      ab\n")
+	assert.Equal(t, "Uploading 1 files (1 B, at most 0 credits; you have 40)\nhttps://ab-u1.permahost.test/a.txt\n\n"+
+		"id:      ab\nurl:     https://ab-u1.permahost.test/\ncredits: 5 spent\n", h.stdout.String())
 	assert.Equal(t, map[string]string{"ab/a.txt": "a"}, f.puts)
-
-	assert.Equal(t, 0, h.run("file", "upload", filepath.Join(root, "a.txt"), "--id", "dd"), h.stderr.String())
-	assert.Contains(t, h.stdout.String(), "(cost: 1 credits)")
-	assert.Contains(t, h.stdout.String(), "(in expired)")
+	assert.Zero(t, f.created)
 
 	assert.Equal(t, 1, h.run("file", "upload", filepath.Join(root, "a.txt"), "--id", "nope"))
 	assert.Equal(t, "error: folder not found\n", h.stderr.String())
@@ -248,9 +222,7 @@ func TestUpload_validation(t *testing.T) {
 		args []string
 		err  string
 	}{
-		{[]string{a, "--ttl", "1h", "--id", "ab"}, "[id ttl] were all set"},
-		{[]string{a, "--ttl", "90s"}, "not a whole number of minutes"},
-		{[]string{a, "--ttl", "8000h"}, "--ttl must be between 1m and 432000m"},
+		{[]string{a, "--ttl", "1h"}, "unknown flag: --ttl"},
 		{[]string{filepath.Join(root, "nope")}, "no such file"},
 		{[]string{filepath.Join(root, "big.bin")}, "is 17 B, over the 16 B upload limit"},
 		{[]string{a, "--name", "x/y.txt"}, `--name "x/y.txt" must not contain /`},
@@ -263,12 +235,22 @@ func TestUpload_validation(t *testing.T) {
 		assert.Equal(t, 1, h.run(append([]string{"file", "upload"}, tc.args...)...), tc.args)
 		assert.Contains(t, h.stderr.String(), tc.err, tc.args)
 	}
+}
 
-	// 30 days is 1440 blocks of 30 minutes, far beyond 40 credits.
-	assert.Equal(t, 1, h.run("file", "upload", a, "--ttl", "720h"))
-	assert.Equal(t, "Uploading 1 files (cost: 1440 credits)\n", h.stdout.String())
-	renew := formatTime(time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC))
-	assert.Equal(t, "error: not enough credits: this upload costs 1440 but you have 40 (renews at "+renew+")\n", h.stderr.String())
+func TestUpload_lowCredits(t *testing.T) {
+	h, f := newUploadHarness(t)
+	f.usage = `{"usage":{"pricing":{"storageBlockBytes":1,"storageCredits":20,"folderCredits":10}}}`
+	f.failPath = "b.txt"
+	root := t.TempDir()
+	writeTree(t, root, map[string]string{"a.txt": "a", "b.txt": "b"})
+
+	// The estimate is only a bound, so the server decides where to stop.
+	assert.Equal(t, 1, h.run("file", "upload", filepath.Join(root, "a.txt"), filepath.Join(root, "b.txt")))
+	assert.Equal(t, "Uploading 2 files (2 B, at most 50 credits; you have 40)\n"+
+		"Your credits may not cover this upload: it stops at the first file they cannot pay for.\n"+
+		"https://rs-u1.permahost.test/a.txt\n"+
+		"Uploaded 1 of 2 files to folder rs for 15 credits before the error.\n", h.stdout.String())
+	assert.Equal(t, "error: upload b.txt: insufficient credits\n", h.stderr.String())
 }
 
 func TestUpload_apiErrors(t *testing.T) {
@@ -290,9 +272,17 @@ func TestUpload_apiErrors(t *testing.T) {
 	h = newHarness(t)
 	h.reply("GET /api/v1/limits", 200, limitsJSON)
 	h.reply("GET /api/v1/users/me", 200, meJSON)
-	h.reply("POST /api/v1/folders", 400, `{"error":"bad ttl"}`)
+	h.reply("GET /api/v1/users/me/usage", 500, `{"error":"usage down"}`)
 	assert.Equal(t, 1, h.run("file", "upload", a))
-	assert.Equal(t, "error: bad ttl\n", h.stderr.String())
+	assert.Equal(t, "error: usage down\n", h.stderr.String())
+
+	h = newHarness(t)
+	h.reply("GET /api/v1/limits", 200, limitsJSON)
+	h.reply("GET /api/v1/users/me", 200, meJSON)
+	h.reply("GET /api/v1/users/me/usage", 200, usageJSON)
+	h.reply("POST /api/v1/folders", 402, `{"error":"insufficient credits: 10 needed"}`)
+	assert.Equal(t, 1, h.run("file", "upload", a))
+	assert.Equal(t, "error: insufficient credits: 10 needed\n", h.stderr.String())
 }
 
 func TestUpload_partialFailure(t *testing.T) {
@@ -302,15 +292,16 @@ func TestUpload_partialFailure(t *testing.T) {
 	writeTree(t, root, map[string]string{"site/a.txt": "a", "site/b.txt": "b", "site/c.txt": "c"})
 
 	assert.Equal(t, 1, h.run("file", "upload", filepath.Join(root, "site")))
-	assert.Equal(t, "Uploading 3 files (cost: 3 credits)\nhttps://rs-u1.permahost.test/site/a.txt\n"+
-		"Uploaded 1 of 3 files to folder rs before the error.\n", h.stdout.String())
-	assert.Equal(t, "error: upload site/b.txt: not enough credits\n", h.stderr.String())
+	assert.Equal(t, "Uploading 3 files (3 B, at most 15 credits; you have 40)\nhttps://rs-u1.permahost.test/site/a.txt\n"+
+		"Uploaded 1 of 3 files to folder rs for 15 credits before the error.\n", h.stdout.String())
+	assert.Equal(t, "error: upload site/b.txt: insufficient credits\n", h.stderr.String())
 	assert.Equal(t, map[string]string{"rs/site/a.txt": "a"}, f.puts)
 
 	assert.Equal(t, 1, h.run("file", "upload", filepath.Join(root, "site"), "--json"))
 	v := h.decode()
 	assert.Len(t, v["files"], 1)
 	assert.Equal(t, "rs", v["id"])
+	assert.Equal(t, float64(15), v["creditsSpent"])
 }
 
 func TestUpload_unreadableFile(t *testing.T) {

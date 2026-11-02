@@ -42,6 +42,7 @@ func TestLogin(t *testing.T) {
 	h.saveConfig(config.Config{})
 	h.reply("POST /oauth2/token", 200, tokenJSON)
 	h.reply("GET /api/v1/users/me", 200, meJSON)
+	h.reply("GET /api/v1/users/me/usage", 200, usageJSON)
 	h.approve()
 
 	assert.Equal(t, 0, h.run("login", "--server", h.srv.URL+"/"), h.stderr.String())
@@ -114,12 +115,23 @@ func TestLogout(t *testing.T) {
 func TestWhoami(t *testing.T) {
 	h := newHarness(t)
 	h.reply("GET /api/v1/users/me", 200, meJSON)
+	h.reply("GET /api/v1/users/me/usage", 200, usageJSON)
 	assert.Equal(t, 0, h.run("whoami"))
 	renew := formatTime(time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC))
-	assert.Equal(t, "Email:      ada@example.com\nName:       Ada\nCredits:    40/100\nRenews at:  "+renew+"\n", h.stdout.String())
+	assert.Equal(t, "Email:         ada@example.com\nName:          Ada\nCredits:       40/100\nRenews at:     "+renew+"\n"+
+		"Hosting:       1 folders, 6 B in 2 storage blocks, 1 domains\nMonthly cost:  27 credits\n"+
+		"Prices:        10 credits a month per folder, 5 per started 4 B stored, 7 per domain (+3 to set it up)\n", h.stdout.String())
 
 	assert.Equal(t, 0, h.run("whoami", "--json"))
-	assert.Equal(t, float64(40), h.decode()["user"].(map[string]any)["credits"])
+	v := h.decode()
+	assert.Equal(t, float64(40), v["user"].(map[string]any)["credits"])
+	assert.Equal(t, float64(27), v["usage"].(map[string]any)["monthlyCredits"])
+
+	h = newHarness(t)
+	h.reply("GET /api/v1/users/me", 200, meJSON)
+	h.reply("GET /api/v1/users/me/usage", 500, `{"error":"usage down"}`)
+	assert.Equal(t, 1, h.run("whoami"))
+	assert.Equal(t, "error: usage down\n", h.stderr.String())
 }
 
 func TestNotLoggedIn(t *testing.T) {
@@ -128,6 +140,8 @@ func TestNotLoggedIn(t *testing.T) {
 	for _, args := range [][]string{
 		{"whoami"}, {"file", "ls"}, {"file", "get", "--id", "rs"}, {"file", "url", "--id", "rs"},
 		{"file", "rm", "--id", "rs"}, {"file", "upload", "."}, {"file", "download", "--id", "rs", "a"},
+		{"domain", "add", "--id", "rs", "a.example"}, {"domain", "ls", "--id", "rs"},
+		{"domain", "verify", "--id", "rs", "d1"}, {"domain", "rm", "--id", "rs", "d1"},
 	} {
 		assert.Equal(t, 1, h.run(args...), args)
 		assert.Equal(t, `error: not logged in to `+h.srv.URL+`: run "permahost login"`+"\n", h.stderr.String(), args)
@@ -141,6 +155,7 @@ func TestTokensStayWithTheirServer(t *testing.T) {
 	assert.Equal(t, "error: not logged in to https://elsewhere.example: run \"permahost login\"\n", h.stderr.String())
 
 	h.reply("GET /api/v1/users/me", 200, meJSON)
+	h.reply("GET /api/v1/users/me/usage", 200, usageJSON)
 	assert.Equal(t, 0, h.run("whoami", "--server", h.srv.URL))
 }
 
@@ -155,6 +170,7 @@ func TestSession_refreshesNearExpiry(t *testing.T) {
 		_, _ = io.WriteString(w, `{"access_token":"at2","token_type":"Bearer","expires_in":600,"refresh_token":"rt2"}`)
 	})
 	h.reply("GET /api/v1/users/me", 200, meJSON)
+	h.reply("GET /api/v1/users/me/usage", 200, usageJSON)
 
 	assert.Equal(t, 0, h.run("whoami"), h.stderr.String())
 	assert.Equal(t, url.Values{"grant_type": {"refresh_token"}, "refresh_token": {"rt"}, "client_id": {"00000000001"}}, form)
@@ -167,6 +183,7 @@ func TestSession_refreshesAfter401(t *testing.T) {
 	// A server that does not rotate refresh tokens keeps the old one valid.
 	h.reply("POST /oauth2/token", 200, `{"access_token":"at2","token_type":"Bearer","expires_in":600}`)
 	h.reply("GET /api/v1/users/me", 200, meJSON)
+	h.reply("GET /api/v1/users/me/usage", 200, usageJSON)
 
 	assert.Equal(t, 0, h.run("whoami"), h.stderr.String())
 	assert.Equal(t, config.Config{Server: h.srv.URL, AccessToken: "at2", RefreshToken: "rt", Expiry: now.Add(10 * time.Minute)}, h.loadConfig())
@@ -205,6 +222,7 @@ func TestSession_saveWarning(t *testing.T) {
 	h.saveConfig(config.Config{Server: h.srv.URL, RefreshToken: "rt"})
 	h.reply("POST /oauth2/token", 200, tokenJSON)
 	h.reply("GET /api/v1/users/me", 200, meJSON)
+	h.reply("GET /api/v1/users/me/usage", 200, usageJSON)
 	dir := filepath.Dir(h.env["PERMAHOSTIO_CONFIG"])
 	require.NoError(t, os.Chmod(h.env["PERMAHOSTIO_CONFIG"], 0o400))
 	require.NoError(t, os.Chmod(dir, 0o500))

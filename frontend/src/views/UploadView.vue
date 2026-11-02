@@ -78,7 +78,7 @@ async function upload() {
   uploading.value = true
   progress.value = { done: 0, total: items.length }
   try {
-    if (!addToResult.value) result.value = { folder: await createFolder(limits.value.defaultTtlMinutes), files: [] }
+    if (!addToResult.value) result.value = { folder: (await createFolder(limits.value.defaultTtlMinutes)).folder, files: [] }
     const { folder, files } = result.value
     for (const item of items) {
       const { file } = await uploadFile(folder.id, item.path, item.file)

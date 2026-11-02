@@ -12,7 +12,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
 	"net/http"
 	"os"
 	"os/signal"
@@ -72,11 +71,17 @@ func Execute(args []string, opts Options) int {
 func newRoot(a *app) *cobra.Command {
 	root := &cobra.Command{
 		Use:   "permahost",
-		Short: "Share files from temporary public folders",
-		Long: `permahost uploads files to temporary public folders that expire on their own.
+		Short: "Host files in permanent public folders",
+		Long: `permahost hosts files in public folders that stay up until you delete them,
+optionally served on your own domain.
+
+Hosting is paid for with a monthly credit grant: each folder, each started
+25 MB block of storage and each custom domain costs credits a month
+("permahost whoami" shows your usage and prices).
 
 Sign in with "permahost login", which opens the browser. The "file" commands
-mirror the "file" tool of the server's MCP endpoint.`,
+mirror the "file" tool of the server's MCP endpoint; the "domain" commands
+point your own domains at folders.`,
 		Version:       a.opts.Version,
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -85,7 +90,7 @@ mirror the "file" tool of the server's MCP endpoint.`,
 	root.SetErr(a.opts.Err)
 	root.PersistentFlags().BoolVar(&a.json, "json", false, "print machine-readable JSON")
 	root.PersistentFlags().StringVar(&a.server, "server", "", "server URL (default: $"+config.EnvServer+", the logged-in server or "+config.DefaultServer+")")
-	root.AddCommand(newLoginCmd(a), newLogoutCmd(a), newWhoamiCmd(a), newFileCmd(a))
+	root.AddCommand(newLoginCmd(a), newLogoutCmd(a), newWhoamiCmd(a), newFileCmd(a), newDomainCmd(a))
 	return root
 }
 
@@ -145,24 +150,6 @@ func table(w io.Writer, header string, rows []string) {
 // formatTime renders a timestamp in the user's zone, to the minute.
 func formatTime(t time.Time) string {
 	return t.Local().Format("2006-01-02 15:04 MST")
-}
-
-// humanDuration renders a remaining lifetime with its two largest units,
-// rounding up so a folder never looks shorter-lived than it is.
-func humanDuration(d time.Duration) string {
-	if d <= 0 {
-		return "expired"
-	}
-	m := int(math.Ceil(d.Minutes()))
-	days, hours, mins := m/(24*60), m%(24*60)/60, m%60
-	switch {
-	case days > 0:
-		return fmt.Sprintf("%dd%dh", days, hours)
-	case hours > 0:
-		return fmt.Sprintf("%dh%dm", hours, mins)
-	default:
-		return fmt.Sprintf("%dm", mins)
-	}
 }
 
 // humanSize renders a byte count with a binary unit.

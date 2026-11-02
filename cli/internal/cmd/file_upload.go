@@ -10,12 +10,10 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"math"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/tmphost/permahost/cli/internal/client"
@@ -24,9 +22,9 @@ import (
 func newFileUploadCmd(a *app) *cobra.Command {
 	var o uploadOptions
 	c := &cobra.Command{
-		Use:   "upload <local path>... [--id ID | --ttl 30m] [--path DIR] [--name NAME]",
-		Short: "Upload files to a temporary public folder",
-		Long: `Upload files to a temporary public folder and print their public URLs.
+		Use:   "upload <local path>... [--id ID] [--path DIR] [--name NAME]",
+		Short: "Upload files to a public folder",
+		Long: `Upload files to a permanent public folder and print their public URLs.
 
 A file is uploaded under its base name, or under --name when it is the only
 argument. A directory is uploaded recursively under its own name ("site"
@@ -35,36 +33,33 @@ uploads its contents (rsync style: "site/" uploads index.html). Symlinks to
 files are followed; other non-regular files are skipped. --path puts
 everything under a directory inside the folder.
 
-Without --id a new folder is created that expires after --ttl. With --id the
-files are added to that folder and keep its expiry; a file already at the same
-path is replaced and keeps its URL, so re-uploading updates it.
+Without --id a new folder is created. With --id the files are added to that
+folder; a file already at the same path is replaced and keeps its URL, so
+re-uploading updates it. Folders stay up until you delete them.
 
-Each file costs one credit per started MB of its size per started billing
-block of the folder's remaining lifetime; the total is checked against your credits up front.`,
-		Example: `  permahost file upload report.pdf --ttl 2h
+Hosting is billed monthly in credits: a new folder is charged when it is
+created, and storage per started block (25 MB) your account stores, when an
+upload starts a block not yet paid for this month. The most the upload can
+cost is shown before it starts, and the credits actually spent after it.`,
+		Example: `  permahost file upload report.pdf
   permahost file upload site/                # index.html, css/app.css, ...
   permahost file upload site --id rs         # site/index.html, ... in folder rs
   permahost file upload out.txt --path logs --name today.txt`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			o.ttlSet = cmd.Flags().Changed("ttl")
 			return a.upload(cmd.Context(), args, o)
 		},
 	}
 	c.Flags().StringVar(&o.id, "id", "", "upload into this existing folder instead of creating one, replacing files at the same paths")
-	c.Flags().DurationVar(&o.ttl, "ttl", 30*time.Minute, "lifetime of a new folder, in whole minutes (e.g. 30m, 2h, 72h)")
 	c.Flags().StringVar(&o.dir, "path", "", "directory inside the folder, such as site/css")
 	c.Flags().StringVar(&o.name, "name", "", "upload a single local file under this file name")
-	c.MarkFlagsMutuallyExclusive("id", "ttl")
 	return c
 }
 
 type uploadOptions struct {
-	id     string
-	ttl    time.Duration
-	ttlSet bool
-	dir    string
-	name   string
+	id   string
+	dir  string
+	name string
 }
 
 // localFile is a file on disk and the slash-separated path it uploads to.
@@ -111,49 +106,49 @@ func (a *app) upload(ctx context.Context, args []string, o uploadOptions) error 
 	if err != nil {
 		return err
 	}
+	var size int64
 	for _, f := range files {
 		if f.size > limits.MaxUploadBytes {
 			return fmt.Errorf("%s is %s, over the %s upload limit", f.src, humanSize(f.size), humanSize(limits.MaxUploadBytes))
 		}
+		size += f.size
 	}
 	user, err := c.Me(ctx)
 	if err != nil {
 		return err
 	}
+	usage, err := c.Usage(ctx)
+	if err != nil {
+		return err
+	}
 
 	var folder *client.Folder
-	var minutes int
 	if o.id != "" {
 		d, err := c.GetFolder(ctx, o.id)
 		if err != nil {
 			return err
 		}
 		folder = &d.Folder
-		minutes = int(math.Ceil(folder.ExpiresAt.Sub(a.opts.Now()).Minutes()))
-	} else if minutes, err = ttlMinutes(o.ttl, o.ttlSet, limits); err != nil {
-		return err
 	}
-
-	cost := 0
-	for _, f := range files {
-		cost += billingUnits(f.size, limits.BillingUnitBytes) * billingBlocks(minutes, limits.BillingBlockMinutes)
-	}
-	a.progress("Uploading %d files (cost: %d credits)\n", len(files), cost)
+	cost := maxCost(folder == nil, size, usage)
+	a.progress("Uploading %d files (%s, at most %d credits; you have %d)\n", len(files), humanSize(size), cost, user.Credits)
 	if user.Credits < cost {
-		return fmt.Errorf("not enough credits: this upload costs %d but you have %d (renews at %s)",
-			cost, user.Credits, formatTime(user.CreditsRenewAt))
+		a.progress("Your credits may not cover this upload: it stops at the first file they cannot pay for.\n")
 	}
 
+	var res fileOutput
 	if folder == nil {
-		if folder, err = c.CreateFolder(ctx, minutes); err != nil {
+		created, err := c.CreateFolder(ctx)
+		if err != nil {
 			return err
 		}
+		folder, res.CreditsSpent = &created.Folder, created.CreditsSpent
 	}
-	res := fileOutput{ID: folder.ID, URL: folder.URL, ExpiresAt: rfc3339(folder.ExpiresAt)}
+	res.ID, res.URL = folder.ID, folder.URL
 	for _, f := range files {
 		put, err := putFile(ctx, c, folder.ID, f)
 		if err != nil {
-			a.progress("Uploaded %d of %d files to folder %s before the error.\n", len(res.Files), len(files), folder.ID)
+			a.progress("Uploaded %d of %d files to folder %s for %d credits before the error.\n", len(res.Files), len(files), folder.ID, res.CreditsSpent)
 			if a.json {
 				_ = a.output(res, nil)
 			}
@@ -169,7 +164,7 @@ func (a *app) upload(ctx context.Context, args []string, o uploadOptions) error 
 		res.URL, res.FileName, res.Path, res.Size = f.URL, f.FileName, f.Path, f.Size
 	}
 	return a.output(res, func(w io.Writer) {
-		fmt.Fprintf(w, "\nid:      %s\nurl:     %s\nexpires: %s\n", folder.ID, folder.URL, a.expiry(folder.ExpiresAt))
+		fmt.Fprintf(w, "\nid:      %s\nurl:     %s\ncredits: %d spent\n", folder.ID, folder.URL, res.CreditsSpent)
 	})
 }
 
@@ -182,34 +177,23 @@ func putFile(ctx context.Context, c *client.Client, folderID string, f localFile
 	return c.PutFile(ctx, folderID, f.dst, fh, f.size)
 }
 
-// ttlMinutes validates --ttl against the server limits, falling back to the
-// server default when the flag was not given.
-func ttlMinutes(ttl time.Duration, set bool, l *client.Limits) (int, error) {
-	if !set {
-		return l.DefaultTTLMinutes, nil
+// maxCost is the most an upload of size bytes can cost: a new folder, plus
+// every storage block the bytes start beyond what the account stores. The
+// server may charge less, since replaced files free their space and blocks
+// already paid for this month are not charged again.
+func maxCost(newFolder bool, size int64, u *client.Usage) int {
+	p := u.Pricing
+	cost := max(0, storageBlocks(u.StorageBytes+size, p.StorageBlockBytes)-u.StorageBlocks) * p.StorageCredits
+	if newFolder {
+		cost += p.FolderCredits
 	}
-	if ttl%time.Minute != 0 {
-		return 0, fmt.Errorf("--ttl %s is not a whole number of minutes", ttl)
-	}
-	m := int(ttl / time.Minute)
-	if m < 1 || m > l.MaxTTLMinutes {
-		return 0, fmt.Errorf("--ttl must be between 1m and %dm", l.MaxTTLMinutes)
-	}
-	return m, nil
+	return cost
 }
 
-// billingBlocks is how many started blocks a lifetime spans, at least one
-// because even an about-to-expire folder is charged for the upload.
-func billingBlocks(minutes, block int) int {
+// storageBlocks is how many started blocks size bytes take.
+func storageBlocks(size, block int64) int {
 	block = max(block, 1)
-	return max(1, (minutes+block-1)/block)
-}
-
-// billingUnits is how many started units a file's size spans, at least
-// one because even an empty file is charged for the upload.
-func billingUnits(size, unit int64) int {
-	unit = max(unit, 1)
-	return int(max(1, (size+unit-1)/unit))
+	return int((size + block - 1) / block)
 }
 
 // collect expands the arguments into the files to upload, rejecting two

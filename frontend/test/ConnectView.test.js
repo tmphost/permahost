@@ -61,7 +61,7 @@ describe('ConnectView', () => {
     )
     expect(wrapper.find('[data-test="snippet-cli-login"]').text()).toBe(`permahost login --server ${server()}`)
     expect(wrapper.find('[data-test="snippet-cli-examples"]').text().split('\n')).toEqual([
-      'permahost file upload ./index.html --ttl 1h',
+      'permahost file upload ./index.html',
       'permahost file get --id <id>',
       'permahost file url --id <id>',
     ])

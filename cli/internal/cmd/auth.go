@@ -50,13 +50,14 @@ func (a *app) login(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return a.output(userView{user}, func(w io.Writer) {
+	return a.output(userView{User: user}, func(w io.Writer) {
 		fmt.Fprintf(w, "Logged in to %s as %s (%d/%d credits)\n", server, user.Email, user.Credits, user.CreditsLimit)
 	})
 }
 
 type userView struct {
-	User *client.User `json:"user"`
+	User  *client.User  `json:"user"`
+	Usage *client.Usage `json:"usage,omitempty"`
 }
 
 func newLogoutCmd(a *app) *cobra.Command {
@@ -85,7 +86,7 @@ func newLogoutCmd(a *app) *cobra.Command {
 func newWhoamiCmd(a *app) *cobra.Command {
 	return &cobra.Command{
 		Use:   "whoami",
-		Short: "Show the signed-in user and remaining credits",
+		Short: "Show the signed-in user, credits, usage and prices",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			c, err := a.client()
@@ -96,11 +97,20 @@ func newWhoamiCmd(a *app) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return a.output(userView{user}, func(w io.Writer) {
+			usage, err := c.Usage(cmd.Context())
+			if err != nil {
+				return err
+			}
+			return a.output(userView{User: user, Usage: usage}, func(w io.Writer) {
+				p := usage.Pricing
 				table(w, "Email:\t"+user.Email, []string{
 					"Name:\t" + user.Name,
 					fmt.Sprintf("Credits:\t%d/%d", user.Credits, user.CreditsLimit),
 					"Renews at:\t" + formatTime(user.CreditsRenewAt),
+					fmt.Sprintf("Hosting:\t%d folders, %s in %d storage blocks, %d domains", usage.Folders, humanSize(usage.StorageBytes), usage.StorageBlocks, usage.Domains),
+					fmt.Sprintf("Monthly cost:\t%d credits", usage.MonthlyCredits),
+					fmt.Sprintf("Prices:\t%d credits a month per folder, %d per started %s stored, %d per domain (+%d to set it up)",
+						p.FolderCredits, p.StorageCredits, humanSize(p.StorageBlockBytes), p.DomainCredits, p.DomainSetupCredits),
 				})
 			})
 		},

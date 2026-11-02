@@ -2,7 +2,7 @@
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
-// Command permahost uploads files to temporary public folders on a permahost
+// Command permahost uploads files to permanent public folders on a permahost
 // server.
 package main
 

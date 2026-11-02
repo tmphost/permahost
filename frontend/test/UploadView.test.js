@@ -19,9 +19,7 @@ import { dataTransfer, dirEntry, fileEntry } from './dropEntries'
 
 const limits = {
   defaultTtlMinutes: 10,
-  maxTtlMinutes: 10,
   maxUploadBytes: 4 * 1024 * 1024,
-  billingBlockMinutes: 30,
   anonymous: true,
   fileOps: 5,
   fileOpsWindowMinutes: 30,
@@ -59,7 +57,7 @@ describe('UploadView', () => {
   beforeEach(() => {
     useToasts().toasts.value = []
     fetchLimits.mockResolvedValue(limits)
-    createFolder.mockResolvedValue(folder)
+    createFolder.mockResolvedValue({ folder, creditsSpent: 0 })
     uploadFile.mockImplementation(async (_id, path, f) => ({
       file: { path, size: f.size, url: `${folder.url}${path}` },
       creditsSpent: 0,
@@ -167,7 +165,7 @@ describe('UploadView', () => {
     expect(wrapper.find('[data-test="result-b.txt"]').text()).toContain('20 B')
 
     // Unticked, the next upload starts a new folder.
-    createFolder.mockResolvedValueOnce({ id: 'xyz', url: 'https://permahost.io/files/1/xyz/' })
+    createFolder.mockResolvedValueOnce({ folder: { id: 'xyz', url: 'https://permahost.io/files/1/xyz/' }, creditsSpent: 0 })
     await pick(wrapper, '[data-test="pick-files"]', [file('a.txt')])
     await wrapper.find('[data-test="upload-into-result"]').setValue(false)
     expect(wrapper.find('[data-test="selected-replaces"]').exists()).toBe(false)

@@ -10,7 +10,6 @@ import (
 	"io"
 	"net/url"
 	"strings"
-	"time"
 	"unicode/utf8"
 
 	"github.com/spf13/cobra"
@@ -22,7 +21,6 @@ import (
 type fileOutput struct {
 	ID           string `json:"id,omitempty"`
 	URL          string `json:"url,omitempty"`
-	ExpiresAt    string `json:"expiresAt,omitempty"`
 	FileName     string `json:"fileName,omitempty"`
 	Path         string `json:"path,omitempty"`
 	Size         int64  `json:"size,omitempty"`
@@ -116,26 +114,24 @@ func validPath(p string) error {
 	return nil
 }
 
-// rfc3339 matches how the MCP tool renders times.
-func rfc3339(t time.Time) string {
-	return t.UTC().Format(time.RFC3339)
-}
-
-// expiry renders a folder's expiry for humans.
-func (a *app) expiry(t time.Time) string {
-	return fmt.Sprintf("%s (in %s)", formatTime(t), humanDuration(t.Sub(a.opts.Now())))
+// folderTitle is the name a folder is shown under: the owner's title, or
+// the server's default.
+func folderTitle(f client.Folder) string {
+	if f.Title != "" {
+		return f.Title
+	}
+	return f.DefaultTitle
 }
 
 func newFileCmd(a *app) *cobra.Command {
 	c := &cobra.Command{
 		Use:   "file",
 		Short: "Upload, download and share files (mirrors the MCP file tool)",
-		Long: `Upload, download and share files in temporary folders.
+		Long: `Upload, download and share files in permanent public folders.
 
 The upload, download, get and url subcommands mirror the actions of the
-server's MCP "file" tool: --id, --ttl and --path are its id, ttl and path
-arguments, and the file name is its fileName. ls and rm are extras for
-managing folders.`,
+server's MCP "file" tool: --id and --path are its id and path arguments, and
+the file name is its fileName. ls and rm are extras for managing folders.`,
 	}
 	c.AddCommand(newFileUploadCmd(a), newFileDownloadCmd(a), newFileGetCmd(a), newFileURLCmd(a), newFileLsCmd(a), newFileRmCmd(a))
 	return c
@@ -156,7 +152,7 @@ func newFileGetCmd(a *app) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			out := fileOutput{ID: d.Folder.ID, URL: d.Folder.URL, ExpiresAt: rfc3339(d.Folder.ExpiresAt), Files: make([]fileInfo, len(d.Files))}
+			out := fileOutput{ID: d.Folder.ID, URL: d.Folder.URL, Files: make([]fileInfo, len(d.Files))}
 			for i, f := range d.Files {
 				out.Files[i] = toFileInfo(f)
 			}
@@ -170,7 +166,7 @@ func newFileGetCmd(a *app) *cobra.Command {
 					}
 					table(w, "FILE NAME\tPATH\tSIZE\tURL", rows)
 				}
-				fmt.Fprintf(w, "\nid:      %s\nurl:     %s\nexpires: %s\n", out.ID, out.URL, a.expiry(d.Folder.ExpiresAt))
+				fmt.Fprintf(w, "\nid:      %s\nurl:     %s\nsize:    %s\n", out.ID, out.URL, humanSize(d.Folder.SizeBytes))
 			})
 		},
 	}
@@ -221,7 +217,7 @@ The file does not have to exist yet.`,
 			for i, s := range segs {
 				segs[i] = url.PathEscape(s)
 			}
-			out := fileOutput{ID: d.Folder.ID, URL: d.Folder.URL + strings.Join(segs, "/"), ExpiresAt: rfc3339(d.Folder.ExpiresAt), FileName: name, Path: dir}
+			out := fileOutput{ID: d.Folder.ID, URL: d.Folder.URL + strings.Join(segs, "/"), FileName: name, Path: dir}
 			return a.output(out, func(w io.Writer) {
 				fmt.Fprintln(w, out.URL)
 			})
@@ -236,7 +232,7 @@ The file does not have to exist yet.`,
 func newFileLsCmd(a *app) *cobra.Command {
 	return &cobra.Command{
 		Use:   "ls",
-		Short: "List your live folders",
+		Short: "List your folders",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			c, err := a.client()
@@ -254,9 +250,9 @@ func newFileLsCmd(a *app) *cobra.Command {
 				}
 				rows := make([]string, len(folders))
 				for i, f := range folders {
-					rows[i] = f.ID + "\t" + humanDuration(f.ExpiresAt.Sub(a.opts.Now())) + "\t" + f.URL
+					rows[i] = f.ID + "\t" + folderTitle(f) + "\t" + humanSize(f.SizeBytes) + "\t" + f.URL
 				}
-				table(w, "ID\tEXPIRES IN\tURL", rows)
+				table(w, "ID\tTITLE\tSIZE\tURL", rows)
 			})
 		},
 	}

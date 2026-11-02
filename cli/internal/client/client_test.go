@@ -77,22 +77,29 @@ func TestMe(t *testing.T) {
 }
 
 func TestLimits(t *testing.T) {
-	c, req, _ := serve(t, 200, `{"defaultTtlMinutes":30,"maxTtlMinutes":432000,"maxUploadBytes":16777216,"billingBlockMinutes":30,"billingUnitBytes":1048576}`)
+	c, req, _ := serve(t, 200, `{"maxUploadBytes":16777216,"pricing":{"storageBlockBytes":26214400,"storageCredits":500,"folderCredits":400,"domainCredits":300,"domainSetupCredits":200}}`)
 	l, err := c.Limits(context.Background())
 	require.NoError(t, err)
-	assert.Equal(t, &Limits{30, 432000, 16777216, 30, 1048576}, l)
+	assert.Equal(t, &Limits{MaxUploadBytes: 16777216, Pricing: Pricing{26214400, 500, 400, 300, 200}}, l)
 	assert.Equal(t, "/api/v1/limits", req.URL.Path)
 }
 
-func TestCreateFolder(t *testing.T) {
-	c, req, body := serve(t, 201, `{"folder":{"id":"f1","url":"https://h/p/f1/","expiresAt":"2026-10-18T12:00:00Z"}}`)
-	f, err := c.CreateFolder(context.Background(), 60)
+func TestUsage(t *testing.T) {
+	c, req, _ := serve(t, 200, `{"usage":{"folders":2,"storageBytes":30000000,"storageBlocks":2,"domains":1,"monthlyCredits":2500,"pricing":{"storageCredits":500}}}`)
+	u, err := c.Usage(context.Background())
 	require.NoError(t, err)
-	assert.Equal(t, &Folder{ID: "f1", URL: "https://h/p/f1/", ExpiresAt: ts}, f)
+	assert.Equal(t, &Usage{Folders: 2, StorageBytes: 30000000, StorageBlocks: 2, Domains: 1, MonthlyCredits: 2500, Pricing: Pricing{StorageCredits: 500}}, u)
+	assert.Equal(t, "/api/v1/users/me/usage", req.URL.Path)
+}
+
+func TestCreateFolder(t *testing.T) {
+	c, req, body := serve(t, 201, `{"folder":{"id":"f1","url":"https://h/p/f1/","createdAt":"2026-10-18T12:00:00Z","sizeBytes":0,"title":"","defaultTitle":"f1"},"creditsSpent":500}`)
+	r, err := c.CreateFolder(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, &CreateFolderResult{Folder: Folder{ID: "f1", URL: "https://h/p/f1/", CreatedAt: ts, DefaultTitle: "f1"}, CreditsSpent: 500}, r)
 	assert.Equal(t, "POST", req.Method)
 	assert.Equal(t, "/api/v1/folders", req.URL.Path)
-	assert.Equal(t, "application/json", req.Header.Get("Content-Type"))
-	assert.JSONEq(t, `{"ttlMinutes":60}`, *body)
+	assert.Empty(t, *body)
 }
 
 func TestListFolders(t *testing.T) {
@@ -165,6 +172,41 @@ func TestDeleteFile(t *testing.T) {
 	assert.Equal(t, "/api/v1/folders/f1/files/site/index.html", req.URL.Path)
 }
 
+func TestListDomains(t *testing.T) {
+	c, req, _ := serve(t, 200, `{"domains":[{"id":"d1","folderId":"f1","hostname":"www.example.com","target":"f1.permahost.io","status":"active","createdAt":"2026-10-18T12:00:00Z","verifiedAt":"2026-10-18T12:00:00Z"}]}`)
+	ds, err := c.ListDomains(context.Background(), "f1")
+	require.NoError(t, err)
+	assert.Equal(t, []Domain{{ID: "d1", FolderID: "f1", Hostname: "www.example.com", Target: "f1.permahost.io", Status: "active", CreatedAt: ts, VerifiedAt: ts}}, ds)
+	assert.Equal(t, "GET", req.Method)
+	assert.Equal(t, "/api/v1/folders/f1/domains", req.URL.Path)
+}
+
+func TestAddDomain(t *testing.T) {
+	c, req, body := serve(t, 201, `{"domain":{"id":"d1","folderId":"f1","hostname":"www.example.com","target":"f1.permahost.io","status":"pending"}}`)
+	d, err := c.AddDomain(context.Background(), "f1", "www.example.com")
+	require.NoError(t, err)
+	assert.Equal(t, &Domain{ID: "d1", FolderID: "f1", Hostname: "www.example.com", Target: "f1.permahost.io", Status: "pending"}, d)
+	assert.Equal(t, "POST", req.Method)
+	assert.Equal(t, "/api/v1/folders/f1/domains", req.URL.Path)
+	assert.JSONEq(t, `{"hostname":"www.example.com"}`, *body)
+}
+
+func TestVerifyDomain(t *testing.T) {
+	c, req, _ := serve(t, 200, `{"domain":{"id":"d1","status":"active"}}`)
+	d, err := c.VerifyDomain(context.Background(), "f1", "d1")
+	require.NoError(t, err)
+	assert.Equal(t, &Domain{ID: "d1", Status: "active"}, d)
+	assert.Equal(t, "POST", req.Method)
+	assert.Equal(t, "/api/v1/folders/f1/domains/d1/verify", req.URL.Path)
+}
+
+func TestDeleteDomain(t *testing.T) {
+	c, req, _ := serve(t, 204, ``)
+	require.NoError(t, c.DeleteDomain(context.Background(), "f1", "d1"))
+	assert.Equal(t, "DELETE", req.Method)
+	assert.Equal(t, "/api/v1/folders/f1/domains/d1", req.URL.Path)
+}
+
 // Every typed method shares the same error handling; each is checked
 // against an API error so its error return is exercised.
 func TestMethodErrors(t *testing.T) {
@@ -173,11 +215,16 @@ func TestMethodErrors(t *testing.T) {
 	calls := map[string]func() error{
 		"Me":           func() error { _, err := c.Me(ctx); return err },
 		"Limits":       func() error { _, err := c.Limits(ctx); return err },
-		"CreateFolder": func() error { _, err := c.CreateFolder(ctx, 1); return err },
+		"Usage":        func() error { _, err := c.Usage(ctx); return err },
+		"CreateFolder": func() error { _, err := c.CreateFolder(ctx); return err },
 		"ListFolders":  func() error { _, err := c.ListFolders(ctx); return err },
 		"GetFolder":    func() error { _, err := c.GetFolder(ctx, "f"); return err },
 		"DeleteFolder": func() error { return c.DeleteFolder(ctx, "f") },
 		"DeleteFile":   func() error { return c.DeleteFile(ctx, "f", "a") },
+		"ListDomains":  func() error { _, err := c.ListDomains(ctx, "f"); return err },
+		"AddDomain":    func() error { _, err := c.AddDomain(ctx, "f", "h"); return err },
+		"VerifyDomain": func() error { _, err := c.VerifyDomain(ctx, "f", "d"); return err },
+		"DeleteDomain": func() error { return c.DeleteDomain(ctx, "f", "d") },
 	}
 	for name, call := range calls {
 		err := call()
@@ -247,7 +294,7 @@ func TestRetryAfterRefresh(t *testing.T) {
 	// A JSON body is replayed too.
 	tokens = &rotatingTokens{}
 	c = New(retryServer(t), tokens)
-	_, err = c.CreateFolder(ctx, 30)
+	_, err = c.AddDomain(ctx, "rs", "www.example.com")
 	require.NoError(t, err)
 }
 

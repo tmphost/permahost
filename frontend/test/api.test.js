@@ -162,7 +162,7 @@ describe('files api', () => {
 
   it('fetchLimits returns the limits', async () => {
     const api = await loadApi('')
-    const limits = { defaultTtlMinutes: 30, maxTtlMinutes: 60, maxUploadBytes: 10, billingBlockMinutes: 30 }
+    const limits = { maxUploadBytes: 10, pricing: { folderCredits: 500 } }
     fetch.mockResolvedValueOnce(json(limits))
     expect(await api.fetchLimits()).toEqual(limits)
     expect(fetch).toHaveBeenCalledWith('/api/v1/limits', { method: 'GET', credentials: 'same-origin' })
@@ -175,13 +175,22 @@ describe('files api', () => {
     fetch.mockResolvedValueOnce(json({ folders: [{ id: 'f1' }] }))
     expect(await api.listFolders()).toEqual([{ id: 'f1' }])
 
-    fetch.mockResolvedValueOnce(json({ folder: { id: 'f2' } }, 201))
-    expect(await api.createFolder(60)).toEqual({ id: 'f2' })
+    fetch.mockResolvedValueOnce(json({ folder: { id: 'f2' }, creditsSpent: 500 }, 201))
+    expect(await api.createFolder()).toEqual({ folder: { id: 'f2' }, creditsSpent: 500 })
     expect(fetch).toHaveBeenLastCalledWith('/api/v1/folders', {
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
-      body: '{"ttlMinutes":60}',
+      body: '{}',
+    })
+
+    fetch.mockResolvedValueOnce(json({ folder: { id: 'f3' }, creditsSpent: 0 }, 201))
+    await api.createFolder(10)
+    expect(fetch).toHaveBeenLastCalledWith('/api/v1/folders', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{"ttlMinutes":10}',
     })
 
     fetch.mockResolvedValueOnce(json({ folder: { id: 'f2' }, files: [] }))
@@ -204,7 +213,7 @@ describe('files api', () => {
     expect(fetch).toHaveBeenLastCalledWith('/api/v1/folders/f2', { method: 'DELETE', credentials: 'same-origin' })
 
     fetch.mockResolvedValueOnce(json({ error: 'not enough credits' }, 402))
-    await expect(api.createFolder(30)).rejects.toMatchObject({ message: 'not enough credits', status: 402 })
+    await expect(api.createFolder()).rejects.toMatchObject({ message: 'not enough credits', status: 402 })
     fetch.mockResolvedValueOnce(json({}, 500))
     await expect(api.listFolders()).rejects.toThrow('Failed to load folders (500)')
     fetch.mockResolvedValueOnce(json({}, 404))
@@ -237,5 +246,47 @@ describe('files api', () => {
     })
     fetch.mockResolvedValueOnce(json({}, 404))
     await expect(api.deleteFile('f1', 'x')).rejects.toThrow('Failed to delete file (404)')
+  })
+  it('fetchUsage returns the usage', async () => {
+    const api = await loadApi('')
+    fetch.mockResolvedValueOnce(json({ usage: { folders: 2, monthlyCredits: 1500 } }))
+    expect(await api.fetchUsage()).toEqual({ folders: 2, monthlyCredits: 1500 })
+    expect(fetch).toHaveBeenCalledWith('/api/v1/users/me/usage', { method: 'GET', credentials: 'same-origin' })
+    fetch.mockResolvedValueOnce(json({}, 500))
+    await expect(api.fetchUsage()).rejects.toThrow('Failed to load usage (500)')
+  })
+
+  it('lists, adds, verifies and removes domains', async () => {
+    const api = await loadApi('')
+    const domain = { id: 'd1', hostname: 'www.example.com', status: 'pending' }
+    fetch.mockResolvedValueOnce(json({ domains: [domain] }))
+    expect(await api.listDomains('f 1')).toEqual([domain])
+    expect(fetch).toHaveBeenLastCalledWith('/api/v1/folders/f%201/domains', { method: 'GET', credentials: 'same-origin' })
+
+    fetch.mockResolvedValueOnce(json({ domain }, 201))
+    expect(await api.createDomain('f1', 'www.example.com')).toEqual(domain)
+    expect(fetch).toHaveBeenLastCalledWith('/api/v1/folders/f1/domains', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{"hostname":"www.example.com"}',
+    })
+
+    fetch.mockResolvedValueOnce(json({ domain: { ...domain, status: 'active' } }))
+    expect(await api.verifyDomain('f1', 'd1')).toEqual({ ...domain, status: 'active' })
+    expect(fetch).toHaveBeenLastCalledWith('/api/v1/folders/f1/domains/d1/verify', { method: 'POST', credentials: 'same-origin' })
+
+    fetch.mockResolvedValueOnce(json(null, 204))
+    expect(await api.deleteDomain('f1', 'd1')).toBeUndefined()
+    expect(fetch).toHaveBeenLastCalledWith('/api/v1/folders/f1/domains/d1', { method: 'DELETE', credentials: 'same-origin' })
+
+    fetch.mockResolvedValueOnce(json({}, 500))
+    await expect(api.listDomains('f1')).rejects.toThrow('Failed to load domains (500)')
+    fetch.mockResolvedValueOnce(json({ error: 'domain is taken' }, 409))
+    await expect(api.createDomain('f1', 'x.example.com')).rejects.toMatchObject({ message: 'domain is taken', status: 409 })
+    fetch.mockResolvedValueOnce(json({}, 422))
+    await expect(api.verifyDomain('f1', 'd1')).rejects.toThrow('Failed to verify domain (422)')
+    fetch.mockResolvedValueOnce(json({}, 404))
+    await expect(api.deleteDomain('f1', 'd1')).rejects.toThrow('Failed to remove domain (404)')
   })
 })

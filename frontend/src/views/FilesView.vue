@@ -5,24 +5,23 @@
 -->
 
 <script setup>
-import { computed, inject, nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { computed, inject, nextTick, onMounted, ref } from 'vue'
 import DeleteModal from '../components/DeleteModal.vue'
-import { createFolder, deleteFile, deleteFolder, fetchFolder, fetchLimits, listFolders, renameFolder, uploadFile } from '../api'
+import FolderDomains from '../components/FolderDomains.vue'
+import {
+  createFolder,
+  deleteFile,
+  deleteFolder,
+  fetchFolder,
+  fetchLimits,
+  fetchUsage,
+  listFolders,
+  renameFolder,
+  uploadFile,
+} from '../api'
 import { useClipboard } from '../composables/useClipboard'
 import { useToasts } from '../composables/useToasts'
-import {
-  droppedFiles,
-  expiresIn,
-  fileItems,
-  formatBytes,
-  formatMinutes,
-  isFileDrag,
-  ttlOptions,
-  uploadCost,
-} from '../utils/files'
-
-const TICK_MS = 30 * 1000
-const MINUTE_MS = 60 * 1000
+import { droppedFiles, fileItems, formatBytes, isFileDrag, uploadCost } from '../utils/files'
 
 const PRIMARY =
   'rounded-lg bg-black dark:bg-white px-4 py-2.5 text-[11px] font-black uppercase tracking-widest text-white dark:text-zinc-900 hover:bg-gray-800 dark:hover:bg-zinc-200 disabled:opacity-50 transition-colors'
@@ -35,6 +34,7 @@ const ICONS = {
   open: 'M14 4h6v6m0-6L10 14M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5',
   upload: 'M12 16V4m0 0L7 9m5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3',
   trash: 'M4 7h16M10 11v6m4-6v6M6 7l1 12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-12M9 7V4h6v3',
+  globe: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zm0 0c2.5-2.5 3.5-5.5 3.5-9S14.5 5.5 12 3m0 18c-2.5-2.5-3.5-5.5-3.5-9S9.5 5.5 12 3M3.5 9h17M3.5 15h17',
 }
 
 const { notifyError, notifySuccess } = useToasts()
@@ -42,14 +42,12 @@ const { copy } = useClipboard()
 const currentUser = inject('currentUser', { user: ref(null), refreshUser: async () => {} })
 
 const limits = ref(null)
+const usage = ref(null)
 const folders = ref([])
 const loading = ref(true)
-const now = ref(Date.now())
-let timer = null
 
 // Upload form
 const selected = ref([])
-const ttl = ref(30)
 const dragging = ref(false)
 // dragenter/dragleave fire for every child the pointer crosses; count them so
 // the drop overlay only hides once the drag has left the page.
@@ -60,12 +58,15 @@ const progress = ref({ done: 0, total: 0 })
 // Its files keep their links: an upload to a path already there replaces
 // the file.
 const targetId = ref(null)
-// The paths already in target, to mark the files an upload replaces.
-const targetPaths = ref(new Set())
+// The files already in target, path -> size, to mark the files an upload
+// replaces and leave their size out of the storage it adds.
+const targetFiles = ref(new Map())
 const uploadCard = ref(null)
 
 // Expanded folders: id -> { loading, files }
 const expanded = ref({})
+// The IDs of folders showing their custom domains.
+const domainsOpen = ref(new Set())
 
 // The folder title being edited: { id, value }.
 const editing = ref(null)
@@ -76,41 +77,36 @@ const titleInput = ref([])
 const pendingDelete = ref(null)
 const deleting = ref(false)
 
-const ttlChoices = computed(() => (limits.value ? ttlOptions(limits.value.maxTtlMinutes) : []))
-// The slider steps through ttlChoices by index; ttl keeps the minutes. It
-// binds :value rather than v-model so Vue sets max before the value.
-const ttlIndex = computed(() => Math.max(0, ttlChoices.value.indexOf(ttl.value)))
 const sortedFolders = computed(() =>
   [...folders.value].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)),
 )
-// remainingMinutes is what is left of a folder's lifetime, in started minutes.
-const remainingMinutes = (folder) => Math.max(0, Math.ceil((Date.parse(folder.expiresAt) - now.value) / MINUTE_MS))
 // target is looked up by ID so it follows renames and reloads.
 const target = computed(() => folders.value.find((f) => f.id === targetId.value) ?? null)
-const targetExpired = computed(() => Boolean(target.value) && remainingMinutes(target.value) === 0)
-const replacing = computed(() => selected.value.filter((item) => targetPaths.value.has(item.path)).length)
+const replacing = computed(() => selected.value.filter((item) => targetFiles.value.has(item.path)).length)
 const isOversized = (file) => Boolean(limits.value) && file.size > limits.value.maxUploadBytes
 const oversized = computed(() => selected.value.filter((item) => isOversized(item.file)))
+// addedBytes is how much the upload grows the account's storage by: a
+// replaced file only adds the difference.
+const addedBytes = computed(() =>
+  selected.value.reduce((sum, item) => sum + item.file.size - (targetFiles.value.get(item.path) ?? 0), 0),
+)
+const pricing = computed(() => limits.value?.pricing ?? null)
 const cost = computed(() =>
-  limits.value
-    ? uploadCost(
-        selected.value.map((item) => item.file.size),
-        // Files added to a folder pay for the lifetime it has left.
-        target.value ? remainingMinutes(target.value) : ttl.value,
-        limits.value.billingBlockMinutes,
-        limits.value.billingUnitBytes,
-      )
+  pricing.value
+    ? uploadCost({
+        newFolder: !target.value,
+        storedBytes: usage.value?.storageBytes ?? 0,
+        addedBytes: addedBytes.value,
+        pricing: pricing.value,
+      })
     : 0,
 )
 const credits = computed(() => currentUser.user.value?.credits)
 const notEnoughCredits = computed(() => credits.value !== undefined && cost.value > credits.value)
+// A negative balance pauses every site of the account until credits renew.
+const paused = computed(() => credits.value !== undefined && credits.value < 0)
 const canUpload = computed(
-  () =>
-    Boolean(limits.value) &&
-    selected.value.length > 0 &&
-    oversized.value.length === 0 &&
-    !targetExpired.value &&
-    !uploading.value,
+  () => Boolean(limits.value) && selected.value.length > 0 && oversized.value.length === 0 && !uploading.value,
 )
 
 // folderTitle is what a folder is called: its title, else the name of its
@@ -123,17 +119,28 @@ const deleteMessage = computed(() => {
   if (!target) return ''
   const name = folderTitle(target.folder)
   if (target.file) return `${target.file.path} is removed from folder ${name}. Its link stops working.`
-  return `Folder ${name} and all of its files are removed. Their links stop working.`
+  return `Folder ${name}, its files and its custom domains are removed. Their links stop working, and so do its monthly charges.`
 })
 
 async function loadLimits() {
   try {
     limits.value = await fetchLimits()
-    const choices = ttlChoices.value
-    ttl.value = choices.includes(limits.value.defaultTtlMinutes) ? limits.value.defaultTtlMinutes : choices[0]
   } catch (err) {
     notifyError(err.message)
   }
+}
+
+async function loadUsage() {
+  try {
+    usage.value = await fetchUsage()
+  } catch (err) {
+    notifyError(err.message)
+  }
+}
+
+// refreshCredits reloads what the account is charged after a change.
+async function refreshCredits() {
+  await Promise.all([loadUsage(), currentUser.refreshUser()])
 }
 
 async function loadFolders() {
@@ -187,12 +194,12 @@ function removeSelected(path) {
 // uploadTo points the upload card at an existing folder.
 async function uploadTo(folder) {
   targetId.value = folder.id
-  targetPaths.value = new Set()
+  targetFiles.value = new Map()
   uploadCard.value.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
   try {
     const { files } = await fetchFolder(folder.id)
     // Another folder may have been picked meanwhile.
-    if (targetId.value === folder.id) targetPaths.value = new Set(files.map((f) => f.path))
+    if (targetId.value === folder.id) targetFiles.value = new Map(files.map((f) => [f.path, f.size]))
   } catch (err) {
     notifyError(err.message)
   }
@@ -200,7 +207,7 @@ async function uploadTo(folder) {
 
 function uploadToNewFolder() {
   targetId.value = null
-  targetPaths.value = new Set()
+  targetFiles.value = new Map()
 }
 
 async function upload() {
@@ -209,7 +216,7 @@ async function upload() {
   uploading.value = true
   progress.value = { done: 0, total: items.length }
   try {
-    folder ??= await createFolder(ttl.value)
+    folder ??= (await createFolder()).folder
     for (const item of items) {
       await uploadFile(folder.id, item.path, item.file)
       progress.value = { done: progress.value.done + 1, total: items.length }
@@ -222,7 +229,7 @@ async function upload() {
   } finally {
     uploading.value = false
     // A failure part-way still wrote files and spent credits.
-    const reloads = [loadFolders(), currentUser.refreshUser()]
+    const reloads = [loadFolders(), refreshCredits()]
     if (folder && expanded.value[folder.id]) reloads.push(loadFiles(folder.id))
     await Promise.all(reloads)
   }
@@ -287,15 +294,16 @@ async function confirmDelete() {
       await deleteFile(folder.id, file.path)
       const entry = expanded.value[folder.id]
       entry.files = entry.files.filter((f) => f.path !== file.path)
-      if (targetId.value === folder.id) targetPaths.value.delete(file.path)
+      if (targetId.value === folder.id) targetFiles.value.delete(file.path)
       notifySuccess('File deleted')
       // A folder left with one file is named after it.
-      await loadFolders()
+      await Promise.all([loadFolders(), loadUsage()])
     } else {
       await deleteFolder(folder.id)
       folders.value = folders.value.filter((f) => f.id !== folder.id)
       if (targetId.value === folder.id) uploadToNewFolder()
       notifySuccess('Folder deleted')
+      await loadUsage()
     }
   } catch (err) {
     notifyError(err.message)
@@ -305,15 +313,17 @@ async function confirmDelete() {
   }
 }
 
+function toggleDomains(folder) {
+  const open = new Set(domainsOpen.value)
+  if (!open.delete(folder.id)) open.add(folder.id)
+  domainsOpen.value = open
+}
+
 onMounted(() => {
   loadLimits()
+  loadUsage()
   loadFolders()
-  timer = setInterval(() => {
-    now.value = Date.now()
-  }, TICK_MS)
 })
-
-onUnmounted(() => clearInterval(timer))
 </script>
 
 <template>
@@ -338,14 +348,55 @@ onUnmounted(() => clearInterval(timer))
         <p v-if="target" class="text-xs text-gray-500 dark:text-zinc-400">
           They go into {{ folderTitle(target) }}, replacing files with the same path.
         </p>
-        <p v-else class="text-xs text-gray-500 dark:text-zinc-400">They go into a new folder that expires after {{ formatMinutes(ttl) }}.</p>
+        <p v-else class="text-xs text-gray-500 dark:text-zinc-400">They go into a new folder.</p>
       </div>
     </div>
 
     <header class="px-4 pb-4 border-b border-gray-100 dark:border-zinc-800">
       <h1 class="text-lg font-bold text-gray-900 dark:text-zinc-100 tracking-tight">Files</h1>
-      <p class="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">Upload files to a temporary folder and share the links until it expires.</p>
+      <p class="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">
+        Host files in folders with permanent links, on our domain or your own. They stay up while your account has credits.
+      </p>
     </header>
+
+    <p
+      v-if="paused"
+      role="alert"
+      class="mx-4 mt-4 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 px-3 py-2 text-xs font-medium text-rose-700 dark:text-rose-300"
+      data-test="files-paused"
+    >
+      Your sites are paused: your account is {{ -credits }} credits short. They come back as soon as your credits renew.
+    </p>
+
+    <!-- Usage -->
+    <section v-if="usage" class="px-4 pt-4" data-test="usage">
+      <dl class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div class="rounded-xl border border-gray-100 dark:border-zinc-800 px-3 py-2">
+          <dt class="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500">Folders</dt>
+          <dd class="text-sm font-bold tabular-nums text-gray-900 dark:text-zinc-100" data-test="usage-folders">{{ usage.folders }}</dd>
+        </div>
+        <div class="rounded-xl border border-gray-100 dark:border-zinc-800 px-3 py-2">
+          <dt class="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500">Storage</dt>
+          <dd class="text-sm font-bold tabular-nums text-gray-900 dark:text-zinc-100" data-test="usage-storage">
+            {{ formatBytes(usage.storageBytes) }}
+            <span class="text-[11px] font-medium text-gray-400 dark:text-zinc-500"
+              >· {{ usage.storageBlocks }} × {{ formatBytes(usage.pricing.storageBlockBytes) }}</span
+            >
+          </dd>
+        </div>
+        <div class="rounded-xl border border-gray-100 dark:border-zinc-800 px-3 py-2">
+          <dt class="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500">Domains</dt>
+          <dd class="text-sm font-bold tabular-nums text-gray-900 dark:text-zinc-100" data-test="usage-domains">{{ usage.domains }}</dd>
+        </div>
+        <div class="rounded-xl border border-gray-100 dark:border-zinc-800 px-3 py-2">
+          <dt class="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500">Monthly cost</dt>
+          <dd class="text-sm font-bold tabular-nums text-gray-900 dark:text-zinc-100" data-test="usage-monthly">
+            {{ usage.monthlyCredits }}
+            <span class="text-[11px] font-medium text-gray-400 dark:text-zinc-500">credits</span>
+          </dd>
+        </div>
+      </dl>
+    </section>
 
     <!-- Upload -->
     <section class="px-4 pt-4">
@@ -359,13 +410,14 @@ onUnmounted(() => clearInterval(timer))
             <h2 class="text-sm font-bold text-gray-900 dark:text-zinc-100">
               Upload to {{ folderTitle(target) }}
             </h2>
-            <p class="text-xs text-gray-500 dark:text-zinc-400">
-              Files with the same path are replaced and keep their links. The folder keeps its expiry.
-            </p>
+            <p class="text-xs text-gray-500 dark:text-zinc-400">Files with the same path are replaced and keep their links.</p>
           </div>
           <div v-else class="grow min-w-0">
             <h2 class="text-sm font-bold text-gray-900 dark:text-zinc-100">New folder</h2>
-            <p class="text-xs text-gray-500 dark:text-zinc-400">Choose files or a whole folder, or drop them anywhere on this page.</p>
+            <p class="text-xs text-gray-500 dark:text-zinc-400" data-test="upload-new-hint">
+              Choose files or a whole folder, or drop them anywhere on this page.
+              <template v-if="pricing">A folder costs {{ pricing.folderCredits }} credits a month.</template>
+            </p>
           </div>
           <label :class="[SECONDARY, 'cursor-pointer']">
             Choose files
@@ -375,38 +427,16 @@ onUnmounted(() => clearInterval(timer))
             Choose folder
             <input type="file" webkitdirectory multiple class="sr-only" data-test="pick-folder" @change="onPick" />
           </label>
-          <div v-if="target" class="w-48 flex items-center justify-between gap-2">
-            <div>
-              <p class="text-[11px] font-bold text-gray-500 dark:text-zinc-400">Expires in</p>
-              <p class="text-xs font-bold tabular-nums text-gray-900 dark:text-zinc-100" data-test="upload-target-expires">
-                {{ expiresIn(target.expiresAt, now) }}
-              </p>
-            </div>
-            <button type="button" :disabled="uploading" :class="SECONDARY" data-test="upload-new-folder" @click="uploadToNewFolder">
-              New folder
-            </button>
-          </div>
-          <div v-else class="w-48">
-            <div class="flex items-baseline justify-between mb-1">
-              <label for="upload-ttl" class="text-[11px] font-bold text-gray-500 dark:text-zinc-400">Expires after</label>
-              <span class="text-xs font-bold tabular-nums text-gray-900 dark:text-zinc-100" data-test="upload-ttl-value">
-                {{ formatMinutes(ttl) }}
-              </span>
-            </div>
-            <input
-              id="upload-ttl"
-              type="range"
-              min="0"
-              :max="Math.max(ttlChoices.length - 1, 0)"
-              step="1"
-              :value="ttlIndex"
-              :disabled="!limits"
-              :aria-valuetext="formatMinutes(ttl)"
-              class="w-full cursor-pointer accent-black dark:accent-white focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gray-300 dark:focus-visible:outline-zinc-600 disabled:cursor-not-allowed"
-              data-test="upload-ttl"
-              @input="ttl = ttlChoices[$event.target.valueAsNumber]"
-            />
-          </div>
+          <button
+            v-if="target"
+            type="button"
+            :disabled="uploading"
+            :class="SECONDARY"
+            data-test="upload-new-folder"
+            @click="uploadToNewFolder"
+          >
+            New folder
+          </button>
         </div>
 
         <div v-if="selected.length" class="mt-4 border-t border-gray-100 dark:border-zinc-800 pt-4" data-test="upload-summary">
@@ -419,7 +449,7 @@ onUnmounted(() => clearInterval(timer))
             >
               <span class="grow min-w-0 truncate font-mono text-gray-900 dark:text-zinc-100">{{ item.path }}</span>
               <span
-                v-if="targetPaths.has(item.path)"
+                v-if="targetFiles.has(item.path)"
                 class="shrink-0 text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400"
                 data-test="selected-replaces"
               >
@@ -448,9 +478,6 @@ onUnmounted(() => clearInterval(timer))
             {{ oversized.length === 1 ? '1 file is' : `${oversized.length} files are` }} over the
             {{ formatBytes(limits.maxUploadBytes) }} limit. Remove {{ oversized.length === 1 ? 'it' : 'them' }} to upload.
           </p>
-          <p v-if="targetExpired" role="alert" class="mt-3 text-xs font-medium text-rose-600 dark:text-rose-400" data-test="upload-target-expired">
-            {{ folderTitle(target) }} has expired. Upload to a new folder instead.
-          </p>
           <p v-if="notEnoughCredits" class="mt-3 rounded-lg border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-800 dark:text-amber-300" data-test="upload-credits-warning">
             This upload costs {{ cost }} credits but you have {{ credits }} left.
           </p>
@@ -460,6 +487,7 @@ onUnmounted(() => clearInterval(timer))
               {{ selected.length === 1 ? '1 file' : `${selected.length} files` }} ·
               <template v-if="replacing">{{ replacing }} replaced · </template>
               <span class="font-bold text-gray-900 dark:text-zinc-100">{{ cost }} credits</span>
+              <template v-if="cost"> now, then monthly</template>
             </p>
             <button type="button" :disabled="uploading" :class="SECONDARY" data-test="upload-clear" @click="selected = []">
               Clear
@@ -485,7 +513,7 @@ onUnmounted(() => clearInterval(timer))
 
       <div v-else-if="!folders.length" class="rounded-xl border border-gray-100 dark:border-zinc-800 p-8 text-center" data-test="folders-empty">
         <p class="text-sm font-bold text-gray-900 dark:text-zinc-100">No folders yet</p>
-        <p class="mt-1 text-xs text-gray-500 dark:text-zinc-400">Uploaded files show up here until they expire.</p>
+        <p class="mt-1 text-xs text-gray-500 dark:text-zinc-400">Uploaded files show up here.</p>
       </div>
 
       <ul v-else class="grid grid-cols-1 items-start gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -549,7 +577,7 @@ onUnmounted(() => clearInterval(timer))
               <template v-if="folderTitle(folder) !== folder.id">
                 <span class="font-mono" data-test="folder-id">{{ folder.id }}</span> ·
               </template>
-              <span class="tabular-nums" :title="folder.expiresAt" data-test="folder-expires">{{ expiresIn(folder.expiresAt, now) }}</span>
+              <span class="tabular-nums" data-test="folder-size">{{ formatBytes(folder.sizeBytes ?? 0) }}</span>
             </span>
             <button
               type="button"
@@ -560,6 +588,18 @@ onUnmounted(() => clearInterval(timer))
             >
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                 <path stroke-linecap="round" stroke-linejoin="round" :d="ICONS.upload" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              :class="[ICON_BUTTON, domainsOpen.has(folder.id) ? 'text-gray-900 dark:text-zinc-100 bg-gray-100 dark:bg-zinc-800' : '']"
+              title="Custom domains"
+              :aria-pressed="domainsOpen.has(folder.id)"
+              data-test="folder-domains-toggle"
+              @click="toggleDomains(folder)"
+            >
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" :d="ICONS.globe" />
               </svg>
             </button>
             <button type="button" :class="ICON_BUTTON" title="Copy folder URL" data-test="folder-copy" @click="copy(folder.url, 'Folder URL copied')">
@@ -623,6 +663,8 @@ onUnmounted(() => clearInterval(timer))
               </li>
             </ul>
           </div>
+
+          <FolderDomains v-if="domainsOpen.has(folder.id)" :folder="folder" :pricing="pricing" @changed="refreshCredits" />
         </li>
       </ul>
     </section>

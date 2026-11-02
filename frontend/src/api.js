@@ -128,9 +128,15 @@ export function filePath(path) {
   return path.split('/').map(encodeURIComponent).join('/')
 }
 
-// fetchLimits returns the upload limits and billing block size.
+// fetchLimits returns the upload limits and the pricing.
 export function fetchLimits() {
   return request('GET', '/limits', { fallback: 'Failed to load limits' })
+}
+
+// fetchUsage returns what the account hosts and what it costs a month.
+export async function fetchUsage() {
+  const body = await request('GET', '/users/me/usage', { fallback: 'Failed to load usage' })
+  return body.usage
 }
 
 export async function listFolders() {
@@ -138,10 +144,11 @@ export async function listFolders() {
   return body.folders
 }
 
-// createFolder charges nothing by itself; credits are spent per uploaded file.
-export async function createFolder(ttlMinutes) {
-  const body = await request('POST', '/folders', { body: { ttlMinutes }, fallback: 'Failed to create folder' })
-  return body.folder
+// createFolder returns { folder, creditsSpent }. An account folder costs the
+// monthly folder price and never expires; ttlMinutes only applies to a
+// folder made without signing in.
+export function createFolder(ttlMinutes) {
+  return request('POST', '/folders', { body: { ttlMinutes }, fallback: 'Failed to create folder' })
 }
 
 // fetchFolder returns { folder, files }.
@@ -175,4 +182,33 @@ export async function deleteFile(folderId, path) {
   await request('DELETE', `/folders/${encodeURIComponent(folderId)}/files/${filePath(path)}`, {
     fallback: 'Failed to delete file',
   })
+}
+
+function domainsPath(folderId) {
+  return `/folders/${encodeURIComponent(folderId)}/domains`
+}
+
+export async function listDomains(folderId) {
+  const body = await request('GET', domainsPath(folderId), { fallback: 'Failed to load domains' })
+  return body.domains
+}
+
+// createDomain claims hostname for a folder. It stays pending, and costs
+// nothing, until its CNAME is verified.
+export async function createDomain(folderId, hostname) {
+  const body = await request('POST', domainsPath(folderId), { body: { hostname }, fallback: 'Failed to add domain' })
+  return body.domain
+}
+
+// verifyDomain checks the domain's CNAME now. Once it is found the setup
+// and first month are charged.
+export async function verifyDomain(folderId, domainId) {
+  const body = await request('POST', `${domainsPath(folderId)}/${encodeURIComponent(domainId)}/verify`, {
+    fallback: 'Failed to verify domain',
+  })
+  return body.domain
+}
+
+export async function deleteDomain(folderId, domainId) {
+  await request('DELETE', `${domainsPath(folderId)}/${encodeURIComponent(domainId)}`, { fallback: 'Failed to remove domain' })
 }

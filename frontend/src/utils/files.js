@@ -2,16 +2,8 @@
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
-const MINUTE_MS = 60 * 1000
 const HOUR_MIN = 60
 const DAY_MIN = 24 * HOUR_MIN
-
-// TTL_CHOICES are the lifetimes offered on upload, capped by the server limit.
-export const TTL_CHOICES = [30, 60, 120, 360, 720, 1440, 10080]
-
-export function ttlOptions(maxTtlMinutes) {
-  return TTL_CHOICES.filter((m) => m <= maxTtlMinutes)
-}
 
 // formatMinutes renders a duration such as "30 min", "6 h", "7 days".
 export function formatMinutes(minutes) {
@@ -24,12 +16,18 @@ export function formatMinutes(minutes) {
   return `${minutes} min`
 }
 
-// uploadCost is the credits charged for files of the given sizes: one per
-// started billing unit of each file's size per started billing block, and
-// at least one of each.
-export function uploadCost(sizes, ttlMinutes, billingBlockMinutes, billingUnitBytes) {
-  const blocks = Math.max(1, Math.ceil(ttlMinutes / billingBlockMinutes))
-  return sizes.reduce((sum, size) => sum + Math.max(1, Math.ceil(size / billingUnitBytes)) * blocks, 0)
+// storageBlocks is the number of started storage blocks bytes take up.
+export function storageBlocks(bytes, blockBytes) {
+  return Math.ceil(Math.max(0, bytes) / blockBytes)
+}
+
+// uploadCost estimates the credits an upload spends now: the folder price
+// for a new folder, plus each storage block the account's stored total grows
+// into. Both are charged again every month.
+export function uploadCost({ newFolder, storedBytes, addedBytes, pricing }) {
+  const blocks =
+    storageBlocks(storedBytes + addedBytes, pricing.storageBlockBytes) - storageBlocks(storedBytes, pricing.storageBlockBytes)
+  return (newFolder ? pricing.folderCredits : 0) + Math.max(0, blocks) * pricing.storageCredits
 }
 
 export function formatBytes(bytes) {
@@ -42,17 +40,6 @@ export function formatBytes(bytes) {
     i++
   }
   return `${value.toFixed(1)} ${units[i]}`
-}
-
-// expiresIn is a coarse countdown such as "45m", "5h 12m" or "3d 4h".
-export function expiresIn(expiresAt, now = Date.now()) {
-  const at = Date.parse(expiresAt)
-  if (Number.isNaN(at)) return ''
-  const minutes = Math.ceil((at - now) / MINUTE_MS)
-  if (minutes <= 0) return 'Expired'
-  if (minutes < HOUR_MIN) return `${minutes}m`
-  if (minutes < DAY_MIN) return `${Math.floor(minutes / HOUR_MIN)}h ${minutes % HOUR_MIN}m`
-  return `${Math.floor(minutes / DAY_MIN)}d ${Math.floor((minutes % DAY_MIN) / HOUR_MIN)}h`
 }
 
 // relativePath is where a picked file lands in its folder: the path inside a

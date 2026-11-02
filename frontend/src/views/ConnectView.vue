@@ -59,7 +59,7 @@ const CLI_SNIPPETS = [
   {
     id: 'cli-examples',
     label: 'Examples',
-    text: ['permahost file upload ./index.html --ttl 1h', 'permahost file get --id <id>', 'permahost file url --id <id>'].join('\n'),
+    text: ['permahost file upload ./index.html', 'permahost file get --id <id>', 'permahost file url --id <id>'].join('\n'),
   },
 ]
 
