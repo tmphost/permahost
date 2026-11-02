@@ -79,9 +79,11 @@ func TestUpdateSettings_TLS(t *testing.T) {
 		tlsOn(&next)
 		next.TLS.Port = 0
 		next.TLS.Lego = entity.LegoSettings{Enabled: true, CloudflareAPIToken: " cf "}
+		next.Files.Subdomains, next.Files.PublicDomain = true, ""
 		e.repo.EXPECT().SaveSettings(gomock.Any()).Return(nil).Times(2)
 		rs, err := update(t, e, next)
 		require.NoError(t, err)
+		assert.Equal(t, "example.com", rs.Settings.Files.PublicDomain, "a blank public domain is the sites domain")
 		assert.Equal(t, DefaultTLSPort, rs.Settings.TLS.Port)
 		assert.Equal(t, "ops@example.com", rs.Settings.TLS.Email)
 		assert.Empty(t, rs.Settings.TLS.Lego.CloudflareAPIToken)
@@ -96,6 +98,7 @@ func TestUpdateSettings_TLS(t *testing.T) {
 		next := defaults()
 		tlsOn(&next)
 		next.TLS.Lego = entity.LegoSettings{Enabled: true}
+		next.Files.Subdomains, next.Files.PublicDomain = true, "Example.com:8443"
 		e.repo.EXPECT().SaveSettings(gomock.Any()).Return(nil)
 		_, err := update(t, e, next)
 		require.NoError(t, err)
@@ -117,6 +120,14 @@ func TestUpdateSettings_TLS(t *testing.T) {
 		"port too high":       func(s *entity.Settings) { s.TLS.Port = 70000 },
 		"bad email":           func(s *entity.Settings) { s.TLS.Email = "not an email" },
 		"lego without domain": func(s *entity.Settings) { s.Domain.SitesDomain = ""; s.TLS.Lego.Enabled = true },
+		"lego with path URLs": func(s *entity.Settings) { s.TLS.Lego.Enabled = true },
+		"subdomains without lego": func(s *entity.Settings) {
+			s.Files.Subdomains, s.Files.PublicDomain = true, "example.com"
+		},
+		"subdomains off the sites domain": func(s *entity.Settings) {
+			s.TLS.Lego.Enabled = true
+			s.Files.Subdomains, s.Files.PublicDomain = true, "app.example.com"
+		},
 	}
 	for name, mutate := range cases {
 		t.Run(name, func(t *testing.T) {

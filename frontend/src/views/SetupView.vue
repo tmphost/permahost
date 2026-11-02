@@ -366,7 +366,9 @@ onMounted(refresh)
                         <p class="text-[11px] text-gray-400 dark:text-zinc-500 mb-3">
                           Blank: each subdomain gets its own certificate on its first visit (Let's Encrypt allows about 50 new ones per
                           week per domain). With a Cloudflare API token (Zone DNS edit): one wildcard
-                          *.{{ form.domain.sitesDomain || 'sites domain' }} certificate via DNS-01, no weekly limit.
+                          *.{{ form.domain.sitesDomain || 'sites domain' }} certificate via DNS-01, no weekly limit. These are only
+                          certificates: folders are served on subdomains once Files &gt; Public URLs is set to Subdomains, and
+                          *.{{ form.domain.sitesDomain || 'sites domain' }} needs a DNS record pointing at this server.
                         </p>
                       </div>
                       <label class="flex items-center gap-2 text-xs font-bold text-gray-700 dark:text-zinc-300">

@@ -9,6 +9,7 @@ package setup
 //go:generate mockgen -source=setup.go -destination=mocks/setup.go -package=mocks
 
 import (
+	"cmp"
 	"context"
 	"crypto/sha256"
 	"crypto/subtle"
@@ -208,7 +209,7 @@ func withDefaults(s, defaults entity.Settings) entity.Settings {
 		s.Files.AnonymousMaxTTLMinutes = defaults.Files.AnonymousMaxTTLMinutes
 	}
 	if s.Files.PublicDomain == "" {
-		s.Files.PublicDomain = defaults.Files.PublicDomain
+		s.Files.PublicDomain = cmp.Or(s.Domain.SitesDomain, defaults.Files.PublicDomain)
 	}
 	return s
 }
@@ -300,6 +301,11 @@ func normalize(s entity.Settings) entity.Settings {
 	s.Auth.GitHub.ClientID = t(s.Auth.GitHub.ClientID)
 	s.Domain.AppURL = normalizeAppURL(t(s.Domain.AppURL))
 	s.Domain.SitesDomain = strings.Trim(strings.TrimPrefix(strings.ToLower(t(s.Domain.SitesDomain)), "*."), ".")
+	// Folder hosts default to the sites domain, which subdomain
+	// certificates cover.
+	if s.Files.Subdomains && s.Files.PublicDomain == "" {
+		s.Files.PublicDomain = s.Domain.SitesDomain
+	}
 	if s.TLS.Port == 0 {
 		s.TLS.Port = DefaultTLSPort
 	}
@@ -434,7 +440,23 @@ func validateTLS(s entity.Settings) error {
 	if t.Lego.Enabled && s.Domain.SitesDomain == "" {
 		return errors.New("dynamic subdomain certificates need a sites domain")
 	}
+	// The certificates and the folder URLs must agree, or folder hosts are
+	// unreachable over HTTPS.
+	switch {
+	case t.Lego.Enabled && !s.Files.Subdomains:
+		return errors.New("dynamic subdomain certificates are on, but folders are served on paths; set Public URLs under Files to Subdomains")
+	case s.Files.Subdomains && !t.Lego.Enabled:
+		return errors.New("subdomain public URLs need dynamic subdomain certificates; turn them on under TLS")
+	case s.Files.Subdomains && publicHost(s.Files.PublicDomain) != s.Domain.SitesDomain:
+		return fmt.Errorf("with TLS enabled the public domain must be the sites domain, %s, the one subdomain certificates cover", s.Domain.SitesDomain)
+	}
 	return nil
+}
+
+// publicHost is a public domain without its port.
+func publicHost(domain string) string {
+	host, _, _ := strings.Cut(domain, ":")
+	return host
 }
 
 func validateProviders(ps []entity.OAuthProviderSettings) error {
