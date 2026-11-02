@@ -6,29 +6,28 @@ package app
 
 import (
 	"net"
-	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
 
+	folderctrl "github.com/tmphost/permahost/backend/internal/controller/folder"
 	setupctrl "github.com/tmphost/permahost/backend/internal/controller/setup"
 	mapper "github.com/tmphost/permahost/backend/internal/mapper/api"
+	"github.com/tmphost/permahost/backend/internal/service/idgen"
 )
 
 // LocalSiteID is the fiber.Ctx local a dynamic subdomain's site ID is
 // stored under.
 const LocalSiteID = "siteID"
 
-// _siteLabelRE is a dynamic subdomain's label: "f" and 11 more lowercase
-// letters or digits.
-var _siteLabelRE = regexp.MustCompile(`^f[a-z0-9]{11}$`)
-
 type (
 	// hosts tells the app host, the dynamic subdomains and the verified
 	// custom domains apart from hosts the server does not answer for.
 	hosts struct {
-		app   string
+		app string
+		// sites is the parent of the dynamic subdomains: file.<sites
+		// domain>.
 		sites string
 		// domain reports whether a host is a verified custom domain.
 		domain func(host string) bool
@@ -49,7 +48,7 @@ const (
 
 func newHosts(appURL, sitesDomain string, domain func(host string) bool) hosts {
 	app := strings.ToLower(setupctrl.AppHost(appURL))
-	return hosts{app: app, sites: strings.ToLower(sitesDomain), domain: domain, open: isLocal(app) || net.ParseIP(app) != nil}
+	return hosts{app: app, sites: folderctrl.FolderDomain(strings.ToLower(sitesDomain)), domain: domain, open: isLocal(app) || net.ParseIP(app) != nil}
 }
 
 // classify returns what host (a Host header, port allowed) is, and the site
@@ -60,7 +59,7 @@ func (h hosts) classify(host string) (hostKind, string) {
 		name = n
 	}
 	if h.sites != "" {
-		if label, ok := strings.CutSuffix(name, "."+h.sites); ok && _siteLabelRE.MatchString(label) {
+		if label, ok := strings.CutSuffix(name, "."+h.sites); ok && idgen.ParseFolderID(label) != 0 {
 			return hostSite, label
 		}
 	}

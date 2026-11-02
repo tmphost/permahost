@@ -371,7 +371,7 @@ func (c *controller) reserved(host string) bool {
 // the folder's own host, or the app host when folders have none.
 func (c *controller) target(folderID int64) string {
 	if s := c.settings(); s.Subdomains {
-		return folderctrl.FolderHost(folderID) + "." + strings.ToLower(s.PublicDomain)
+		return folderctrl.FolderHost(folderID) + "." + folderctrl.FolderDomain(strings.ToLower(s.PublicDomain))
 	}
 	return c.appHost
 }

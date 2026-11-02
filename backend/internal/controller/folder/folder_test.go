@@ -30,8 +30,8 @@ import (
 var (
 	_now    = time.Date(2026, 10, 18, 12, 0, 0, 0, time.UTC)
 	errBoom = errors.New("boom")
-	_host   = "https://f000000000rs.tmp.host/"
-	_prefix = "u7/000000000rs/"
+	_host   = "https://000000rs.file.tmp.host/"
+	_prefix = "u7/000000rs/"
 )
 
 type env struct {
@@ -102,11 +102,11 @@ func TestFolderURLs_PathMode(t *testing.T) {
 	e := newEnv(t)
 	e.limits.Subdomains = false
 	f := e.folder()
-	e.storage.EXPECT().List(gomock.Any(), "u7/000000000rs/").Return([]storage.Object{{Key: "u7/000000000rs/site/a b.html", Size: 1, ModTime: _now}}, nil)
+	e.storage.EXPECT().List(gomock.Any(), "u7/000000rs/").Return([]storage.Object{{Key: "u7/000000rs/site/a b.html", Size: 1, ModTime: _now}}, nil)
 	rs, err := e.ctrl.GetFolder(context.Background(), &entity.GetFolderRequest{UserID: f.UserID, FolderID: f.ID})
 	require.NoError(t, err)
-	assert.Equal(t, "https://permahost.io/base/files/7/000000000rs/", rs.Folder.URL)
-	assert.Equal(t, "https://permahost.io/base/files/7/000000000rs/site/a%20b.html", rs.Files[0].URL)
+	assert.Equal(t, "https://permahost.io/base/files/7/000000rs/", rs.Folder.URL)
+	assert.Equal(t, "https://permahost.io/base/files/7/000000rs/site/a%20b.html", rs.Files[0].URL)
 }
 
 func TestGetLimits(t *testing.T) {
@@ -222,7 +222,7 @@ func TestCreateFolder(t *testing.T) {
 	)
 	rs, err := e.ctrl.CreateFolder(ctx, &entity.CreateFolderRequest{UserID: 7, TTLMinutes: 5})
 	require.NoError(t, err, "a TTL is ignored: an account's folders do not expire")
-	assert.Equal(t, entity.Folder{ID: 1000, UserID: 7, CreatedAt: _now, URL: _host, DefaultTitle: "000000000rs"}, rs.Folder)
+	assert.Equal(t, entity.Folder{ID: 1000, UserID: 7, CreatedAt: _now, URL: _host, DefaultTitle: "000000rs"}, rs.Folder)
 	assert.Equal(t, credit.FolderCredits, rs.CreditsSpent)
 }
 
@@ -274,9 +274,9 @@ func TestListFolders(t *testing.T) {
 		{ID: 1003, UserID: 7},
 	}, nil)
 	e.storage.EXPECT().List(ctx, _prefix).Return([]storage.Object{{Key: _prefix + "a"}, {Key: _prefix + "b"}}, nil)
-	e.storage.EXPECT().List(ctx, "u7/000000000rt/").Return([]storage.Object{{Key: "u7/000000000rt/site/report.pdf"}}, nil)
-	e.storage.EXPECT().List(ctx, "u7/000000000ru/").Return(nil, nil)
-	e.storage.EXPECT().List(ctx, "u7/000000000rv/").Return(nil, errBoom)
+	e.storage.EXPECT().List(ctx, "u7/000000rt/").Return([]storage.Object{{Key: "u7/000000rt/site/report.pdf"}}, nil)
+	e.storage.EXPECT().List(ctx, "u7/000000ru/").Return(nil, nil)
+	e.storage.EXPECT().List(ctx, "u7/000000rv/").Return(nil, errBoom)
 	rs, err := e.ctrl.ListFolders(ctx, &entity.ListFoldersRequest{UserID: 7})
 	require.NoError(t, err)
 	require.Len(t, rs.Folders, 4)
@@ -288,7 +288,7 @@ func TestListFolders(t *testing.T) {
 	for _, f := range rs.Folders {
 		titles = append(titles, f.DefaultTitle)
 	}
-	assert.Equal(t, []string{"000000000rs", "report.pdf", "000000000ru", "000000000rv"}, titles, "only file's name, else the ID")
+	assert.Equal(t, []string{"000000rs", "report.pdf", "000000ru", "000000rv"}, titles, "only file's name, else the ID")
 
 	e.folders.EXPECT().ListFoldersByUser(ctx, int64(7), _now).Return(nil, errBoom)
 	_, err = e.ctrl.ListFolders(ctx, &entity.ListFoldersRequest{UserID: 7})
@@ -311,7 +311,7 @@ func TestGetFolder(t *testing.T) {
 		{Path: "site/index.html", Size: 5, UpdatedAt: _now, URL: _host + "site/index.html"},
 	}, rs.Files)
 	assert.Equal(t, int64(1000), rs.Folder.ID)
-	assert.Equal(t, "000000000rs", rs.Folder.DefaultTitle)
+	assert.Equal(t, "000000rs", rs.Folder.DefaultTitle)
 }
 
 func TestGetFolder_SingleFileDefaultTitle(t *testing.T) {
@@ -342,7 +342,7 @@ func TestUpdateFolder(t *testing.T) {
 	rs, err = e.ctrl.UpdateFolder(ctx, &entity.UpdateFolderRequest{UserID: 7, FolderID: 1000, Title: "   "})
 	require.NoError(t, err)
 	assert.Empty(t, rs.Folder.Title, "blank clears the title")
-	assert.Equal(t, "000000000rs", rs.Folder.DefaultTitle)
+	assert.Equal(t, "000000rs", rs.Folder.DefaultTitle)
 }
 
 func TestUpdateFolder_Errors(t *testing.T) {
@@ -777,7 +777,9 @@ func TestOpenFile(t *testing.T) {
 }
 
 func TestFolderHost(t *testing.T) {
-	assert.Equal(t, "f000000000rs", FolderHost(1000))
+	assert.Equal(t, "000000rs", FolderHost(1000))
+	assert.Equal(t, "file.tmp.host", FolderDomain("tmp.host"))
+	assert.Empty(t, FolderDomain(""))
 }
 
 func TestDeleteExpiredFolders(t *testing.T) {
@@ -787,10 +789,10 @@ func TestDeleteExpiredFolders(t *testing.T) {
 	e.folders.EXPECT().ListExpiredFolders(ctx, _now, _sweepBatch).Return([]model.Folder{
 		{ID: 1, UserID: 7}, {ID: 2, UserID: 8}, {ID: 3, UserID: 9},
 	}, nil)
-	e.storage.EXPECT().DeletePrefix(ctx, "u7/00000000001/").Return(nil)
+	e.storage.EXPECT().DeletePrefix(ctx, "u7/00000001/").Return(nil)
 	e.folders.EXPECT().DeleteFolder(ctx, int64(1)).Return(nil)
-	e.storage.EXPECT().DeletePrefix(ctx, "u8/00000000002/").Return(errBoom)
-	e.storage.EXPECT().DeletePrefix(ctx, "u9/00000000003/").Return(nil)
+	e.storage.EXPECT().DeletePrefix(ctx, "u8/00000002/").Return(errBoom)
+	e.storage.EXPECT().DeletePrefix(ctx, "u9/00000003/").Return(nil)
 	e.folders.EXPECT().DeleteFolder(ctx, int64(3)).Return(nil)
 
 	rs, err := e.ctrl.DeleteExpiredFolders(ctx)

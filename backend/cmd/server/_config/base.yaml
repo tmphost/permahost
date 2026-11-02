@@ -12,7 +12,7 @@ app:
   # <baseUrl>/auth/<provider>/callback. In local development point it
   # at the Vite dev server (http://localhost:5173).
   baseUrl: ${PERMAHOSTIO_BASE_URL:http://localhost:2027}
-  # Parent domain of the dynamic subdomains f<11 characters>.<sitesDomain>,
+  # Parent domain of the dynamic subdomains <folder ID>.file.<sitesDomain>,
   # e.g. permahost.io. Empty disables them.
   sitesDomain: ${PERMAHOSTIO_SITES_DOMAIN:}
   basePath: ${PERMAHOSTIO_BASE_PATH:}
@@ -28,7 +28,7 @@ app:
 # and renewed automatically over TLS-ALPN-01 (Let's Encrypt must reach the
 # HTTPS port as 443). lego also covers the dynamic subdomains: one certificate
 # per subdomain on its first visit, or, with a Cloudflare API token, a single
-# *.<sitesDomain> wildcard over DNS-01.
+# *.file.<sitesDomain> wildcard over DNS-01.
 tls:
   enabled: ${PERMAHOSTIO_TLS_ENABLED:false}
   port: ${PERMAHOSTIO_TLS_PORT:443}
@@ -81,7 +81,7 @@ files:
   # true turns off the Upload page: every upload then needs an account.
   anonymousUploadsDisabled: ${PERMAHOSTIO_FILES_ANONYMOUS_UPLOADS_DISABLED:false}
   # Folders are served at <baseUrl>/files/<userId>/<folderId>/, or with
-  # subdomains on, at f<folderId>.<publicDomain> (needs a wildcard DNS record
+  # subdomains on, at <folderId>.file.<publicDomain> (needs a wildcard DNS record
   # and certificate). publicDomain defaults to the sites domain, else the
   # baseUrl host; *.localhost resolves to 127.0.0.1 in browsers, so it works
   # locally as is.

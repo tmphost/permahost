@@ -325,7 +325,7 @@ onMounted(refresh)
                     <label for="sites-domain" :class="LABEL">Sites domain</label>
                     <input id="sites-domain" v-model="form.domain.sitesDomain" placeholder="permahost.io" :class="INPUT" />
                     <p class="mt-1 text-[11px] text-gray-400 dark:text-zinc-500">
-                      Dynamic subdomains are served as f + 11 characters under it, e.g. f1a2b3c4d5e6.permahost.io. Leave blank to disable.
+                      Each folder is served at its 8-character ID under file.&lt;sites domain&gt;, e.g. a1b2c3d4.file.permahost.io. Leave blank to disable.
                     </p>
                   </div>
                 </div>
@@ -366,9 +366,9 @@ onMounted(refresh)
                         <p class="text-[11px] text-gray-400 dark:text-zinc-500 mb-3">
                           Blank: each subdomain gets its own certificate on its first visit (Let's Encrypt allows about 50 new ones per
                           week per domain). With a Cloudflare API token (Zone DNS edit): one wildcard
-                          *.{{ form.domain.sitesDomain || 'sites domain' }} certificate via DNS-01, no weekly limit. These are only
+                          *.file.{{ form.domain.sitesDomain || 'sites domain' }} certificate via DNS-01, no weekly limit. These are only
                           certificates: folders are served on subdomains once Files &gt; Public URLs is set to Subdomains, and
-                          *.{{ form.domain.sitesDomain || 'sites domain' }} needs a DNS record pointing at this server.
+                          *.file.{{ form.domain.sitesDomain || 'sites domain' }} needs a DNS record pointing at this server.
                         </p>
                       </div>
                       <label class="flex items-center gap-2 text-xs font-bold text-gray-700 dark:text-zinc-300">
@@ -591,9 +591,9 @@ onMounted(refresh)
                 </div>
                 <div v-if="form.files.subdomains" data-test="setup-subdomains">
                   <p class="text-[11px] text-gray-400 dark:text-zinc-500 mb-3" data-test="setup-subdomains-help">
-                    Each folder is served at <code class="font-mono">f&lt;folderId&gt;.&lt;public domain&gt;</code>, where the
-                    folder ID is 11 characters (e.g. f1a2b3c4d5e6.permahost.io). Needs a wildcard DNS record and certificate for the
-                    domain. Leave the public domain blank to use the sites domain.
+                    Each folder is served at <code class="font-mono">&lt;folderId&gt;.file.&lt;public domain&gt;</code>, where the
+                    folder ID is 8 characters (e.g. a1b2c3d4.file.permahost.io). Needs a wildcard DNS record and certificate for
+                    *.file.&lt;public domain&gt;. Leave the public domain blank to use the sites domain.
                   </p>
                   <label for="public-domain" :class="LABEL">Public domain</label>
                   <input

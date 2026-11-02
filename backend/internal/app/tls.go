@@ -21,7 +21,7 @@ func (a *App) setupTLS(cfg Config, enc encryption.Service, h hosts) {
 		Email:   cfg.TLS.Email,
 		Sites: tlscert.SitesConfig{
 			Enabled:            cfg.TLS.Lego.Enabled,
-			Domain:             cfg.App.SitesDomain,
+			Domain:             h.sites,
 			CloudflareAPIToken: cfg.TLS.Lego.CloudflareAPIToken,
 			Allow:              h.isSite,
 		},

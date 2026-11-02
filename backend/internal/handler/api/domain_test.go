@@ -31,15 +31,15 @@ func TestDomain_Create(t *testing.T) {
 	e := newFilesApp(t)
 	e.domains.EXPECT().CreateDomain(gomock.Any(), &entity.CreateDomainRequest{UserID: 7, FolderID: 1000, Hostname: "www.example.com"}).
 		Return(&entity.CreateDomainResponse{Domain: entity.Domain{ID: 50, FolderID: 1000, Hostname: "www.example.com", Target: "t.io", CreatedAt: _at}}, nil)
-	res, body := e.do(t, http.MethodPost, "/api/v1/folders/000000000rs/domains", `{"hostname":"www.example.com"}`)
+	res, body := e.do(t, http.MethodPost, "/api/v1/folders/000000rs/domains", `{"hostname":"www.example.com"}`)
 	assert.Equal(t, http.StatusCreated, res.StatusCode)
-	assert.JSONEq(t, `{"domain":{"id":"`+mapper.FromIDToBase62(50)+`","folderId":"000000000rs","hostname":"www.example.com","target":"t.io","status":"pending","createdAt":"2026-10-18T12:00:00Z"}}`, body)
+	assert.JSONEq(t, `{"domain":{"id":"`+mapper.FromIDToBase62(50)+`","folderId":"000000rs","hostname":"www.example.com","target":"t.io","status":"pending","createdAt":"2026-10-18T12:00:00Z"}}`, body)
 
-	res, _ = e.do(t, http.MethodPost, "/api/v1/folders/000000000rs/domains", `{}`)
+	res, _ = e.do(t, http.MethodPost, "/api/v1/folders/000000rs/domains", `{}`)
 	assert.Equal(t, http.StatusBadRequest, res.StatusCode)
 
 	e.domains.EXPECT().CreateDomain(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("%w: x", domainctrl.ErrInvalidHostname))
-	res, body = e.do(t, http.MethodPost, "/api/v1/folders/000000000rs/domains", `{"hostname":"x"}`)
+	res, body = e.do(t, http.MethodPost, "/api/v1/folders/000000rs/domains", `{"hostname":"x"}`)
 	assert.Equal(t, http.StatusBadRequest, res.StatusCode)
 	assert.JSONEq(t, `{"error":"invalid hostname: x"}`, body)
 }
@@ -47,7 +47,7 @@ func TestDomain_Create(t *testing.T) {
 func TestDomain_List(t *testing.T) {
 	e := newFilesApp(t)
 	e.domains.EXPECT().ListDomains(gomock.Any(), &entity.ListDomainsRequest{UserID: 7, FolderID: 1000}).Return(&entity.ListDomainsResponse{}, nil)
-	res, body := e.do(t, http.MethodGet, "/api/v1/folders/000000000rs/domains", "")
+	res, body := e.do(t, http.MethodGet, "/api/v1/folders/000000rs/domains", "")
 	assert.Equal(t, http.StatusOK, res.StatusCode)
 	assert.JSONEq(t, `{"domains":[]}`, body)
 
@@ -55,21 +55,21 @@ func TestDomain_List(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, res.StatusCode)
 
 	e.domains.EXPECT().ListDomains(gomock.Any(), gomock.Any()).Return(nil, domainctrl.ErrNotFound)
-	res, _ = e.do(t, http.MethodGet, "/api/v1/folders/000000000rs/domains", "")
+	res, _ = e.do(t, http.MethodGet, "/api/v1/folders/000000rs/domains", "")
 	assert.Equal(t, http.StatusNotFound, res.StatusCode)
 }
 
 func TestDomain_Verify(t *testing.T) {
 	e := newFilesApp(t)
 	id := mapper.FromIDToBase62(50)
-	path := "/api/v1/folders/000000000rs/domains/" + id + "/verify"
+	path := "/api/v1/folders/000000rs/domains/" + id + "/verify"
 	e.domains.EXPECT().VerifyDomain(gomock.Any(), &entity.VerifyDomainRequest{UserID: 7, FolderID: 1000, DomainID: 50}).
 		Return(&entity.VerifyDomainResponse{Domain: entity.Domain{ID: 50, FolderID: 1000, Hostname: "www.example.com", Target: "t.io", CreatedAt: _at, VerifiedAt: _at, CheckedAt: _at}}, nil)
 	res, body := e.do(t, http.MethodPost, path, "")
 	assert.Equal(t, http.StatusOK, res.StatusCode)
 	assert.Contains(t, body, `"status":"active"`)
 
-	res, _ = e.do(t, http.MethodPost, "/api/v1/folders/000000000rs/domains/-/verify", "")
+	res, _ = e.do(t, http.MethodPost, "/api/v1/folders/000000rs/domains/-/verify", "")
 	assert.Equal(t, http.StatusBadRequest, res.StatusCode)
 
 	for err, status := range map[error]int{
@@ -86,12 +86,12 @@ func TestDomain_Verify(t *testing.T) {
 
 func TestDomain_Delete(t *testing.T) {
 	e := newFilesApp(t)
-	path := "/api/v1/folders/000000000rs/domains/" + mapper.FromIDToBase62(50)
+	path := "/api/v1/folders/000000rs/domains/" + mapper.FromIDToBase62(50)
 	e.domains.EXPECT().DeleteDomain(gomock.Any(), &entity.DeleteDomainRequest{UserID: 7, FolderID: 1000, DomainID: 50}).Return(nil)
 	res, _ := e.do(t, http.MethodDelete, path, "")
 	assert.Equal(t, http.StatusNoContent, res.StatusCode)
 
-	res, _ = e.do(t, http.MethodDelete, "/api/v1/folders/000000000rs/domains/-", "")
+	res, _ = e.do(t, http.MethodDelete, "/api/v1/folders/000000rs/domains/-", "")
 	assert.Equal(t, http.StatusBadRequest, res.StatusCode)
 
 	e.domains.EXPECT().DeleteDomain(gomock.Any(), gomock.Any()).Return(domainctrl.ErrNotFound)

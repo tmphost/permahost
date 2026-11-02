@@ -101,7 +101,7 @@ func TestFromHTTPRequestToFolderRequestEntities(t *testing.T) {
 		get  *entity.GetFolderRequest
 		del  *entity.DeleteFolderRequest
 	)
-	runAs(t, 7, "/folders/:id", httptest.NewRequest(http.MethodGet, "/folders/000000000rs", nil), func(c fiber.Ctx) {
+	runAs(t, 7, "/folders/:id", httptest.NewRequest(http.MethodGet, "/folders/000000rs", nil), func(c fiber.Ctx) {
 		list = FromHTTPRequestToListFoldersRequestEntity(c)
 		get = FromHTTPRequestToGetFolderRequestEntity(c)
 		del = FromHTTPRequestToDeleteFolderRequestEntity(c)
@@ -110,7 +110,7 @@ func TestFromHTTPRequestToFolderRequestEntities(t *testing.T) {
 	assert.Equal(t, &entity.GetFolderRequest{UserID: 7, FolderID: 1000}, get)
 	assert.Equal(t, &entity.DeleteFolderRequest{UserID: 7, FolderID: 1000}, del)
 
-	runAs(t, 0, "/folders/:id", httptest.NewRequest(http.MethodGet, "/folders/000000000rs", nil), func(c fiber.Ctx) {
+	runAs(t, 0, "/folders/:id", httptest.NewRequest(http.MethodGet, "/folders/000000rs", nil), func(c fiber.Ctx) {
 		list = FromHTTPRequestToListFoldersRequestEntity(c)
 		get = FromHTTPRequestToGetFolderRequestEntity(c)
 		del = FromHTTPRequestToDeleteFolderRequestEntity(c)
@@ -128,12 +128,12 @@ func TestFromHTTPRequestToUpdateFolderRequestEntity(t *testing.T) {
 		})
 		return rq
 	}
-	assert.Equal(t, &entity.UpdateFolderRequest{UserID: 7, FolderID: 1000, Title: "Photos"}, run(7, "/folders/000000000rs", `{"title":"Photos"}`))
-	assert.Equal(t, &entity.UpdateFolderRequest{UserID: 7, FolderID: 1000}, run(7, "/folders/000000000rs", `{"title":""}`), "empty clears")
-	assert.Nil(t, run(7, "/folders/000000000rs", `{}`), "title is required")
-	assert.Nil(t, run(7, "/folders/000000000rs", `{`))
+	assert.Equal(t, &entity.UpdateFolderRequest{UserID: 7, FolderID: 1000, Title: "Photos"}, run(7, "/folders/000000rs", `{"title":"Photos"}`))
+	assert.Equal(t, &entity.UpdateFolderRequest{UserID: 7, FolderID: 1000}, run(7, "/folders/000000rs", `{"title":""}`), "empty clears")
+	assert.Nil(t, run(7, "/folders/000000rs", `{}`), "title is required")
+	assert.Nil(t, run(7, "/folders/000000rs", `{`))
 	assert.Nil(t, run(7, "/folders/-", `{"title":"x"}`))
-	assert.Nil(t, run(0, "/folders/000000000rs", `{"title":"x"}`))
+	assert.Nil(t, run(0, "/folders/000000rs", `{"title":"x"}`))
 }
 
 func TestFromHTTPRequestToFileRequestEntities(t *testing.T) {
@@ -142,7 +142,7 @@ func TestFromHTTPRequestToFileRequestEntities(t *testing.T) {
 		open *entity.OpenFileRequest
 		del  *entity.DeleteFileRequest
 	)
-	runAs(t, 7, "/folders/:id/files/*", httptest.NewRequest(http.MethodPut, "/folders/000000000rs/files/site/a%20b.txt", strings.NewReader("hi")), func(c fiber.Ctx) {
+	runAs(t, 7, "/folders/:id/files/*", httptest.NewRequest(http.MethodPut, "/folders/000000rs/files/site/a%20b.txt", strings.NewReader("hi")), func(c fiber.Ctx) {
 		put = FromHTTPRequestToPutFilesRequestEntity(c)
 		open = FromHTTPRequestToOpenFileRequestEntity(c)
 		del = FromHTTPRequestToDeleteFileRequestEntity(c)
@@ -151,7 +151,7 @@ func TestFromHTTPRequestToFileRequestEntities(t *testing.T) {
 	assert.Equal(t, &entity.OpenFileRequest{UserID: 7, FolderID: 1000, Path: "site/a b.txt"}, open)
 	assert.Equal(t, &entity.DeleteFileRequest{UserID: 7, FolderID: 1000, Path: "site/a b.txt"}, del)
 
-	runAs(t, 3, "/folders/:id/files/*", httptest.NewRequest(http.MethodPut, "/folders/000000000rs/files/a", strings.NewReader("hi")), func(c fiber.Ctx) {
+	runAs(t, 3, "/folders/:id/files/*", httptest.NewRequest(http.MethodPut, "/folders/000000rs/files/a", strings.NewReader("hi")), func(c fiber.Ctx) {
 		c.Locals(LocalAnonymous, true)
 		put = FromHTTPRequestToPutFilesRequestEntity(c)
 	})
@@ -161,9 +161,9 @@ func TestFromHTTPRequestToFileRequestEntities(t *testing.T) {
 		userID int64
 		req    *http.Request
 	}{
-		"no user": {0, httptest.NewRequest(http.MethodPut, "/folders/000000000rs/files/a", nil)},
+		"no user": {0, httptest.NewRequest(http.MethodPut, "/folders/000000rs/files/a", nil)},
 		"bad id":  {7, httptest.NewRequest(http.MethodPut, "/folders/RS/files/a", nil)},
-		"no path": {7, httptest.NewRequest(http.MethodPut, "/folders/000000000rs/files/", nil)},
+		"no path": {7, httptest.NewRequest(http.MethodPut, "/folders/000000rs/files/", nil)},
 	} {
 		put, del = &entity.PutFilesRequest{}, &entity.DeleteFileRequest{}
 		runAs(t, tc.userID, "/folders/:id/files/*", tc.req, func(c fiber.Ctx) {
@@ -175,7 +175,7 @@ func TestFromHTTPRequestToFileRequestEntities(t *testing.T) {
 	}
 
 	put = &entity.PutFilesRequest{}
-	runRaw(t, 7, "/folders/:id/files/*", "tmp.host", "/folders/000000000rs/files/a%zz", func(c fiber.Ctx) {
+	runRaw(t, 7, "/folders/:id/files/*", "tmp.host", "/folders/000000rs/files/a%zz", func(c fiber.Ctx) {
 		put = FromHTTPRequestToPutFilesRequestEntity(c)
 	})
 	assert.Nil(t, put, "bad escape")
@@ -193,26 +193,26 @@ func TestFromHTTPRequestToOpenPublicFileRequestEntity(t *testing.T) {
 	get := func(target string) *http.Request { return httptest.NewRequest(http.MethodGet, target, nil) }
 
 	assert.Equal(t, &entity.OpenPublicFileRequest{FolderID: 1000, Path: "site/a b.html"},
-		read("Tmp.Host:3000", "F000000000RS.tmp.host:3000", get("/site/a%20b.html")))
-	assert.Equal(t, &entity.OpenPublicFileRequest{FolderID: 1000, Path: ""}, read("tmp.host", "f000000000rs.tmp.host", get("/")))
+		read("File.Tmp.Host:3000", "000000RS.file.tmp.host:3000", get("/site/a%20b.html")))
+	assert.Equal(t, &entity.OpenPublicFileRequest{FolderID: 1 << 50, Path: ""}, read("file.tmp.host", "0b33j9ynrb4.file.tmp.host", get("/")), "a legacy 11-character ID")
 
 	for name, tc := range map[string]struct {
 		domain, host string
 		req          *http.Request
 	}{
-		"app host":     {"tmp.host", "tmp.host", get("/")},
-		"other domain": {"tmp.host", "f000000000rs.evil.test", get("/")},
-		"no domain":    {"", "f000000000rs.", get("/")},
-		"no dash":      {"tmp.host", "rs.tmp.host", get("/")},
-		"bad folder":   {"tmp.host", "frs.tmp.host", get("/")},
-		"no f":         {"tmp.host", "x000000000rs.tmp.host", get("/")},
+		"app host":     {"file.tmp.host", "tmp.host", get("/")},
+		"other domain": {"file.tmp.host", "000000rs.file.evil.test", get("/")},
+		"no domain":    {"", "000000rs.", get("/")},
+		"short":        {"file.tmp.host", "rs.file.tmp.host", get("/")},
+		"old f prefix": {"file.tmp.host", "f000000rs.file.tmp.host", get("/")},
+		"padded to 11": {"file.tmp.host", "000000000rs.file.tmp.host", get("/")},
 	} {
 		assert.Nil(t, read(tc.domain, tc.host, tc.req), name)
 	}
 
 	got := &entity.OpenPublicFileRequest{}
-	runRaw(t, 0, "/*", "f000000000rs.tmp.host", "/a%zz", func(c fiber.Ctx) {
-		got = FromHTTPRequestToOpenPublicFileRequestEntity(c, "tmp.host")
+	runRaw(t, 0, "/*", "000000rs.file.tmp.host", "/a%zz", func(c fiber.Ctx) {
+		got = FromHTTPRequestToOpenPublicFileRequestEntity(c, "file.tmp.host")
 	})
 	assert.Nil(t, got, "bad escape")
 }
@@ -225,16 +225,16 @@ func TestFromHTTPRequestToOpenPublicFileByPathRequestEntity(t *testing.T) {
 		})
 		return got
 	}
-	assert.Equal(t, &entity.OpenPublicFileRequest{UserID: 7, FolderID: 1000, Path: "site/a b.html"}, read("/files/7/000000000rs/site/a%20b.html"))
-	assert.Equal(t, &entity.OpenPublicFileRequest{UserID: 7, FolderID: 1000, Path: ""}, read("/files/7/000000000rs/"))
-	assert.Equal(t, &entity.OpenPublicFileRequest{UserID: 7, FolderID: 1000, Path: "site/"}, read("/files/7/000000000rs/site/"),
+	assert.Equal(t, &entity.OpenPublicFileRequest{UserID: 7, FolderID: 1000, Path: "site/a b.html"}, read("/files/7/000000rs/site/a%20b.html"))
+	assert.Equal(t, &entity.OpenPublicFileRequest{UserID: 7, FolderID: 1000, Path: ""}, read("/files/7/000000rs/"))
+	assert.Equal(t, &entity.OpenPublicFileRequest{UserID: 7, FolderID: 1000, Path: "site/"}, read("/files/7/000000rs/site/"),
 		"a directory keeps its slash, for its index.html")
-	assert.Nil(t, read("/files/x_y/000000000rs/a"), "bad user")
+	assert.Nil(t, read("/files/x_y/000000rs/a"), "bad user")
 	assert.Nil(t, read("/files/7/0/a"), "bad folder")
 	assert.Nil(t, read("/files/7/rs/a"), "short folder ID")
 
 	got := &entity.OpenPublicFileRequest{}
-	runRaw(t, 0, "/files/:user/:folder/*", "tmp.host", "/files/7/000000000rs/a%zz", func(c fiber.Ctx) {
+	runRaw(t, 0, "/files/:user/:folder/*", "tmp.host", "/files/7/000000rs/a%zz", func(c fiber.Ctx) {
 		got = FromHTTPRequestToOpenPublicFileByPathRequestEntity(c)
 	})
 	assert.Nil(t, got, "bad escape")
@@ -244,7 +244,7 @@ func TestFolderResponses(t *testing.T) {
 	at := time.Date(2026, 10, 18, 12, 0, 0, 0, time.FixedZone("x", 3600))
 	folder := entity.Folder{ID: 1000, CreatedAt: at, SizeBytes: 7, URL: "u", Title: "Photos", DefaultTitle: "a"}
 	file := entity.File{Path: "a", Size: 1, UpdatedAt: at, URL: "u/a"}
-	const folderJSON = `{"id":"000000000rs","createdAt":"2026-10-18T11:00:00Z","sizeBytes":7,"url":"u","title":"Photos","defaultTitle":"a"}`
+	const folderJSON = `{"id":"000000rs","createdAt":"2026-10-18T11:00:00Z","sizeBytes":7,"url":"u","title":"Photos","defaultTitle":"a"}`
 	const fileJSON = `{"path":"a","size":1,"updatedAt":"2026-10-18T11:00:00Z","url":"u/a"}`
 
 	assert.JSONEq(t, `{"maxUploadBytes":5,"pricing":{"storageBlockBytes":26214400,"storageCredits":500,"folderCredits":500,"domainCredits":500,"domainSetupCredits":500}}`,

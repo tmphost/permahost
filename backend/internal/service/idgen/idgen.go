@@ -59,15 +59,20 @@ func ParseBase36(s string) int64 {
 	return id
 }
 
-// FolderIDLength is the length of a written folder ID: 11 base36
-// characters, so "f" and the ID make a dynamic subdomain's label.
-const FolderIDLength = 11
+// FolderIDLength is the length of a written folder ID: 8 base36
+// characters, so the ID alone makes a folder subdomain's label.
+const FolderIDLength = 8
 
-// _folderIDSpace bounds folder IDs: 56 random bits fit in 11 base36
-// characters.
-const _folderIDSpace = 1<<56 - 1
+// LegacyFolderIDLength is the length folder IDs were written in before
+// they shrank to FolderIDLength: 11 base36 characters for 56 random bits.
+// Folders made back then keep their IDs, storage paths and URLs.
+const LegacyFolderIDLength = 11
 
-// NewFolderID returns a random folder ID in [1, 2^56). Folder IDs are
+// _folderIDSpace bounds folder IDs to 36^8 - 1, the largest that fits in 8
+// base36 characters (about 2.8 trillion).
+const _folderIDSpace = 36*36*36*36*36*36*36*36 - 1
+
+// NewFolderID returns a random folder ID in [1, 36^8). Folder IDs are
 // random rather than time-ordered so public URLs can't be guessed.
 func NewFolderID() int64 {
 	var b [8]byte
@@ -77,22 +82,33 @@ func NewFolderID() int64 {
 }
 
 // FormatFolderID writes a folder ID as FolderIDLength lowercase base36
-// characters, zero-padded.
+// characters, zero-padded; a legacy ID too large for that takes
+// LegacyFolderIDLength.
 func FormatFolderID(id int64) string {
+	width := FolderIDLength
+	if id > _folderIDSpace {
+		width = LegacyFolderIDLength
+	}
 	s := FormatBase36(id)
-	if len(s) < FolderIDLength {
-		s = strings.Repeat("0", FolderIDLength-len(s)) + s
+	if len(s) < width {
+		s = strings.Repeat("0", width-len(s)) + s
 	}
 	return s
 }
 
 // ParseFolderID reads an ID written by FormatFolderID. It returns 0 for
-// anything else.
+// anything else, including a legacy-length form of an ID that fits in
+// FolderIDLength, so every folder has exactly one written ID.
 func ParseFolderID(s string) int64 {
-	if len(s) != FolderIDLength {
-		return 0
+	switch len(s) {
+	case FolderIDLength:
+		return ParseBase36(s)
+	case LegacyFolderIDLength:
+		if id := ParseBase36(s); id > _folderIDSpace {
+			return id
+		}
 	}
-	return ParseBase36(s)
+	return 0
 }
 
 // _anonymousSpace is 62^9: anonymous user IDs are "00" and 9 base62

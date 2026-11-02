@@ -118,15 +118,15 @@ func TestFolder_Anonymous(t *testing.T) {
 
 	e.folders.EXPECT().PutFiles(gomock.Any(), &entity.PutFilesRequest{UserID: 3, Anonymous: true, FolderID: 1000, Files: []entity.FileUpload{{Path: "a", Data: []byte("hi")}}}).
 		Return(&entity.PutFilesResponse{Files: []entity.File{{Path: "a", Size: 2, UpdatedAt: _at, URL: "u/a"}}}, nil)
-	res, _ = e.anonymous(t, http.MethodPut, "/api/v1/folders/000000000rs/files/a", "hi")
+	res, _ = e.anonymous(t, http.MethodPut, "/api/v1/folders/000000rs/files/a", "hi")
 	assert.Equal(t, http.StatusOK, res.StatusCode)
 
 	for _, route := range []struct{ method, target string }{
 		{http.MethodGet, "/api/v1/folders"},
-		{http.MethodGet, "/api/v1/folders/000000000rs"},
-		{http.MethodDelete, "/api/v1/folders/000000000rs"},
-		{http.MethodGet, "/api/v1/folders/000000000rs/files/a"},
-		{http.MethodDelete, "/api/v1/folders/000000000rs/files/a"},
+		{http.MethodGet, "/api/v1/folders/000000rs"},
+		{http.MethodDelete, "/api/v1/folders/000000rs"},
+		{http.MethodGet, "/api/v1/folders/000000rs/files/a"},
+		{http.MethodDelete, "/api/v1/folders/000000rs/files/a"},
 		{http.MethodGet, "/api/v1/users/me"},
 	} {
 		req := httptest.NewRequest(route.method, route.target, nil)
@@ -180,7 +180,7 @@ func TestFolder_Create(t *testing.T) {
 		Return(&entity.CreateFolderResponse{Folder: entity.Folder{ID: 1000, CreatedAt: _at, ExpiresAt: _at, URL: "u"}}, nil)
 	res, body := e.do(t, http.MethodPost, "/api/v1/folders", `{"ttlMinutes":60}`)
 	assert.Equal(t, http.StatusCreated, res.StatusCode)
-	assert.JSONEq(t, `{"folder":{"id":"000000000rs","createdAt":"2026-10-18T12:00:00Z","expiresAt":"2026-10-18T12:00:00Z","sizeBytes":0,"url":"u","title":"","defaultTitle":""},"creditsSpent":0}`, body)
+	assert.JSONEq(t, `{"folder":{"id":"000000rs","createdAt":"2026-10-18T12:00:00Z","expiresAt":"2026-10-18T12:00:00Z","sizeBytes":0,"url":"u","title":"","defaultTitle":""},"creditsSpent":0}`, body)
 
 	res, _ = e.do(t, http.MethodPost, "/api/v1/folders", `{`)
 	assert.Equal(t, http.StatusBadRequest, res.StatusCode)
@@ -197,7 +197,7 @@ func TestFolder_ListGetDelete(t *testing.T) {
 	e.folders.EXPECT().ListFolders(gomock.Any(), &entity.ListFoldersRequest{UserID: 7}).Return(&entity.ListFoldersResponse{Folders: []entity.Folder{folder}}, nil)
 	res, body := e.do(t, http.MethodGet, "/api/v1/folders", "")
 	assert.Equal(t, http.StatusOK, res.StatusCode)
-	assert.Contains(t, body, `"folders":[{"id":"000000000rs"`)
+	assert.Contains(t, body, `"folders":[{"id":"000000rs"`)
 
 	e.folders.EXPECT().ListFolders(gomock.Any(), gomock.Any()).Return(nil, errBoom)
 	res, _ = e.do(t, http.MethodGet, "/api/v1/folders", "")
@@ -206,7 +206,7 @@ func TestFolder_ListGetDelete(t *testing.T) {
 	e.folders.EXPECT().GetFolder(gomock.Any(), &entity.GetFolderRequest{UserID: 7, FolderID: 1000}).Return(&entity.GetFolderResponse{
 		Folder: folder, Files: []entity.File{{Path: "a.txt", Size: 1, UpdatedAt: _at, URL: "u/a.txt"}},
 	}, nil)
-	res, body = e.do(t, http.MethodGet, "/api/v1/folders/000000000rs", "")
+	res, body = e.do(t, http.MethodGet, "/api/v1/folders/000000rs", "")
 	assert.Equal(t, http.StatusOK, res.StatusCode)
 	assert.Contains(t, body, `"files":[{"path":"a.txt","size":1,"updatedAt":"2026-10-18T12:00:00Z","url":"u/a.txt"}]`)
 
@@ -214,19 +214,19 @@ func TestFolder_ListGetDelete(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, res.StatusCode, "ids are lowercase base36")
 
 	e.folders.EXPECT().GetFolder(gomock.Any(), gomock.Any()).Return(nil, folderctrl.ErrNotFound)
-	res, body = e.do(t, http.MethodGet, "/api/v1/folders/000000000rs", "")
+	res, body = e.do(t, http.MethodGet, "/api/v1/folders/000000rs", "")
 	assert.Equal(t, http.StatusNotFound, res.StatusCode)
 	assert.JSONEq(t, `{"error":"not found"}`, body)
 
 	e.folders.EXPECT().DeleteFolder(gomock.Any(), &entity.DeleteFolderRequest{UserID: 7, FolderID: 1000}).Return(nil)
-	res, _ = e.do(t, http.MethodDelete, "/api/v1/folders/000000000rs", "")
+	res, _ = e.do(t, http.MethodDelete, "/api/v1/folders/000000rs", "")
 	assert.Equal(t, http.StatusNoContent, res.StatusCode)
 
 	res, _ = e.do(t, http.MethodDelete, "/api/v1/folders/-", "")
 	assert.Equal(t, http.StatusBadRequest, res.StatusCode)
 
 	e.folders.EXPECT().DeleteFolder(gomock.Any(), gomock.Any()).Return(errBoom)
-	res, _ = e.do(t, http.MethodDelete, "/api/v1/folders/000000000rs", "")
+	res, _ = e.do(t, http.MethodDelete, "/api/v1/folders/000000rs", "")
 	assert.Equal(t, http.StatusInternalServerError, res.StatusCode)
 }
 
@@ -234,20 +234,20 @@ func TestFolder_Update(t *testing.T) {
 	e := newFilesApp(t)
 	e.folders.EXPECT().UpdateFolder(gomock.Any(), &entity.UpdateFolderRequest{UserID: 7, FolderID: 1000, Title: "Photos"}).
 		Return(&entity.UpdateFolderResponse{Folder: entity.Folder{ID: 1000, CreatedAt: _at, ExpiresAt: _at, URL: "u", Title: "Photos", DefaultTitle: "a.jpg"}}, nil)
-	res, body := e.do(t, http.MethodPatch, "/api/v1/folders/000000000rs", `{"title":"Photos"}`)
+	res, body := e.do(t, http.MethodPatch, "/api/v1/folders/000000rs", `{"title":"Photos"}`)
 	assert.Equal(t, http.StatusOK, res.StatusCode)
-	assert.JSONEq(t, `{"folder":{"id":"000000000rs","createdAt":"2026-10-18T12:00:00Z","expiresAt":"2026-10-18T12:00:00Z","sizeBytes":0,"url":"u","title":"Photos","defaultTitle":"a.jpg"}}`, body)
+	assert.JSONEq(t, `{"folder":{"id":"000000rs","createdAt":"2026-10-18T12:00:00Z","expiresAt":"2026-10-18T12:00:00Z","sizeBytes":0,"url":"u","title":"Photos","defaultTitle":"a.jpg"}}`, body)
 
-	res, _ = e.do(t, http.MethodPatch, "/api/v1/folders/000000000rs", `{}`)
+	res, _ = e.do(t, http.MethodPatch, "/api/v1/folders/000000rs", `{}`)
 	assert.Equal(t, http.StatusBadRequest, res.StatusCode)
 
 	e.folders.EXPECT().UpdateFolder(gomock.Any(), gomock.Any()).Return(nil, folderctrl.ErrInvalidTitle)
-	res, body = e.do(t, http.MethodPatch, "/api/v1/folders/000000000rs", `{"title":"x"}`)
+	res, body = e.do(t, http.MethodPatch, "/api/v1/folders/000000rs", `{"title":"x"}`)
 	assert.Equal(t, http.StatusBadRequest, res.StatusCode)
 	assert.JSONEq(t, `{"error":"invalid folder title"}`, body)
 
 	e.folders.EXPECT().UpdateFolder(gomock.Any(), gomock.Any()).Return(nil, folderctrl.ErrNotFound)
-	res, _ = e.do(t, http.MethodPatch, "/api/v1/folders/000000000rs", `{"title":"x"}`)
+	res, _ = e.do(t, http.MethodPatch, "/api/v1/folders/000000rs", `{"title":"x"}`)
 	assert.Equal(t, http.StatusNotFound, res.StatusCode)
 }
 
@@ -255,11 +255,11 @@ func TestFolder_PutFile(t *testing.T) {
 	e := newFilesApp(t)
 	e.folders.EXPECT().PutFiles(gomock.Any(), &entity.PutFilesRequest{UserID: 7, FolderID: 1000, Files: []entity.FileUpload{{Path: "site/a b.txt", Data: []byte("hi")}}}).
 		Return(&entity.PutFilesResponse{Files: []entity.File{{Path: "site/a b.txt", Size: 2, UpdatedAt: _at, URL: "u"}}, CreditsSpent: 1}, nil)
-	res, body := e.do(t, http.MethodPut, "/api/v1/folders/000000000rs/files/site/a%20b.txt", "hi")
+	res, body := e.do(t, http.MethodPut, "/api/v1/folders/000000rs/files/site/a%20b.txt", "hi")
 	assert.Equal(t, http.StatusOK, res.StatusCode)
 	assert.JSONEq(t, `{"file":{"path":"site/a b.txt","size":2,"updatedAt":"2026-10-18T12:00:00Z","url":"u"},"creditsSpent":1}`, body)
 
-	res, _ = e.do(t, http.MethodPut, "/api/v1/folders/000000000rs/files/", "hi")
+	res, _ = e.do(t, http.MethodPut, "/api/v1/folders/000000rs/files/", "hi")
 	assert.Equal(t, http.StatusBadRequest, res.StatusCode)
 
 	for err, status := range map[error]int{
@@ -271,7 +271,7 @@ func TestFolder_PutFile(t *testing.T) {
 		folderctrl.ErrQuotaExceeded:       http.StatusTooManyRequests,
 	} {
 		e.folders.EXPECT().PutFiles(gomock.Any(), gomock.Any()).Return(nil, err)
-		res, body = e.do(t, http.MethodPut, "/api/v1/folders/000000000rs/files/a", "x")
+		res, body = e.do(t, http.MethodPut, "/api/v1/folders/000000rs/files/a", "x")
 		assert.Equal(t, status, res.StatusCode, err.Error())
 		assert.Contains(t, body, err.Error())
 	}
@@ -281,7 +281,7 @@ func TestFolder_GetFile(t *testing.T) {
 	e := newFilesApp(t)
 	e.folders.EXPECT().OpenFile(gomock.Any(), &entity.OpenFileRequest{UserID: 7, FolderID: 1000, Path: "site/page.html"}).
 		Return(&entity.OpenFileResponse{Body: io.NopCloser(strings.NewReader("<p>")), Size: 3, ContentType: "text/html"}, nil)
-	res, body := e.do(t, http.MethodGet, "/api/v1/folders/000000000rs/files/site/page.html", "")
+	res, body := e.do(t, http.MethodGet, "/api/v1/folders/000000rs/files/site/page.html", "")
 	assert.Equal(t, http.StatusOK, res.StatusCode)
 	assert.Equal(t, "<p>", body)
 	assert.Equal(t, fiber.MIMEOctetStream, res.Header.Get("Content-Type"))
@@ -292,21 +292,21 @@ func TestFolder_GetFile(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, res.StatusCode)
 
 	e.folders.EXPECT().OpenFile(gomock.Any(), gomock.Any()).Return(nil, folderctrl.ErrNotFound)
-	res, _ = e.do(t, http.MethodGet, "/api/v1/folders/000000000rs/files/a", "")
+	res, _ = e.do(t, http.MethodGet, "/api/v1/folders/000000rs/files/a", "")
 	assert.Equal(t, http.StatusNotFound, res.StatusCode)
 }
 
 func TestFolder_DeleteFile(t *testing.T) {
 	e := newFilesApp(t)
 	e.folders.EXPECT().DeleteFile(gomock.Any(), &entity.DeleteFileRequest{UserID: 7, FolderID: 1000, Path: "a.txt"}).Return(nil)
-	res, _ := e.do(t, http.MethodDelete, "/api/v1/folders/000000000rs/files/a.txt", "")
+	res, _ := e.do(t, http.MethodDelete, "/api/v1/folders/000000rs/files/a.txt", "")
 	assert.Equal(t, http.StatusNoContent, res.StatusCode)
 
-	res, _ = e.do(t, http.MethodDelete, "/api/v1/folders/000000000rs/files/", "")
+	res, _ = e.do(t, http.MethodDelete, "/api/v1/folders/000000rs/files/", "")
 	assert.Equal(t, http.StatusBadRequest, res.StatusCode)
 
 	e.folders.EXPECT().DeleteFile(gomock.Any(), gomock.Any()).Return(folderctrl.ErrNotFound)
-	res, _ = e.do(t, http.MethodDelete, "/api/v1/folders/000000000rs/files/a.txt", "")
+	res, _ = e.do(t, http.MethodDelete, "/api/v1/folders/000000rs/files/a.txt", "")
 	assert.Equal(t, http.StatusNotFound, res.StatusCode)
 }
 
@@ -323,7 +323,7 @@ func TestPublic(t *testing.T) {
 
 	e.folders.EXPECT().OpenPublicFile(gomock.Any(), &entity.OpenPublicFileRequest{FolderID: 1000, Path: "site/a b.html"}).
 		Return(&entity.OpenFileResponse{Body: io.NopCloser(strings.NewReader("<p>")), Size: 3, ContentType: "text/html; charset=utf-8", ModTime: _at}, nil)
-	res, body := get(http.MethodGet, "F000000000RS.TMP.HOST", "/site/a%20b.html")
+	res, body := get(http.MethodGet, "000000RS.FILE.TMP.HOST", "/site/a%20b.html")
 	assert.Equal(t, http.StatusOK, res.StatusCode)
 	assert.Equal(t, "<p>", body)
 	assert.Equal(t, "text/html; charset=utf-8", res.Header.Get("Content-Type"))
@@ -331,17 +331,17 @@ func TestPublic(t *testing.T) {
 	assert.Equal(t, "nosniff", res.Header.Get("X-Content-Type-Options"))
 	assert.Equal(t, "Sun, 18 Oct 2026 12:00:00 GMT", res.Header.Get("Last-Modified"))
 
-	res, _ = get(http.MethodPost, "f000000000rs.tmp.host", "/")
+	res, _ = get(http.MethodPost, "000000rs.file.tmp.host", "/")
 	assert.Equal(t, http.StatusMethodNotAllowed, res.StatusCode)
 
 	e.folders.EXPECT().OpenPublicFile(gomock.Any(), &entity.OpenPublicFileRequest{FolderID: 1000, Path: ""}).Return(nil, folderctrl.ErrNotFound)
-	res, body = get(http.MethodGet, "f000000000rs.tmp.host", "/")
+	res, body = get(http.MethodGet, "000000rs.file.tmp.host", "/")
 	assert.Equal(t, http.StatusNotFound, res.StatusCode)
 	assert.Equal(t, "Not found.", body)
 	assert.Contains(t, res.Header.Get("Content-Type"), "text/plain")
 
 	e.folders.EXPECT().OpenPublicFile(gomock.Any(), gomock.Any()).Return(nil, errBoom)
-	res, _ = get(http.MethodGet, "f000000000rs.tmp.host", "/")
+	res, _ = get(http.MethodGet, "000000rs.file.tmp.host", "/")
 	assert.Equal(t, http.StatusInternalServerError, res.StatusCode)
 
 	// Any other host falls through to the app routes.
@@ -349,7 +349,7 @@ func TestPublic(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, res.StatusCode)
 
 	// So do folder paths.
-	res, _ = get(http.MethodGet, "tmp.host", "/files/7/000000000rs/a")
+	res, _ = get(http.MethodGet, "tmp.host", "/files/7/000000rs/a")
 	assert.Equal(t, http.StatusNotFound, res.StatusCode)
 
 	// Folder hosts are answered before the host check; other hosts are
@@ -359,7 +359,7 @@ func TestPublic(t *testing.T) {
 
 	// Without subdomains, folder hosts are not served at all.
 	e.settings.Subdomains = false
-	res, _ = get(http.MethodGet, "f000000000rs.tmp.host", "/api/v1/folders")
+	res, _ = get(http.MethodGet, "000000rs.file.tmp.host", "/api/v1/folders")
 	assert.Equal(t, http.StatusMisdirectedRequest, res.StatusCode)
 }
 
@@ -375,24 +375,24 @@ func TestPublic_Path(t *testing.T) {
 
 	e.folders.EXPECT().OpenPublicFile(gomock.Any(), &entity.OpenPublicFileRequest{UserID: 7, FolderID: 1000, Path: "site/a b.html"}).
 		Return(&entity.OpenFileResponse{Body: io.NopCloser(strings.NewReader("<p>")), Size: 3, ContentType: "text/html; charset=utf-8", ModTime: _at}, nil)
-	res, body := get(http.MethodGet, "/files/7/000000000rs/site/a%20b.html")
+	res, body := get(http.MethodGet, "/files/7/000000rs/site/a%20b.html")
 	assert.Equal(t, http.StatusOK, res.StatusCode)
 	assert.Equal(t, "<p>", body)
 	assert.Equal(t, _sandbox, res.Header.Get("Content-Security-Policy"))
 
 	e.folders.EXPECT().OpenPublicFile(gomock.Any(), &entity.OpenPublicFileRequest{UserID: 7, FolderID: 1000, Path: ""}).Return(nil, folderctrl.ErrNotFound)
-	res, body = get(http.MethodGet, "/files/7/000000000rs/")
+	res, body = get(http.MethodGet, "/files/7/000000rs/")
 	assert.Equal(t, http.StatusNotFound, res.StatusCode)
 	assert.Equal(t, "Not found.", body)
 
-	res, _ = get(http.MethodGet, "/files/7/000000000rs")
+	res, _ = get(http.MethodGet, "/files/7/000000rs")
 	assert.Equal(t, http.StatusMovedPermanently, res.StatusCode)
-	assert.Equal(t, "000000000rs/", res.Header.Get("Location"))
+	assert.Equal(t, "000000rs/", res.Header.Get("Location"))
 
-	res, _ = get(http.MethodGet, "/files/x_y/000000000rs/a")
+	res, _ = get(http.MethodGet, "/files/x_y/000000rs/a")
 	assert.Equal(t, http.StatusNotFound, res.StatusCode, "bad ids")
 
-	res, _ = get(http.MethodPut, "/files/7/000000000rs/a")
+	res, _ = get(http.MethodPut, "/files/7/000000rs/a")
 	assert.Equal(t, http.StatusMethodNotAllowed, res.StatusCode)
 }
 
