@@ -108,7 +108,7 @@ func TestCustomDomains(t *testing.T) {
 	}
 	require.NoError(t, json.Unmarshal([]byte(body), &created))
 	assert.Equal(t, "www.custom.io", created.Domain.Hostname)
-	assert.Equal(t, "f"+id+".sites.localhost", created.Domain.Target)
+	assert.Equal(t, id+".file.sites.localhost", created.Domain.Target)
 	assert.Equal(t, "pending", created.Domain.Status)
 
 	res, _ = call(http.MethodGet, "/", "www.custom.io", "")

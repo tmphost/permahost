@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	_target = "f000000000rs.sites.permahost.io"
+	_target = "000000rs.file.sites.permahost.io"
 	_cost   = credit.DomainSetupCredits + credit.DomainCredits
 )
 

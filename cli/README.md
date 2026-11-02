@@ -101,7 +101,7 @@ rsync. Paths follow the server's rules (at most 5 directories deep, no `.` or
 `..` segments, no backslashes) and are checked before anything is sent.
 
 Folder URLs come from the server and may look like
-`https://f<folder>.<domain>/` or `<server>/files/<user>/<folder>/`.
+`https://<folder>.file.<domain>/` or `<server>/files/<user>/<folder>/`.
 
 ## Pricing
 

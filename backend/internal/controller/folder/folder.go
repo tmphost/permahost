@@ -9,9 +9,10 @@
 // Files live in storage under u<userID>/<folderID>/<path>; the database
 // records each folder's owner and size. A folder is served below the app,
 // at /files/<userID>/<folderID>/, or with subdomains on, on its own
-// origin, f<folderID>.<public domain>, and on any custom domain verified
-// for it. Both IDs are base36 because hostnames are case-insensitive;
-// folder IDs are random and always 11 characters (idgen.FormatFolderID).
+// origin, <folderID>.file.<public domain>, and on any custom domain
+// verified for it. Both IDs are base36 because hostnames are
+// case-insensitive; folder IDs are random and 8 characters, or 11 for
+// folders made before they shrank (idgen.FormatFolderID).
 // Creating a folder costs credit.FolderCredits, and an upload that takes
 // the account's storage into a new storage block costs credit.StorageCredits
 // per block.
@@ -661,15 +662,24 @@ func (c *controller) fileURL(f model.Folder, p string) string {
 	}
 	rel := strings.Join(segs, "/")
 	if s := c.limits(); s.Subdomains {
-		return c.scheme + "://" + FolderHost(f.ID) + "." + s.PublicDomain + "/" + rel
+		return c.scheme + "://" + FolderHost(f.ID) + "." + FolderDomain(s.PublicDomain) + "/" + rel
 	}
 	return c.baseURL + PublicPathPrefix + idgen.FormatBase36(f.UserID) + "/" + idgen.FormatFolderID(f.ID) + "/" + rel
 }
 
-// FolderHost is the leftmost hostname label a folder is served under,
-// "f" and the folder ID.
+// FolderHost is the leftmost hostname label a folder is served under: its
+// ID.
 func FolderHost(folderID int64) string {
-	return "f" + idgen.FormatFolderID(folderID)
+	return idgen.FormatFolderID(folderID)
+}
+
+// FolderDomain is the parent of the folder hosts under domain,
+// <folderID>.file.<domain>; "" without a domain.
+func FolderDomain(domain string) string {
+	if domain == "" {
+		return ""
+	}
+	return "file." + domain
 }
 
 // folderPrefix is where a folder's files live in storage.

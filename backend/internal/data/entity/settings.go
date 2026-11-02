@@ -23,7 +23,7 @@ type (
 		// Its host is the app host, and OAuth callbacks are built on it.
 		AppURL string
 		// SitesDomain is the parent domain of the dynamic subdomains, e.g.
-		// permahost.io for f<11 characters>.permahost.io. Empty disables them.
+		// permahost.io for <folder ID>.file.permahost.io. Empty disables them.
 		SitesDomain string
 	}
 
@@ -41,7 +41,7 @@ type (
 
 	// LegoSettings serve the dynamic subdomains over HTTPS. Without a
 	// Cloudflare API token each subdomain gets its own certificate on its
-	// first visit; with one, a single *.<sites domain> wildcard is obtained
+	// first visit; with one, a single *.file.<sites domain> wildcard is obtained
 	// over the Cloudflare DNS-01 challenge.
 	LegoSettings struct {
 		Enabled            bool

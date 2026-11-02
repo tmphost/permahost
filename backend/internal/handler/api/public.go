@@ -22,7 +22,7 @@ import (
 // or call the API as the visitor, even when served on the app's origin.
 const _sandbox = "sandbox allow-scripts allow-forms allow-popups allow-modals allow-downloads"
 
-// Public serves folders to anyone: on folder hosts, f<folderID>.<domain>,
+// Public serves folders to anyone: on folder hosts, <folderID>.file.<domain>,
 // with subdomains on, else below /files/<userID>/<folderID>/, and on their
 // verified custom domains.
 type Public struct {
@@ -41,7 +41,7 @@ func (h *Public) Serve(c fiber.Ctx) error {
 	if !s.Subdomains {
 		return c.Next()
 	}
-	rq := mapper.FromHTTPRequestToOpenPublicFileRequestEntity(c, s.PublicDomain)
+	rq := mapper.FromHTTPRequestToOpenPublicFileRequestEntity(c, folderctrl.FolderDomain(s.PublicDomain))
 	if rq == nil {
 		return c.Next()
 	}

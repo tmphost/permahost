@@ -27,11 +27,11 @@ func TestFromHTTPRequestToCreateDomainRequestEntity(t *testing.T) {
 		})
 		return got
 	}
-	assert.Equal(t, &entity.CreateDomainRequest{UserID: 7, FolderID: 1000, Hostname: "www.example.com"}, read(7, "000000000rs", `{"hostname":"www.example.com"}`))
-	assert.Nil(t, read(0, "000000000rs", `{"hostname":"www.example.com"}`), "unauthenticated")
+	assert.Equal(t, &entity.CreateDomainRequest{UserID: 7, FolderID: 1000, Hostname: "www.example.com"}, read(7, "000000rs", `{"hostname":"www.example.com"}`))
+	assert.Nil(t, read(0, "000000rs", `{"hostname":"www.example.com"}`), "unauthenticated")
 	assert.Nil(t, read(7, "bad", `{"hostname":"www.example.com"}`), "bad folder ID")
-	assert.Nil(t, read(7, "000000000rs", `{`), "bad JSON")
-	assert.Nil(t, read(7, "000000000rs", `{}`), "no hostname")
+	assert.Nil(t, read(7, "000000rs", `{`), "bad JSON")
+	assert.Nil(t, read(7, "000000rs", `{}`), "no hostname")
 }
 
 func TestFromHTTPRequestToVerifyAndDeleteDomainRequestEntity(t *testing.T) {
@@ -39,7 +39,7 @@ func TestFromHTTPRequestToVerifyAndDeleteDomainRequestEntity(t *testing.T) {
 	var verify *entity.VerifyDomainRequest
 	var del *entity.DeleteDomainRequest
 	read := func(userID int64, domain string) {
-		runAs(t, userID, _domainRoute, httptest.NewRequest(http.MethodDelete, "/folders/000000000rs/domains/"+domain, nil), func(c fiber.Ctx) {
+		runAs(t, userID, _domainRoute, httptest.NewRequest(http.MethodDelete, "/folders/000000rs/domains/"+domain, nil), func(c fiber.Ctx) {
 			verify, del = FromHTTPRequestToVerifyDomainRequestEntity(c), FromHTTPRequestToDeleteDomainRequestEntity(c)
 		})
 	}
@@ -59,8 +59,8 @@ func TestDomainResponses(t *testing.T) {
 	pending := entity.Domain{ID: 50, FolderID: 1000, Hostname: "www.example.com", Target: "t.io", CreatedAt: at, LastError: "no CNAME"}
 	active := entity.Domain{ID: 50, FolderID: 1000, Hostname: "www.example.com", Target: "t.io", CreatedAt: at, VerifiedAt: at, CheckedAt: at}
 	id := FromIDToBase62(50)
-	pendingJSON := `{"id":"` + id + `","folderId":"000000000rs","hostname":"www.example.com","target":"t.io","status":"pending","createdAt":"2026-11-02T12:00:00Z","lastError":"no CNAME"}`
-	activeJSON := `{"id":"` + id + `","folderId":"000000000rs","hostname":"www.example.com","target":"t.io","status":"active","createdAt":"2026-11-02T12:00:00Z","verifiedAt":"2026-11-02T12:00:00Z","checkedAt":"2026-11-02T12:00:00Z"}`
+	pendingJSON := `{"id":"` + id + `","folderId":"000000rs","hostname":"www.example.com","target":"t.io","status":"pending","createdAt":"2026-11-02T12:00:00Z","lastError":"no CNAME"}`
+	activeJSON := `{"id":"` + id + `","folderId":"000000rs","hostname":"www.example.com","target":"t.io","status":"active","createdAt":"2026-11-02T12:00:00Z","verifiedAt":"2026-11-02T12:00:00Z","checkedAt":"2026-11-02T12:00:00Z"}`
 
 	assert.JSONEq(t, `{"domain":`+pendingJSON+`}`, string(FromCreateDomainResponseEntityToHTTPResponse(&entity.CreateDomainResponse{Domain: pending})))
 	assert.JSONEq(t, `{"domain":`+activeJSON+`}`, string(FromVerifyDomainResponseEntityToHTTPResponse(&entity.VerifyDomainResponse{Domain: active})))

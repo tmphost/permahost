@@ -41,12 +41,12 @@ Go (Fiber v3, GORM) backend and Vue 3 (Vite, Tailwind) frontend.
   `u<userId>/<folderId>/<path>`. Paths are at most 5 directories deep and are
   validated server-side, so a file can never leave its folder. The database
   stores each folder's ID, owner, size and, for an anonymous folder, its
-  expiry; a job deletes expired anonymous folders every minute. Folder IDs are 11 random lowercase base36
-  characters, so public URLs can't be guessed.
+  expiry; a job deletes expired anonymous folders every minute. Folder IDs are 8 random lowercase base36
+  characters, so public URLs can't be guessed (folders made before IDs shrank keep their 11).
 - Public URLs: `<PERMAHOSTIO_BASE_URL>/files/<userId>/<folderId>/<path>` by
-  default, or `f<folderId>.<publicDomain>/<path>` with subdomains on
+  default, or `<folderId>.file.<publicDomain>/<path>` with subdomains on
   (`PERMAHOSTIO_FILES_SUBDOMAINS`, `PERMAHOSTIO_FILES_PUBLIC_DOMAIN`, which defaults
-  to the sites domain; needs wildcard DNS and a certificate, which the
+  to the sites domain; needs `*.file.<publicDomain>` DNS and a certificate, which the
   built-in TLS obtains when it is the sites domain). Both are served with `Content-Security-Policy:
   sandbox`, so hosted pages never run with the app's origin.
 
@@ -56,7 +56,7 @@ Go (Fiber v3, GORM) backend and Vue 3 (Vite, Tailwind) frontend.
   the globe button on a folder; CLI: `permahost domain add --id <folder>
   www.example.com`; API: `/api/v1/folders/:id/domains`).
 - Each hostname needs a CNAME record pointing at the folder's own host,
-  `f<folderId>.<publicDomain>` with subdomains on (otherwise the app host).
+  `<folderId>.file.<publicDomain>` with subdomains on (otherwise the app host).
   The server looks the record up directly at public resolvers (`dns.resolvers`
   / `PERMAHOSTIO_DNS_RESOLVERS`, default `1.1.1.1:53,8.8.8.8:53`). It checks
   pending domains every 5 minutes for 7 days, and also on demand ("Verify now").
@@ -136,7 +136,7 @@ can change the monthly credit grant, the anonymous maximum TTL and the public UR
 
 - **Domains**: the app URL (default `http://localhost:2027`; e.g.
   `https://app.permahost.io`, any domain or subdomain) and the sites domain
-  (e.g. `permahost.io`) whose dynamic subdomains `f<11 characters>.<sites domain>`
+  (e.g. `permahost.io`) whose dynamic subdomains `<folder ID>.file.<sites domain>`
   the server answers. Other hosts get a 404; localhost always reaches the app.
 - **TLS**: serve HTTPS on its own port (default 443) and redirect the app port
   to it. Certificates come from Let's Encrypt automatically (lego, TLS-ALPN-01
@@ -145,11 +145,11 @@ can change the monthly credit grant, the anonymous maximum TTL and the public UR
   - App host: always gets its own certificate.
   - Dynamic subdomains (switchable): each gets its own certificate on its first
     visit (Let's Encrypt allows about 50 new ones per week per registered
-    domain), or, with an optional Cloudflare API token, one `*.<sites domain>`
+    domain), or, with an optional Cloudflare API token, one `*.file.<sites domain>`
     wildcard over DNS-01 with no such limit.
 - **Database** (SQLite or PostgreSQL) and **file storage** (local disk or S3).
 - **Files**: the upload size, the anonymous maximum TTL, and whether folders are served
-  at paths or on `f<folder ID>.<public domain>` subdomains.
+  at paths or on `<folder ID>.file.<public domain>` subdomains.
 - **Sign-in providers**: Google, GitHub, and any number of custom OpenID
   Connect providers (name, SVG icon, client ID, client secret, auth URL = the
   issuer; endpoints come from its `/.well-known/openid-configuration`).

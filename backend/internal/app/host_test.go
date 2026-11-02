@@ -22,29 +22,37 @@ func TestHostsClassify(t *testing.T) {
 	h := newHosts("https://App.Example.com", "Example.com", isCustom)
 	assert.False(t, h.open)
 	cases := map[string]hostKind{
-		"app.example.com":               hostApp,
-		"APP.example.com:443":           hostApp,
-		"localhost:2027":                hostApp,
-		"127.0.0.1":                     hostApp,
-		"[::1]:2027":                    hostApp,
-		"f0123456789a.example.com":      hostSite,
-		"f0123456789a.example.com:8443": hostSite,
-		"F0123456789A.EXAMPLE.COM":      hostSite,
-		"f0123456789.example.com":       hostUnknown, // 10 characters
-		"g0123456789a.example.com":      hostUnknown,
-		"f0123456789a.a.example.com":    hostUnknown,
-		"example.com":                   hostUnknown,
-		"evil.com":                      hostUnknown,
-		"www.custom.io":                 hostDomain,
-		"WWW.custom.io:443":             hostDomain,
+		"app.example.com":                hostApp,
+		"APP.example.com:443":            hostApp,
+		"localhost:2027":                 hostApp,
+		"127.0.0.1":                      hostApp,
+		"[::1]:2027":                     hostApp,
+		"0123abcd.file.example.com":      hostSite,
+		"0123abcd.file.example.com:8443": hostSite,
+		"0123ABCD.FILE.EXAMPLE.COM":      hostSite,
+		"0123abc.file.example.com":       hostUnknown, // 7 characters
+		"0123-bcd.file.example.com":      hostUnknown,
+		"0123abcd.example.com":           hostUnknown, // not under file.
+		"0123abcd.a.file.example.com":    hostUnknown,
+		"file.example.com":               hostUnknown,
+		"example.com":                    hostUnknown,
+		"evil.com":                       hostUnknown,
+		"www.custom.io":                  hostDomain,
+		"WWW.custom.io:443":              hostDomain,
 	}
 	for host, want := range cases {
 		got, id := h.classify(host)
 		assert.Equal(t, want, got, host)
 		if want == hostSite {
-			assert.Equal(t, "f0123456789a", id)
+			assert.Equal(t, "0123abcd", id)
 		}
 	}
+	// Folders made before IDs shrank to 8 characters keep their 11.
+	kind, id := h.classify("00100000000.file.example.com")
+	assert.Equal(t, hostSite, kind)
+	assert.Equal(t, "00100000000", id)
+	kind, _ = h.classify("000000000rs.file.example.com")
+	assert.Equal(t, hostUnknown, kind, "a new ID padded to 11 characters")
 
 	// An app URL on this machine or an IP answers any host, as in
 	// development; dynamic subdomains still win.
@@ -55,17 +63,17 @@ func TestHostsClassify(t *testing.T) {
 		assert.Equal(t, hostApp, kind)
 		kind, _ = open.classify("www.custom.io")
 		assert.Equal(t, hostDomain, kind, "custom domains still work")
-		kind, _ = open.classify("f0123456789a.example.com")
+		kind, _ = open.classify("0123abcd.file.example.com")
 		assert.Equal(t, hostSite, kind)
 	}
 
-	assert.True(t, h.isSite("f0123456789a.example.com"))
+	assert.True(t, h.isSite("0123abcd.file.example.com"))
 	assert.False(t, h.isSite("app.example.com"))
 	assert.True(t, h.isDomain("www.custom.io"))
 	assert.False(t, h.isDomain("app.example.com"))
 
 	// No sites domain, no dynamic subdomains.
-	kind, _ := newHosts("https://app.example.com", "", isCustom).classify("f0123456789a.example.com")
+	kind, _ = newHosts("https://app.example.com", "", isCustom).classify("0123abcd.file.example.com")
 	assert.Equal(t, hostUnknown, kind)
 }
 
@@ -89,7 +97,7 @@ func TestHostRouter(t *testing.T) {
 	res, _ := request("app.example.com")
 	assert.Equal(t, http.StatusOK, res.StatusCode)
 
-	res, body := request("f0123456789a.example.com")
+	res, body := request("0123abcd.file.example.com")
 	assert.Equal(t, http.StatusNotFound, res.StatusCode)
 	assert.JSONEq(t, `{"error":"site not found"}`, body)
 
@@ -116,7 +124,7 @@ func TestHTTPSRedirect(t *testing.T) {
 	}{
 		{"app.example.com", 443, "https://app.example.com/x?y=1"},
 		{"app.example.com:2027", 8443, "https://app.example.com:8443/x?y=1"},
-		{"f0123456789a.example.com", 443, "https://f0123456789a.example.com/x?y=1"},
+		{"0123abcd.file.example.com", 443, "https://0123abcd.file.example.com/x?y=1"},
 		{"www.custom.io", 443, "https://www.custom.io/x?y=1"},
 	}
 	for _, tc := range cases {
