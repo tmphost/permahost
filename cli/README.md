@@ -124,8 +124,8 @@ take a while to spread.
 
 ## MCP
 
-The server offers the same `file` tool (actions `upload`, `download`, `get`
-and `url`) at `<server>/mcp`, for AI agents:
+The server offers the same `file` tool (actions `upload`, `download`, `get`,
+`url` and `list`, which mirrors `file ls`) at `<server>/mcp`, for AI agents:
 
 ```json
 {

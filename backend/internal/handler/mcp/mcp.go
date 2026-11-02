@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/google/jsonschema-go/jsonschema"
@@ -35,6 +36,7 @@ const (
 	ActionDownload = "download"
 	ActionGet      = "get"
 	ActionURL      = "url"
+	ActionList     = "list"
 )
 
 // The content formats: which field carries a file's content.
@@ -51,11 +53,12 @@ Actions:
 - download: read a file (id, fileName, optional path). Returns its content in base64Content or, for UTF-8 text, in textContent as format says.
 - get: list a folder's files (id).
 - url: build the public URL of a folder (id), a directory (id, path) or a file (id, fileName, optional path).
+- list: list your folders, newest first (id, title, url, sizeBytes, createdAt); no folders field means there are none. Free. Use it to find the id of an existing folder before adding files to it.
 Credits (monthly, charged upfront when the cost starts):
 - A new folder costs %[1]d credits a month. Only upload without id creates one.
 - Uploading with id into an existing folder never costs folder credits again, however many files it adds or replaces.
 - Storage costs %[2]d credits a month per started %[3]d MB the whole account stores. An upload pays only when it pushes the total into a block not paid for this month, so most uploads cost 0; replacing a file counts only the size difference.
-So to publish a site or several related files: upload the first file without id, keep the id it returns, and pass that id for every other file. Never upload without id just to add files.
+So to publish a site or several related files: upload the first file without id, keep the id it returns, and pass that id for every other file. To add to or update something published earlier, find its folder with list and upload with that id. Never upload without id just to add files.
 Paths are slash-separated directories inside the folder, at most 5 levels deep.
 format is base64Content (the default, for any file) or textContent (UTF-8 text such as HTML, CSS or JSON, sent as is).`,
 	credit.FolderCredits, credit.StorageCredits, credit.StorageBlockBytes>>20)
@@ -75,7 +78,7 @@ type (
 
 	// FileInput is the file tool's arguments.
 	FileInput struct {
-		Action   string `json:"action" jsonschema:"what to do: upload, download, get or url"`
+		Action   string `json:"action" jsonschema:"what to do: upload, download, get, url or list"`
 		ID       string `json:"id,omitempty" jsonschema:"folder id; upload without it creates (and pays for) a new folder, with it adds or replaces files in that existing folder at no folder cost"`
 		FileName string `json:"fileName,omitempty" jsonschema:"file name, without directories"`
 		Path     string `json:"path,omitempty" jsonschema:"directory inside the folder, such as site/css, at most 5 levels; empty for the folder root"`
@@ -99,6 +102,20 @@ type (
 		Base64Content *string    `json:"base64Content,omitempty"`
 		TextContent   *string    `json:"textContent,omitempty"`
 		Files         []FileInfo `json:"files,omitempty"`
+		// Folders is the list action's result; it is left out when the
+		// account has no folders.
+		Folders []FolderInfo `json:"folders,omitempty"`
+	}
+
+	// FolderInfo is a folder in a list result.
+	FolderInfo struct {
+		ID string `json:"id"`
+		// Title is the owner's title, else the name of the folder's only
+		// file, else empty.
+		Title     string `json:"title,omitempty"`
+		URL       string `json:"url"`
+		SizeBytes int64  `json:"sizeBytes"`
+		CreatedAt string `json:"createdAt"`
 	}
 
 	// FileInfo is a file in a get listing.
@@ -146,7 +163,7 @@ func verifier(controller authctrl.Controller) auth.TokenVerifier {
 func inputSchema() *jsonschema.Schema {
 	// FileInput is a plain struct, so inference cannot fail.
 	s, _ := jsonschema.For[FileInput](nil)
-	s.Properties["action"].Enum = []any{ActionUpload, ActionDownload, ActionGet, ActionURL}
+	s.Properties["action"].Enum = []any{ActionUpload, ActionDownload, ActionGet, ActionURL, ActionList}
 	s.Properties["format"].Enum = []any{FormatBase64, FormatText}
 	return s
 }
@@ -166,8 +183,10 @@ func (t *tool) handle(ctx context.Context, req *mcp.CallToolRequest, in FileInpu
 		out, err = t.get(ctx, userID, in)
 	case ActionURL:
 		out, err = t.url(ctx, userID, in)
+	case ActionList:
+		out, err = t.list(ctx, userID)
 	default:
-		err = fmt.Errorf("unknown action %q: use upload, download, get or url", in.Action)
+		err = fmt.Errorf("unknown action %q: use upload, download, get, url or list", in.Action)
 	}
 	return nil, out, err
 }
@@ -308,6 +327,23 @@ func (t *tool) get(ctx context.Context, userID int64, in FileInput) (FileOutput,
 		files[i] = FileInfo{FileName: f.Path[strings.LastIndex(f.Path, "/")+1:], Path: dirOf(f.Path), Size: f.Size, URL: f.URL}
 	}
 	return FileOutput{ID: in.ID, URL: rs.Folder.URL, Files: files}, nil
+}
+
+func (t *tool) list(ctx context.Context, userID int64) (FileOutput, error) {
+	rs, err := t.folders.ListFolders(ctx, &entity.ListFoldersRequest{UserID: userID})
+	if err != nil {
+		return FileOutput{}, err
+	}
+	folders := make([]FolderInfo, len(rs.Folders))
+	for i, f := range rs.Folders {
+		id := idgen.FormatFolderID(f.ID)
+		title := f.Title
+		if title == "" && f.DefaultTitle != id {
+			title = f.DefaultTitle
+		}
+		folders[i] = FolderInfo{ID: id, Title: title, URL: f.URL, SizeBytes: f.SizeBytes, CreatedAt: f.CreatedAt.UTC().Format(time.RFC3339)}
+	}
+	return FileOutput{Folders: folders}, nil
 }
 
 func (t *tool) url(ctx context.Context, userID int64, in FileInput) (FileOutput, error) {

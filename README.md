@@ -67,7 +67,9 @@ Go (Fiber v3, GORM) backend and Vue 3 (Vite, Tailwind) frontend.
 ## MCP, CLI and OAuth
 
 - `/mcp` is a stateless MCP server with one tool, `file` (actions `upload`,
-  `download`, `get`, `url`). The `permahost` CLI in [cli/](cli/) mirrors it.
+  `download`, `get`, `url`, `list`). The `permahost` CLI in [cli/](cli/) mirrors it.
+  The tool description spells out the credits: only an upload without `id`
+  creates (and pays for) a folder; `list` finds existing folders to add to.
   File content travels as `base64Content` (the default) or, when the
   `format` argument asks for it, as UTF-8 `textContent`.
 - Both sign in with permahost's own OAuth 2.1 server: dynamic client

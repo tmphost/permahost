@@ -142,7 +142,9 @@ const active = computed(() => SECTIONS.find((section) => section.id === route.qu
         >
           It exposes one tool, <code class="font-mono text-gray-900 dark:text-zinc-100">file</code>, with the actions
           <code class="font-mono text-gray-900 dark:text-zinc-100">upload</code>, <code class="font-mono text-gray-900 dark:text-zinc-100">download</code>,
-          <code class="font-mono text-gray-900 dark:text-zinc-100">get</code> and <code class="font-mono text-gray-900 dark:text-zinc-100">url</code>.
+          <code class="font-mono text-gray-900 dark:text-zinc-100">get</code>, <code class="font-mono text-gray-900 dark:text-zinc-100">url</code> and
+          <code class="font-mono text-gray-900 dark:text-zinc-100">list</code>. Agents add files to an existing folder by its id, so they
+          don't pay for a new folder each time.
         </p>
 
         <div v-for="snippet in active.snippets" :key="snippet.id" class="mt-4">

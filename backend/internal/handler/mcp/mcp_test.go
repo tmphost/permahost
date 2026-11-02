@@ -14,6 +14,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/modelcontextprotocol/go-sdk/auth"
@@ -112,7 +113,7 @@ func TestListTools(t *testing.T) {
 	require.Len(t, rs.Tools, 1)
 	assert.Equal(t, "file", rs.Tools[0].Name)
 	schema, _ := json.Marshal(rs.Tools[0].InputSchema)
-	assert.Contains(t, string(schema), `"enum":["upload","download","get","url"]`)
+	assert.Contains(t, string(schema), `"enum":["upload","download","get","url","list"]`)
 	assert.Contains(t, string(schema), `"enum":["base64Content","textContent"]`)
 	assert.Contains(t, string(schema), "at no folder cost")
 
@@ -122,6 +123,7 @@ func TestListTools(t *testing.T) {
 	assert.Contains(t, desc, "Uploading with id into an existing folder never costs folder credits again")
 	assert.Contains(t, desc, "Storage costs 500 credits a month per started 25 MB the whole account stores.")
 	assert.Contains(t, desc, "keep the id it returns, and pass that id for every other file")
+	assert.Contains(t, desc, "find its folder with list and upload with that id")
 }
 
 func TestUnknownAction(t *testing.T) {
@@ -132,7 +134,7 @@ func TestUnknownAction(t *testing.T) {
 	// The handler checks too, in case the schema is ever loosened.
 	req := &mcp.CallToolRequest{Extra: &mcp.RequestExtra{TokenInfo: &auth.TokenInfo{UserID: "7"}}}
 	_, _, err := (&tool{}).handle(context.Background(), req, FileInput{Action: "rm"})
-	assert.EqualError(t, err, `unknown action "rm": use upload, download, get or url`)
+	assert.EqualError(t, err, `unknown action "rm": use upload, download, get, url or list`)
 }
 
 func TestContentFormat(t *testing.T) {
@@ -297,6 +299,32 @@ func TestDownload_Errors(t *testing.T) {
 	e.folders.EXPECT().OpenFile(gomock.Any(), gomock.Any()).Return(&entity.OpenFileResponse{Body: io.NopCloser(failingReader{})}, nil)
 	_, msg = e.call(t, map[string]any{"action": "download", "id": "000000000rs", "fileName": "a"})
 	assert.Contains(t, msg, "read file: boom")
+}
+
+func TestList(t *testing.T) {
+	e := newEnv(t)
+	created := time.Date(2026, 11, 2, 9, 30, 0, 0, time.FixedZone("x", 3600))
+	e.folders.EXPECT().ListFolders(gomock.Any(), &entity.ListFoldersRequest{UserID: 7}).Return(&entity.ListFoldersResponse{Folders: []entity.Folder{
+		{ID: 1000, CreatedAt: created, SizeBytes: 2048, URL: "https://f000000000rs.tmp.host/", Title: "Site", DefaultTitle: "index.html"},
+		{ID: 1001, CreatedAt: created, URL: "https://f000000000rt.tmp.host/", DefaultTitle: "report.pdf"},
+		{ID: 1002, CreatedAt: created, URL: "https://f000000000ru.tmp.host/", DefaultTitle: "000000000ru"},
+	}}, nil)
+	out, msg := e.call(t, map[string]any{"action": "list"})
+	require.Empty(t, msg)
+	assert.Equal(t, FileOutput{Folders: []FolderInfo{
+		{ID: "000000000rs", Title: "Site", URL: "https://f000000000rs.tmp.host/", SizeBytes: 2048, CreatedAt: "2026-11-02T08:30:00Z"},
+		{ID: "000000000rt", Title: "report.pdf", URL: "https://f000000000rt.tmp.host/", CreatedAt: "2026-11-02T08:30:00Z"},
+		{ID: "000000000ru", URL: "https://f000000000ru.tmp.host/", CreatedAt: "2026-11-02T08:30:00Z"},
+	}}, out)
+
+	e.folders.EXPECT().ListFolders(gomock.Any(), gomock.Any()).Return(&entity.ListFoldersResponse{}, nil)
+	out, msg = e.call(t, map[string]any{"action": "list"})
+	require.Empty(t, msg)
+	assert.Equal(t, FileOutput{}, out)
+
+	e.folders.EXPECT().ListFolders(gomock.Any(), gomock.Any()).Return(nil, errors.New("db down"))
+	_, msg = e.call(t, map[string]any{"action": "list"})
+	assert.Contains(t, msg, "db down")
 }
 
 func TestGet(t *testing.T) {
