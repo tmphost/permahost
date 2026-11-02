@@ -41,3 +41,20 @@ type (
 		Error string `json:"error"`
 	}
 )
+
+type (
+	// Usage is what the signed-in account hosts and what it costs.
+	Usage struct {
+		Folders        int     `json:"folders"`
+		StorageBytes   int64   `json:"storageBytes"`
+		StorageBlocks  int     `json:"storageBlocks"`
+		Domains        int     `json:"domains"`
+		MonthlyCredits int     `json:"monthlyCredits"`
+		Pricing        Pricing `json:"pricing"`
+	}
+
+	// GetUsageResponse wraps the usage.
+	GetUsageResponse struct {
+		Usage Usage `json:"usage"`
+	}
+)

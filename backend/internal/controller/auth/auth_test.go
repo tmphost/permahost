@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/tmphost/permahost/backend/internal/controller/credit"
 	"github.com/tmphost/permahost/backend/internal/data/entity"
 	"github.com/tmphost/permahost/backend/internal/data/model"
 	"github.com/tmphost/permahost/backend/internal/repository"
@@ -72,7 +73,7 @@ func newEnv(t *testing.T) *env {
 func TestNew_DefaultClock(t *testing.T) {
 	c := New(Params{}).(*controller)
 	assert.WithinDuration(t, time.Now(), c.now(), time.Second)
-	assert.Equal(t, 250, c.grant())
+	assert.Equal(t, credit.DefaultMonthlyGrant, c.grant())
 }
 
 func TestGetAuthConfig(t *testing.T) {

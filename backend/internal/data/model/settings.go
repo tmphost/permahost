@@ -94,7 +94,6 @@ type (
 
 	// FileSettings is the files section.
 	FileSettings struct {
-		MaxTTLMinutes          int    `json:"maxTtlMinutes"`
 		MaxUploadMB            int    `json:"maxUploadMb"`
 		AnonymousMaxTTLMinutes int    `json:"anonymousMaxTtlMinutes"`
 		Subdomains             bool   `json:"subdomains"`

@@ -14,6 +14,8 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/limiter"
 
 	authctrl "github.com/tmphost/permahost/backend/internal/controller/auth"
+	"github.com/tmphost/permahost/backend/internal/controller/credit"
+	domainctrl "github.com/tmphost/permahost/backend/internal/controller/domain"
 	folderctrl "github.com/tmphost/permahost/backend/internal/controller/folder"
 	oauthctrl "github.com/tmphost/permahost/backend/internal/controller/oauthserver"
 	setupctrl "github.com/tmphost/permahost/backend/internal/controller/setup"
@@ -45,6 +47,8 @@ type Params struct {
 	Auth    authctrl.Controller
 	Setup   setupctrl.Controller
 	Folders folderctrl.Controller
+	Domains domainctrl.Controller
+	Credits credit.Controller
 	OAuth   oauthctrl.Controller
 	// FileSettings returns the current file settings, which choose how
 	// folders are served.
@@ -63,9 +67,10 @@ func New(p Params) {
 		basePath:     basePath,
 		cookieSecure: p.CookieSecure,
 	}
-	user := &User{controller: p.Auth}
+	user := &User{controller: p.Auth, credits: p.Credits}
 	setup := &Setup{controller: p.Setup, basePath: basePath, cookieSecure: p.CookieSecure}
 	folder := &Folder{controller: p.Folders}
+	domain := &Domain{controller: p.Domains}
 	public := &Public{controller: p.Folders, settings: p.FileSettings}
 	oauth := &OAuth{controller: p.OAuth, basePath: basePath}
 
@@ -99,6 +104,7 @@ func New(p Params) {
 
 	authn := Authenticate(p.Auth)
 	r.Get("/users/me", authn, user.Get)
+	r.Get("/users/me/usage", authn, user.Usage)
 
 	// Visitors of the web app may upload without signing in, with lower
 	// limits.
@@ -112,6 +118,10 @@ func New(p Params) {
 	r.Put("/folders/:id/files/*", anyone, folder.PutFile)
 	r.Get("/folders/:id/files/*", authn, folder.GetFile)
 	r.Delete("/folders/:id/files/*", authn, folder.DeleteFile)
+	r.Get("/folders/:id/domains", authn, domain.List)
+	r.Post("/folders/:id/domains", authn, domain.Create)
+	r.Post("/folders/:id/domains/:domain/verify", authn, domain.Verify)
+	r.Delete("/folders/:id/domains/:domain", authn, domain.Delete)
 
 	r.Post("/setup/login", limiter.New(limiter.Config{
 		Max:          _rootLoginMax,

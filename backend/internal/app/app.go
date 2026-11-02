@@ -23,6 +23,7 @@ import (
 
 	authctrl "github.com/tmphost/permahost/backend/internal/controller/auth"
 	"github.com/tmphost/permahost/backend/internal/controller/credit"
+	domainctrl "github.com/tmphost/permahost/backend/internal/controller/domain"
 	folderctrl "github.com/tmphost/permahost/backend/internal/controller/folder"
 	oauthctrl "github.com/tmphost/permahost/backend/internal/controller/oauthserver"
 	setupctrl "github.com/tmphost/permahost/backend/internal/controller/setup"
@@ -30,6 +31,7 @@ import (
 	"github.com/tmphost/permahost/backend/internal/handler/api"
 	mcphandler "github.com/tmphost/permahost/backend/internal/handler/mcp"
 	"github.com/tmphost/permahost/backend/internal/repository"
+	"github.com/tmphost/permahost/backend/internal/service/dnscheck"
 	"github.com/tmphost/permahost/backend/internal/service/encryption"
 	"github.com/tmphost/permahost/backend/internal/service/idgen"
 	"github.com/tmphost/permahost/backend/internal/service/oauth"
@@ -43,6 +45,7 @@ import (
 const (
 	_renewalTimeout = 10 * time.Minute
 	_sweepTimeout   = 5 * time.Minute
+	_verifyTimeout  = 4 * time.Minute
 	// MCPPath is where the MCP server is mounted.
 	MCPPath = "/mcp"
 )
@@ -65,6 +68,7 @@ type (
 		Storage   StorageConfig
 		S3        S3Config
 		Files     FilesConfig
+		DNS       DNSConfig
 		IDGen     IDGenConfig
 	}
 
@@ -178,7 +182,6 @@ type (
 
 	// FilesConfig is the "files" section.
 	FilesConfig struct {
-		MaxTTLMinutes          int `yaml:"maxTtlMinutes"`
 		MaxUploadMB            int `yaml:"maxUploadMb"`
 		AnonymousMaxTTLMinutes int `yaml:"anonymousMaxTtlMinutes"`
 		// Subdomains serves each folder on its own host,
@@ -186,6 +189,14 @@ type (
 		Subdomains bool `yaml:"subdomains"`
 		// PublicDomain defaults to the BaseURL host.
 		PublicDomain string `yaml:"publicDomain"`
+	}
+
+	// DNSConfig is the "dns" section: where custom domains' CNAME records
+	// are looked up.
+	DNSConfig struct {
+		// Resolvers is a comma-separated list of host:port DNS resolvers;
+		// public ones (dnscheck.DefaultServers) when empty.
+		Resolvers string `yaml:"resolvers"`
 	}
 
 	// IDGenConfig is the "idgen" section.
@@ -200,6 +211,7 @@ type (
 		db        *gorm.DB
 		credits   credit.Controller
 		folders   folderctrl.Controller
+		domains   domainctrl.Controller
 		scheduler scheduler.Service
 		// The rest is set only with TLS enabled.
 		tlsAddr  string
@@ -253,9 +265,11 @@ func New(cfg Config, web fs.FS) (*App, error) {
 		BasePath:  basePath,
 		BaseURL:   baseURL,
 	})
+	folderRepo, domainRepo := repository.NewFolderRepository(db), repository.NewDomainRepository(db)
 	folders := folderctrl.New(folderctrl.Params{
-		Folders:   repository.NewFolderRepository(db),
+		Folders:   folderRepo,
 		Users:     users,
+		Domains:   domainRepo,
 		Storage:   store,
 		Anonymous: quota.New(quota.Params{Limit: folderctrl.AnonymousOps, Window: folderctrl.AnonymousWindow}),
 		Limits:    setup.FileLimits,
@@ -265,15 +279,43 @@ func New(cfg Config, web fs.FS) (*App, error) {
 	// folder controller enforces the real limit on the decoded bytes.
 	bodyLimit := cfg.Files.MaxUploadMB<<20*4/3 + 1<<20
 
-	h := newHosts(cfg.App.BaseURL, cfg.App.SitesDomain)
+	credits := credit.New(credit.Params{Users: users, Folders: folderRepo, Domains: domainRepo, Grant: setup.MonthlyGrant})
+	a := &App{
+		addr:      net.JoinHostPort("", strconv.Itoa(cfg.App.Port)),
+		db:        db,
+		credits:   credits,
+		folders:   folders,
+		scheduler: scheduler.New(),
+	}
+	appHost := setupctrl.AppHost(cfg.App.BaseURL)
+	domains := domainctrl.New(domainctrl.Params{
+		Domains:     domainRepo,
+		Folders:     folderRepo,
+		Users:       users,
+		DNS:         dnscheck.New(dnscheck.Config{Servers: splitList(cfg.DNS.Resolvers)}),
+		AppHost:     appHost,
+		SitesDomain: cfg.App.SitesDomain,
+		Settings:    setup.FileLimits,
+		// Set up before Listen, which is what serves certificates.
+		OnVerified: a.prepareCertificate,
+		NewID:      ids.NextID,
+	})
+	a.domains = domains
+
+	h := newHosts(cfg.App.BaseURL, cfg.App.SitesDomain, func(host string) bool {
+		_, err := domains.GetDomainFolder(context.Background(), host)
+		return err == nil
+	})
 	f := fiber.New(fiberConfig(cfg.App, bodyLimit))
 	f.Use(recover.New())
 	api.New(api.Params{
 		Router:       f,
-		Hosts:        hostRouter(h),
+		Hosts:        hostRouter(h, api.NewCustomDomainHandler(folders, domains)),
 		Auth:         auth,
 		Setup:        setup,
 		Folders:      folders,
+		Domains:      domains,
+		Credits:      credits,
 		OAuth:        oauthctrl.New(oauthctrl.Params{Token: tokens, Users: users, Issuer: baseURL, Resource: baseURL + MCPPath}),
 		FileSettings: setup.FileLimits,
 		BasePath:     basePath,
@@ -289,33 +331,33 @@ func New(cfg Config, web fs.FS) (*App, error) {
 	})))
 	f.Get("/*", spaHandler(web, basePath))
 
-	a := &App{
-		fiber:     f,
-		addr:      net.JoinHostPort("", strconv.Itoa(cfg.App.Port)),
-		db:        db,
-		credits:   credit.New(credit.Params{Users: users, Grant: setup.MonthlyGrant}),
-		folders:   folders,
-		scheduler: scheduler.New(),
-	}
-	// Both are valid constant specs, so these cannot fail.
+	a.fiber = f
+	// These are valid constant specs, so they cannot fail.
 	_ = a.scheduler.AddFunc(credit.RenewalSchedule, a.renewCredits)
 	_ = a.scheduler.AddFunc(folderctrl.SweepSchedule, a.sweepFolders)
+	_ = a.scheduler.AddFunc(domainctrl.VerifySchedule, a.verifyDomains)
 	if cfg.TLS.Enabled {
 		a.setupTLS(cfg, enc, h)
 	}
 	return a, nil
 }
 
+// splitList splits a comma-separated list, dropping empty items.
+func splitList(list string) []string {
+	var out []string
+	for item := range strings.SplitSeq(list, ",") {
+		if item = strings.TrimSpace(item); item != "" {
+			out = append(out, item)
+		}
+	}
+	return out
+}
+
 // fiberConfig is the app server's config. With trusted proxies, c.IP() is
 // the client IP that they forward in the proxy header.
 func fiberConfig(app AppConfig, bodyLimit int) fiber.Config {
 	cfg := fiber.Config{BodyLimit: bodyLimit}
-	var proxies []string
-	for p := range strings.SplitSeq(app.TrustedProxies, ",") {
-		if p = strings.TrimSpace(p); p != "" {
-			proxies = append(proxies, p)
-		}
-	}
+	proxies := splitList(app.TrustedProxies)
 	if len(proxies) == 0 {
 		return cfg
 	}
@@ -372,7 +414,27 @@ func (a *App) renewCredits() {
 		log.Printf("credit renewal: renewed %d before failing: %v", rs.Renewed, err)
 		return
 	}
-	log.Printf("credit renewal: renewed %d accounts", rs.Renewed)
+	log.Printf("credit renewal: renewed %d accounts, %d of them paused", rs.Renewed, rs.Suspended)
+}
+
+func (a *App) verifyDomains() {
+	ctx, cancel := context.WithTimeout(context.Background(), _verifyTimeout)
+	defer cancel()
+	rs, err := a.domains.VerifyPendingDomains(ctx)
+	if err != nil {
+		log.Printf("domain check: checked %d, failed: %v", rs.Checked, err)
+	}
+	if rs.Verified > 0 {
+		log.Printf("domain check: verified %d of %d pending domains", rs.Verified, rs.Checked)
+	}
+}
+
+// prepareCertificate gets a newly verified domain's certificate, when the
+// app serves HTTPS.
+func (a *App) prepareCertificate(host string) {
+	if a.certs != nil {
+		a.certs.Prepare(host)
+	}
 }
 
 func (a *App) sweepFolders() {
@@ -384,7 +446,7 @@ func (a *App) sweepFolders() {
 		return
 	}
 	if rs.Deleted > 0 {
-		log.Printf("folder sweep: deleted %d expired folders", rs.Deleted)
+		log.Printf("folder sweep: deleted %d expired anonymous folders", rs.Deleted)
 	}
 }
 

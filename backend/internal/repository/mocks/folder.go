@@ -80,6 +80,22 @@ func (mr *MockFolderRepositoryMockRecorder) FindFolderByID(ctx, id interface{}) 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindFolderByID", reflect.TypeOf((*MockFolderRepository)(nil).FindFolderByID), ctx, id)
 }
 
+// GetUserFolderUsage mocks base method.
+func (m *MockFolderRepository) GetUserFolderUsage(ctx context.Context, userID int64) (int, int64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUserFolderUsage", ctx, userID)
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(int64)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetUserFolderUsage indicates an expected call of GetUserFolderUsage.
+func (mr *MockFolderRepositoryMockRecorder) GetUserFolderUsage(ctx, userID interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserFolderUsage", reflect.TypeOf((*MockFolderRepository)(nil).GetUserFolderUsage), ctx, userID)
+}
+
 // ListExpiredFolders mocks base method.
 func (m *MockFolderRepository) ListExpiredFolders(ctx context.Context, now time.Time, limit int) ([]model.Folder, error) {
 	m.ctrl.T.Helper()
@@ -108,6 +124,20 @@ func (m *MockFolderRepository) ListFoldersByUser(ctx context.Context, userID int
 func (mr *MockFolderRepositoryMockRecorder) ListFoldersByUser(ctx, userID, now interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListFoldersByUser", reflect.TypeOf((*MockFolderRepository)(nil).ListFoldersByUser), ctx, userID, now)
+}
+
+// UpdateFolderSize mocks base method.
+func (m *MockFolderRepository) UpdateFolderSize(ctx context.Context, id, size int64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateFolderSize", ctx, id, size)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateFolderSize indicates an expected call of UpdateFolderSize.
+func (mr *MockFolderRepositoryMockRecorder) UpdateFolderSize(ctx, id, size interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateFolderSize", reflect.TypeOf((*MockFolderRepository)(nil).UpdateFolderSize), ctx, id, size)
 }
 
 // UpdateFolderTitle mocks base method.

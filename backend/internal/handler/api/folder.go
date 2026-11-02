@@ -37,7 +37,7 @@ func (h *Folder) Create(c fiber.Ctx) error {
 	return sendJSON(c, fiber.StatusCreated, mapper.FromCreateFolderResponseEntityToHTTPResponse(rs))
 }
 
-// List lists the live folders.
+// List lists the folders.
 func (h *Folder) List(c fiber.Ctx) error {
 	rq := mapper.FromHTTPRequestToListFoldersRequestEntity(c)
 	if rq == nil {

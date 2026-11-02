@@ -38,7 +38,7 @@ func defaults() entity.Settings {
 			Local:  entity.LocalStorageSettings{Path: "./_storage/files"},
 			S3:     entity.S3Settings{SecretAccessKey: "s3secret"},
 		},
-		Files: entity.FileSettings{MaxTTLMinutes: 432000, MaxUploadMB: 16, AnonymousMaxTTLMinutes: 10, PublicDomain: "permahost.io"},
+		Files: entity.FileSettings{MaxUploadMB: 16, AnonymousMaxTTLMinutes: 10, PublicDomain: "permahost.io"},
 		Auth: entity.AuthSettings{
 			Google: entity.OAuthClientSettings{ClientID: "g", ClientSecret: "gsecret"},
 		},
@@ -100,7 +100,7 @@ func TestNew(t *testing.T) {
 		ctrl, err := New(Params{Repository: repo, RootAccessToken: "x", Defaults: defaults()})
 		require.NoError(t, err)
 		assert.Equal(t, defaults(), ctrl.Current())
-		assert.Equal(t, entity.FileSettings{MaxTTLMinutes: 432000, MaxUploadMB: 16, AnonymousMaxTTLMinutes: 10, PublicDomain: "permahost.io"}, ctrl.FileLimits())
+		assert.Equal(t, entity.FileSettings{MaxUploadMB: 16, AnonymousMaxTTLMinutes: 10, PublicDomain: "permahost.io"}, ctrl.FileLimits())
 	})
 
 	t.Run("load error", func(t *testing.T) {
@@ -168,7 +168,6 @@ func TestUpdateSettings_CreditsApplyLive(t *testing.T) {
 	e := newEnv(t)
 	next := e.ctrl.GetSettings(ctx).Settings // secrets blank: kept
 	next.Credits.MonthlyGrant = 400
-	next.Files.MaxTTLMinutes = 60
 	next.Files.AnonymousMaxTTLMinutes = 5
 	next.Files.Subdomains = true
 	next.Files.PublicDomain = " Files.Example.com:8443 "
@@ -184,7 +183,7 @@ func TestUpdateSettings_CreditsApplyLive(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, rs.RestartRequired, "credits, max TTLs and public URLs apply without a restart")
 	assert.Equal(t, 400, e.ctrl.MonthlyGrant())
-	assert.Equal(t, entity.FileSettings{MaxTTLMinutes: 60, MaxUploadMB: 16, AnonymousMaxTTLMinutes: 5, Subdomains: true, PublicDomain: "files.example.com:8443"}, e.ctrl.FileLimits())
+	assert.Equal(t, entity.FileSettings{MaxUploadMB: 16, AnonymousMaxTTLMinutes: 5, Subdomains: true, PublicDomain: "files.example.com:8443"}, e.ctrl.FileLimits())
 	assert.Empty(t, rs.Settings.Auth.Google.ClientSecret)
 }
 
@@ -245,14 +244,10 @@ func TestUpdateSettings_Validation(t *testing.T) {
 		"s3 unparsable endpoint": func(s *entity.Settings) {
 			s.Storage.Driver, s.Storage.S3 = StorageS3, entity.S3Settings{Region: "r", Bucket: "b", Endpoint: "http://[::1"}
 		},
-		"zero max ttl":           func(s *entity.Settings) { s.Files.MaxTTLMinutes = 0 },
-		"huge max ttl":           func(s *entity.Settings) { s.Files.MaxTTLMinutes = _maxTTLMinutes + 1 },
 		"zero max upload":        func(s *entity.Settings) { s.Files.MaxUploadMB = 0 },
 		"zero anonymous max ttl": func(s *entity.Settings) { s.Files.AnonymousMaxTTLMinutes = 0 },
-		"anonymous max ttl over max ttl": func(s *entity.Settings) {
-			s.Files.MaxTTLMinutes, s.Files.AnonymousMaxTTLMinutes = 30, 31
-		},
-		"huge max upload": func(s *entity.Settings) { s.Files.MaxUploadMB = _maxUploadMB + 1 },
+		"huge anonymous max ttl": func(s *entity.Settings) { s.Files.AnonymousMaxTTLMinutes = _maxAnonymousTTLMinutes + 1 },
+		"huge max upload":        func(s *entity.Settings) { s.Files.MaxUploadMB = _maxUploadMB + 1 },
 		"subdomains without domain": func(s *entity.Settings) {
 			s.Files.Subdomains, s.Files.PublicDomain = true, " "
 		},

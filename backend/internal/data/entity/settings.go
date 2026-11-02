@@ -98,12 +98,10 @@ type (
 
 	// FileSettings limit uploads and choose how folders are served.
 	FileSettings struct {
-		// MaxTTLMinutes is the longest lifetime a folder can be given.
-		MaxTTLMinutes int
 		// MaxUploadMB caps the bytes a single upload request carries.
 		MaxUploadMB int
 		// AnonymousMaxTTLMinutes is the longest lifetime of a folder made
-		// without signing in.
+		// without signing in. An account's folders do not expire.
 		AnonymousMaxTTLMinutes int
 		// Subdomains serves each folder on its own host,
 		// <folderID>-<userID>.<PublicDomain>; otherwise folders are served

@@ -15,8 +15,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// isCustom reports the verified custom domain the tests know.
+func isCustom(host string) bool { return host == "www.custom.io" }
+
 func TestHostsClassify(t *testing.T) {
-	h := newHosts("https://App.Example.com", "Example.com")
+	h := newHosts("https://App.Example.com", "Example.com", isCustom)
 	assert.False(t, h.open)
 	cases := map[string]hostKind{
 		"app.example.com":               hostApp,
@@ -32,6 +35,8 @@ func TestHostsClassify(t *testing.T) {
 		"f0123456789a.a.example.com":    hostUnknown,
 		"example.com":                   hostUnknown,
 		"evil.com":                      hostUnknown,
+		"www.custom.io":                 hostDomain,
+		"WWW.custom.io:443":             hostDomain,
 	}
 	for host, want := range cases {
 		got, id := h.classify(host)
@@ -44,19 +49,23 @@ func TestHostsClassify(t *testing.T) {
 	// An app URL on this machine or an IP answers any host, as in
 	// development; dynamic subdomains still win.
 	for _, appURL := range []string{"http://localhost:2027", "http://192.168.1.2:2027"} {
-		open := newHosts(appURL, "example.com")
+		open := newHosts(appURL, "example.com", isCustom)
 		assert.True(t, open.open)
 		kind, _ := open.classify("anything.lan")
 		assert.Equal(t, hostApp, kind)
+		kind, _ = open.classify("www.custom.io")
+		assert.Equal(t, hostDomain, kind, "custom domains still work")
 		kind, _ = open.classify("f0123456789a.example.com")
 		assert.Equal(t, hostSite, kind)
 	}
 
 	assert.True(t, h.isSite("f0123456789a.example.com"))
 	assert.False(t, h.isSite("app.example.com"))
+	assert.True(t, h.isDomain("www.custom.io"))
+	assert.False(t, h.isDomain("app.example.com"))
 
 	// No sites domain, no dynamic subdomains.
-	kind, _ := newHosts("https://app.example.com", "").classify("f0123456789a.example.com")
+	kind, _ := newHosts("https://app.example.com", "", isCustom).classify("f0123456789a.example.com")
 	assert.Equal(t, hostUnknown, kind)
 }
 
@@ -99,7 +108,7 @@ func TestHostRouter(t *testing.T) {
 }
 
 func TestHTTPSRedirect(t *testing.T) {
-	h := newHosts("https://app.example.com", "example.com")
+	h := newHosts("https://app.example.com", "example.com", isCustom)
 	cases := []struct {
 		host string
 		port int
@@ -108,6 +117,7 @@ func TestHTTPSRedirect(t *testing.T) {
 		{"app.example.com", 443, "https://app.example.com/x?y=1"},
 		{"app.example.com:2027", 8443, "https://app.example.com:8443/x?y=1"},
 		{"f0123456789a.example.com", 443, "https://f0123456789a.example.com/x?y=1"},
+		{"www.custom.io", 443, "https://www.custom.io/x?y=1"},
 	}
 	for _, tc := range cases {
 		req := httptest.NewRequest(http.MethodGet, "/x?y=1", nil)

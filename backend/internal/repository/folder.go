@@ -21,14 +21,19 @@ type (
 	FolderRepository interface {
 		CreateFolder(ctx context.Context, f model.Folder) (model.Folder, error)
 		FindFolderByID(ctx context.Context, id int64) (model.Folder, error)
-		// ListFoldersByUser returns a user's folders that expire after now,
-		// newest first.
+		// ListFoldersByUser returns a user's folders that do not expire or
+		// expire after now, newest first.
 		ListFoldersByUser(ctx context.Context, userID int64, now time.Time) ([]model.Folder, error)
+		// GetUserFolderUsage counts a user's folders that do not expire and
+		// sums their sizes.
+		GetUserFolderUsage(ctx context.Context, userID int64) (folders int, bytes int64, err error)
 		// ListExpiredFolders returns up to limit folders that expired at or
 		// before now, oldest expiry first.
 		ListExpiredFolders(ctx context.Context, now time.Time, limit int) ([]model.Folder, error)
 		// UpdateFolderTitle sets a folder's title.
 		UpdateFolderTitle(ctx context.Context, id int64, title string) error
+		// UpdateFolderSize sets a folder's total file size.
+		UpdateFolderSize(ctx context.Context, id int64, size int64) error
 		DeleteFolder(ctx context.Context, id int64) error
 	}
 
@@ -64,13 +69,28 @@ func (r *folderRepository) FindFolderByID(ctx context.Context, id int64) (model.
 func (r *folderRepository) ListFoldersByUser(ctx context.Context, userID int64, now time.Time) ([]model.Folder, error) {
 	var folders []model.Folder
 	err := r.db.WithContext(ctx).
-		Where("user_id = ? AND expires_at > ?", userID, now).
+		Where("user_id = ? AND (expires_at IS NULL OR expires_at > ?)", userID, now).
 		Order("id DESC").
 		Find(&folders).Error
 	if err != nil {
 		return nil, err
 	}
 	return folders, nil
+}
+
+func (r *folderRepository) GetUserFolderUsage(ctx context.Context, userID int64) (int, int64, error) {
+	var usage struct {
+		Folders int
+		Bytes   int64
+	}
+	err := r.db.WithContext(ctx).Model(&model.Folder{}).
+		Select("COUNT(*) AS folders, COALESCE(SUM(size_bytes), 0) AS bytes").
+		Where("user_id = ? AND expires_at IS NULL", userID).
+		Scan(&usage).Error
+	if err != nil {
+		return 0, 0, err
+	}
+	return usage.Folders, usage.Bytes, nil
 }
 
 func (r *folderRepository) ListExpiredFolders(ctx context.Context, now time.Time, limit int) ([]model.Folder, error) {
@@ -88,6 +108,10 @@ func (r *folderRepository) ListExpiredFolders(ctx context.Context, now time.Time
 
 func (r *folderRepository) UpdateFolderTitle(ctx context.Context, id int64, title string) error {
 	return r.db.WithContext(ctx).Model(&model.Folder{}).Where("id = ?", id).Update("title", title).Error
+}
+
+func (r *folderRepository) UpdateFolderSize(ctx context.Context, id int64, size int64) error {
+	return r.db.WithContext(ctx).Model(&model.Folder{}).Where("id = ?", id).Update("size_bytes", size).Error
 }
 
 func (r *folderRepository) DeleteFolder(ctx context.Context, id int64) error {

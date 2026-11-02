@@ -25,11 +25,13 @@ const LocalSiteID = "siteID"
 var _siteLabelRE = regexp.MustCompile(`^f[a-z0-9]{11}$`)
 
 type (
-	// hosts tells the app host and the dynamic subdomains apart from hosts
-	// the server does not answer for.
+	// hosts tells the app host, the dynamic subdomains and the verified
+	// custom domains apart from hosts the server does not answer for.
 	hosts struct {
 		app   string
 		sites string
+		// domain reports whether a host is a verified custom domain.
+		domain func(host string) bool
 		// open skips the host check: the app URL names this machine or an
 		// IP, as in local development.
 		open bool
@@ -42,11 +44,12 @@ const (
 	hostUnknown hostKind = iota
 	hostApp
 	hostSite
+	hostDomain
 )
 
-func newHosts(appURL, sitesDomain string) hosts {
+func newHosts(appURL, sitesDomain string, domain func(host string) bool) hosts {
 	app := strings.ToLower(setupctrl.AppHost(appURL))
-	return hosts{app: app, sites: strings.ToLower(sitesDomain), open: isLocal(app) || net.ParseIP(app) != nil}
+	return hosts{app: app, sites: strings.ToLower(sitesDomain), domain: domain, open: isLocal(app) || net.ParseIP(app) != nil}
 }
 
 // classify returns what host (a Host header, port allowed) is, and the site
@@ -62,7 +65,15 @@ func (h hosts) classify(host string) (hostKind, string) {
 		}
 	}
 	// This machine always reaches the app, e.g. for health checks.
-	if h.open || name == h.app || isLocal(name) {
+	if name == h.app || isLocal(name) {
+		return hostApp, ""
+	}
+	// Custom domains are looked up before the open check, so they work
+	// while the app is reached by IP.
+	if h.domain(name) {
+		return hostDomain, ""
+	}
+	if h.open {
 		return hostApp, ""
 	}
 	return hostUnknown, ""
@@ -80,9 +91,16 @@ func isLocal(name string) bool {
 	return name == "localhost" || name == "127.0.0.1" || name == "::1"
 }
 
+// isDomain reports whether host is a verified custom domain.
+func (h hosts) isDomain(host string) bool {
+	kind, _ := h.classify(host)
+	return kind == hostDomain
+}
+
 // hostRouter lets app host requests through, answers dynamic subdomains no
-// folder was served on, and refuses every other host.
-func hostRouter(h hosts) fiber.Handler {
+// folder was served on, serves custom domains with domain, and refuses
+// every other host.
+func hostRouter(h hosts, domain fiber.Handler) fiber.Handler {
 	return func(c fiber.Ctx) error {
 		kind, siteID := h.classify(string(c.Request().Host()))
 		switch kind {
@@ -94,6 +112,8 @@ func hostRouter(h hosts) fiber.Handler {
 			// subdomains are on and the public domain is the sites
 			// domain; anything left names no folder.
 			return sendJSONError(c, fiber.StatusNotFound, "site not found")
+		case hostDomain:
+			return domain(c)
 		default:
 			return sendJSONError(c, fiber.StatusNotFound, "host not allowed")
 		}

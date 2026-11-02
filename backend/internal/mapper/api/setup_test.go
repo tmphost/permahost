@@ -73,7 +73,7 @@ func TestSettingsMapping(t *testing.T) {
 	assert.Equal(t, 300, got.Settings.Credits.MonthlyGrant)
 	assert.Equal(t, "postgres://u:p@h/d", got.Settings.Database.Postgres.DSN)
 	assert.Equal(t, "hs", got.Settings.Auth.GitHub.ClientSecret)
-	assert.Equal(t, entity.FileSettings{MaxTTLMinutes: 60, MaxUploadMB: 2, AnonymousMaxTTLMinutes: 7, Subdomains: true, PublicDomain: "x.io"}, got.Settings.Files)
+	assert.Equal(t, entity.FileSettings{MaxUploadMB: 2, AnonymousMaxTTLMinutes: 7, Subdomains: true, PublicDomain: "x.io"}, got.Settings.Files)
 	assert.Equal(t, entity.DomainSettings{AppURL: "https://app.permahost.io", SitesDomain: "permahost.io"}, got.Settings.Domain)
 	assert.Equal(t, entity.TLSSettings{
 		Enabled: true, Port: 8443, Email: "ops@permahost.io",

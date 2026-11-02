@@ -404,3 +404,62 @@ func TestNewACMEObtainer_Failures(t *testing.T) {
 		assert.ErrorContains(t, err, "ACME registration")
 	})
 }
+
+func TestCustomDomains(t *testing.T) {
+	// Custom domains get their own certificate even beside a wildcard.
+	e := newTestService(t, SitesConfig{Enabled: true, Domain: "example.com", CloudflareAPIToken: "cf"})
+	verified := map[string]bool{"www.custom.io": true}
+	e.s.cfg.AllowDomain = func(host string) bool { return verified[host] }
+
+	assert.Equal(t, []string{"www.custom.io"}, names(t, e.s, "www.custom.io"))
+	assert.EqualValues(t, 1, e.alpn.requests.Load())
+	_, err := e.s.GetCertificate(&tls.ClientHelloInfo{ServerName: "other.custom.io"})
+	assert.ErrorContains(t, err, "no certificate", "not verified")
+
+	// A domain no longer verified loses its certificate at the daily check;
+	// the app host and the wildcard stay.
+	e.s.refresh()
+	delete(verified, "www.custom.io")
+	e.s.refresh()
+	assert.ElementsMatch(t, []string{"app.example.com", "*.example.com"}, e.s.names())
+	assert.NoFileExists(t, filepath.Join(e.s.cfg.CacheDir, cacheFile("www.custom.io")))
+	assert.FileExists(t, filepath.Join(e.s.cfg.CacheDir, cacheFile("app.example.com")))
+}
+
+func TestCustomDomains_KeepsSiteCertificates(t *testing.T) {
+	e := newTestService(t, SitesConfig{Enabled: true, Domain: "example.com"})
+	e.s.cfg.AllowDomain = func(string) bool { return false }
+	assert.Equal(t, []string{_site}, names(t, e.s, _site))
+	e.s.refresh()
+	assert.ElementsMatch(t, []string{"app.example.com", _site}, e.s.names(), "a dynamic subdomain is never dropped")
+}
+
+func TestPrepare(t *testing.T) {
+	e := newTestService(t, SitesConfig{})
+	e.alpn.called = make(chan string, 4)
+	e.s.cfg.AllowDomain = func(host string) bool { return host == "www.custom.io" || host == "bad.custom.io" }
+
+	e.s.Prepare("unknown.custom.io")
+	e.s.Prepare("WWW.custom.io")
+	assert.Equal(t, "www.custom.io", <-e.alpn.called, "obtained in the background")
+	assert.Eventually(t, func() bool { return e.s.cached("www.custom.io") != nil }, time.Second, time.Millisecond)
+
+	e.s.Prepare("www.custom.io")
+	e.alpn.err = errors.New("refused")
+	e.s.Prepare("bad.custom.io")
+	assert.Equal(t, "bad.custom.io", <-e.alpn.called)
+	assert.Eventually(t, func() bool {
+		e.s.mu.RLock()
+		defer e.s.mu.RUnlock()
+		_, failed := e.s.failed["bad.custom.io"]
+		return failed
+	}, time.Second, time.Millisecond)
+	assert.EqualValues(t, 2, e.alpn.requests.Load(), "neither unknown nor cached domains go to the CA")
+}
+
+func TestPrepare_NoCustomDomains(t *testing.T) {
+	e := newTestService(t, SitesConfig{})
+	e.s.Prepare("www.custom.io")
+	assert.False(t, e.s.dropped("www.custom.io"), "nothing is dropped without custom domains")
+	assert.EqualValues(t, 0, e.alpn.requests.Load())
+}

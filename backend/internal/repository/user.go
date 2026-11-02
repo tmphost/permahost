@@ -34,13 +34,22 @@ type (
 		// ListUsersDueForCreditRenewal returns up to limit users whose
 		// credit renewal time is at or before now, oldest first.
 		ListUsersDueForCreditRenewal(ctx context.Context, now time.Time, limit int) ([]model.User, error)
-		// UpdateUserCredits sets a user's balance and next renewal time.
-		UpdateUserCredits(ctx context.Context, id int64, credits int, renewAt time.Time) error
+		// UpdateUserCredits sets a user's balance, the storage blocks paid
+		// for and the next renewal time.
+		UpdateUserCredits(ctx context.Context, id int64, credits, storageBlocks int, renewAt time.Time) error
 		// SpendCredits takes n credits from a user in one atomic update, or
 		// returns ErrInsufficientCredits and takes none.
 		SpendCredits(ctx context.Context, id int64, n int) error
 		// RefundCredits gives n spent credits back.
 		RefundCredits(ctx context.Context, id int64, n int) error
+		// PayStorageBlocks raises the storage blocks a user has paid for
+		// this period to blocks, at price credits per block added, and
+		// returns what it took: 0 when they are already paid for, else all
+		// of it or ErrInsufficientCredits and nothing.
+		PayStorageBlocks(ctx context.Context, id int64, blocks, price int) (int, error)
+		// RefundStorageBlocks gives back n credits paid for blocks storage
+		// blocks.
+		RefundStorageBlocks(ctx context.Context, id int64, blocks, n int) error
 	}
 
 	userRepository struct {
@@ -88,9 +97,9 @@ func (r *userRepository) ListUsersDueForCreditRenewal(ctx context.Context, now t
 	return users, nil
 }
 
-func (r *userRepository) UpdateUserCredits(ctx context.Context, id int64, credits int, renewAt time.Time) error {
+func (r *userRepository) UpdateUserCredits(ctx context.Context, id int64, credits, storageBlocks int, renewAt time.Time) error {
 	return r.db.WithContext(ctx).Model(&model.User{}).Where("id = ?", id).
-		Updates(map[string]any{"credits": credits, "credits_renew_at": renewAt}).Error
+		Updates(map[string]any{"credits": credits, "storage_blocks_paid": storageBlocks, "credits_renew_at": renewAt}).Error
 }
 
 func (r *userRepository) SpendCredits(ctx context.Context, id int64, n int) error {
@@ -109,6 +118,41 @@ func (r *userRepository) SpendCredits(ctx context.Context, id int64, n int) erro
 func (r *userRepository) RefundCredits(ctx context.Context, id int64, n int) error {
 	return r.db.WithContext(ctx).Model(&model.User{}).Where("id = ?", id).
 		Update("credits", gorm.Expr("credits + ?", n)).Error
+}
+
+func (r *userRepository) PayStorageBlocks(ctx context.Context, id int64, blocks, price int) (int, error) {
+	for {
+		u, err := r.FindUserByID(ctx, id)
+		if err != nil {
+			return 0, err
+		}
+		if u.StorageBlocksPaid >= blocks {
+			return 0, nil
+		}
+		cost := (blocks - u.StorageBlocksPaid) * price
+		if u.Credits < cost {
+			return 0, ErrInsufficientCredits
+		}
+		// The update only applies if nobody paid for blocks since the read;
+		// otherwise the cost is worked out again.
+		res := r.db.WithContext(ctx).Model(&model.User{}).
+			Where("id = ? AND storage_blocks_paid = ? AND credits >= ?", id, u.StorageBlocksPaid, cost).
+			Updates(map[string]any{"credits": gorm.Expr("credits - ?", cost), "storage_blocks_paid": blocks})
+		if res.Error != nil {
+			return 0, res.Error
+		}
+		if res.RowsAffected > 0 {
+			return cost, nil
+		}
+	}
+}
+
+func (r *userRepository) RefundStorageBlocks(ctx context.Context, id int64, blocks, n int) error {
+	return r.db.WithContext(ctx).Model(&model.User{}).Where("id = ?", id).
+		Updates(map[string]any{
+			"credits":             gorm.Expr("credits + ?", n),
+			"storage_blocks_paid": gorm.Expr("storage_blocks_paid - ?", blocks),
+		}).Error
 }
 
 func (r *userRepository) first(ctx context.Context, query string, arg any) (model.User, error) {

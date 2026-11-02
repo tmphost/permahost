@@ -242,16 +242,19 @@ func TestFromHTTPRequestToOpenPublicFileByPathRequestEntity(t *testing.T) {
 
 func TestFolderResponses(t *testing.T) {
 	at := time.Date(2026, 10, 18, 12, 0, 0, 0, time.FixedZone("x", 3600))
-	folder := entity.Folder{ID: 1000, CreatedAt: at, ExpiresAt: at, URL: "u", Title: "Photos", DefaultTitle: "a"}
+	folder := entity.Folder{ID: 1000, CreatedAt: at, SizeBytes: 7, URL: "u", Title: "Photos", DefaultTitle: "a"}
 	file := entity.File{Path: "a", Size: 1, UpdatedAt: at, URL: "u/a"}
-	const folderJSON = `{"id":"000000000rs","createdAt":"2026-10-18T11:00:00Z","expiresAt":"2026-10-18T11:00:00Z","url":"u","title":"Photos","defaultTitle":"a"}`
+	const folderJSON = `{"id":"000000000rs","createdAt":"2026-10-18T11:00:00Z","sizeBytes":7,"url":"u","title":"Photos","defaultTitle":"a"}`
 	const fileJSON = `{"path":"a","size":1,"updatedAt":"2026-10-18T11:00:00Z","url":"u/a"}`
 
-	assert.JSONEq(t, `{"defaultTtlMinutes":30,"maxTtlMinutes":60,"maxUploadBytes":5,"billingBlockMinutes":30,"billingUnitBytes":1048576}`,
-		string(FromGetLimitsResponseEntityToHTTPResponse(&entity.GetLimitsResponse{DefaultTTLMinutes: 30, MaxTTLMinutes: 60, MaxUploadBytes: 5, BillingBlockMinutes: 30, BillingUnitBytes: 1 << 20})))
-	assert.JSONEq(t, `{"defaultTtlMinutes":30,"maxTtlMinutes":30,"maxUploadBytes":5,"billingBlockMinutes":30,"billingUnitBytes":1048576,"anonymous":true,"fileOps":5,"fileOpsWindowMinutes":30}`,
-		string(FromGetLimitsResponseEntityToHTTPResponse(&entity.GetLimitsResponse{DefaultTTLMinutes: 30, MaxTTLMinutes: 30, MaxUploadBytes: 5, BillingBlockMinutes: 30, BillingUnitBytes: 1 << 20, Anonymous: true, FileOps: 5, FileOpsWindowMinutes: 30})))
-	assert.JSONEq(t, `{"folder":`+folderJSON+`}`, string(FromCreateFolderResponseEntityToHTTPResponse(&entity.CreateFolderResponse{Folder: folder})))
+	assert.JSONEq(t, `{"maxUploadBytes":5,"pricing":{"storageBlockBytes":26214400,"storageCredits":500,"folderCredits":500,"domainCredits":500,"domainSetupCredits":500}}`,
+		string(FromGetLimitsResponseEntityToHTTPResponse(&entity.GetLimitsResponse{MaxUploadBytes: 5, Pricing: _pricing})))
+	assert.JSONEq(t, `{"defaultTtlMinutes":30,"maxTtlMinutes":30,"maxUploadBytes":5,"pricing":{"storageBlockBytes":26214400,"storageCredits":500,"folderCredits":500,"domainCredits":500,"domainSetupCredits":500},"anonymous":true,"fileOps":5,"fileOpsWindowMinutes":30}`,
+		string(FromGetLimitsResponseEntityToHTTPResponse(&entity.GetLimitsResponse{DefaultTTLMinutes: 30, MaxTTLMinutes: 30, MaxUploadBytes: 5, Pricing: _pricing, Anonymous: true, FileOps: 5, FileOpsWindowMinutes: 30})))
+	assert.JSONEq(t, `{"folder":`+folderJSON+`,"creditsSpent":500}`, string(FromCreateFolderResponseEntityToHTTPResponse(&entity.CreateFolderResponse{Folder: folder, CreditsSpent: 500})))
+	anonymous := folder
+	anonymous.ExpiresAt = at
+	assert.Equal(t, "2026-10-18T11:00:00Z", FromFolderEntityToFolderView(anonymous).ExpiresAt, "anonymous folders expire")
 	assert.JSONEq(t, `{"folder":`+folderJSON+`}`, string(FromUpdateFolderResponseEntityToHTTPResponse(&entity.UpdateFolderResponse{Folder: folder})))
 	assert.JSONEq(t, `{"folders":[`+folderJSON+`]}`, string(FromListFoldersResponseEntityToHTTPResponse(&entity.ListFoldersResponse{Folders: []entity.Folder{folder}})))
 	assert.JSONEq(t, `{"folders":[]}`, string(FromListFoldersResponseEntityToHTTPResponse(&entity.ListFoldersResponse{})))
@@ -274,4 +277,25 @@ func TestFromHTTPRequestToAuthenticateRequestEntity_Bearer(t *testing.T) {
 	assert.Equal(t, &entity.AuthenticateRequest{AccessToken: "tok"}, read("bearer tok"))
 	assert.Equal(t, &entity.AuthenticateRequest{SessionToken: "cookie"}, read("Basic abc"), "other schemes fall back to the cookie")
 	assert.Equal(t, &entity.AuthenticateRequest{SessionToken: "cookie"}, read("Bearer "))
+}
+
+// _pricing is the pricing the mapper tests render.
+var _pricing = entity.Pricing{StorageBlockBytes: 25 << 20, StorageCredits: 500, FolderCredits: 500, DomainCredits: 500, DomainSetupCredits: 500}
+
+func TestFromHTTPRequestToOpenDomainFileRequestEntity(t *testing.T) {
+	var got *entity.OpenPublicFileRequest
+	runAs(t, 0, "/*", httptest.NewRequest(http.MethodGet, "http://www.custom.io/site/a%20b.html", nil), func(c fiber.Ctx) {
+		got = FromHTTPRequestToOpenDomainFileRequestEntity(c, 1000)
+	})
+	assert.Equal(t, &entity.OpenPublicFileRequest{FolderID: 1000, Path: "site/a b.html"}, got)
+
+	runAs(t, 0, "/*", httptest.NewRequest(http.MethodGet, "http://www.custom.io/", nil), func(c fiber.Ctx) {
+		got = FromHTTPRequestToOpenDomainFileRequestEntity(c, 1000)
+	})
+	assert.Equal(t, &entity.OpenPublicFileRequest{FolderID: 1000}, got, "the folder's index")
+
+	runRaw(t, 0, "/*", "www.custom.io", "/a%zz", func(c fiber.Ctx) {
+		got = FromHTTPRequestToOpenDomainFileRequestEntity(c, 1000)
+	})
+	assert.Nil(t, got, "bad escape")
 }

@@ -96,6 +96,21 @@ func (mr *MockUserRepositoryMockRecorder) ListUsersDueForCreditRenewal(ctx, now,
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListUsersDueForCreditRenewal", reflect.TypeOf((*MockUserRepository)(nil).ListUsersDueForCreditRenewal), ctx, now, limit)
 }
 
+// PayStorageBlocks mocks base method.
+func (m *MockUserRepository) PayStorageBlocks(ctx context.Context, id int64, blocks, price int) (int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PayStorageBlocks", ctx, id, blocks, price)
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PayStorageBlocks indicates an expected call of PayStorageBlocks.
+func (mr *MockUserRepositoryMockRecorder) PayStorageBlocks(ctx, id, blocks, price interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PayStorageBlocks", reflect.TypeOf((*MockUserRepository)(nil).PayStorageBlocks), ctx, id, blocks, price)
+}
+
 // RefundCredits mocks base method.
 func (m *MockUserRepository) RefundCredits(ctx context.Context, id int64, n int) error {
 	m.ctrl.T.Helper()
@@ -108,6 +123,20 @@ func (m *MockUserRepository) RefundCredits(ctx context.Context, id int64, n int)
 func (mr *MockUserRepositoryMockRecorder) RefundCredits(ctx, id, n interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RefundCredits", reflect.TypeOf((*MockUserRepository)(nil).RefundCredits), ctx, id, n)
+}
+
+// RefundStorageBlocks mocks base method.
+func (m *MockUserRepository) RefundStorageBlocks(ctx context.Context, id int64, blocks, n int) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RefundStorageBlocks", ctx, id, blocks, n)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RefundStorageBlocks indicates an expected call of RefundStorageBlocks.
+func (mr *MockUserRepositoryMockRecorder) RefundStorageBlocks(ctx, id, blocks, n interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RefundStorageBlocks", reflect.TypeOf((*MockUserRepository)(nil).RefundStorageBlocks), ctx, id, blocks, n)
 }
 
 // SpendCredits mocks base method.
@@ -140,15 +169,15 @@ func (mr *MockUserRepositoryMockRecorder) UpdateUser(ctx, u interface{}) *gomock
 }
 
 // UpdateUserCredits mocks base method.
-func (m *MockUserRepository) UpdateUserCredits(ctx context.Context, id int64, credits int, renewAt time.Time) error {
+func (m *MockUserRepository) UpdateUserCredits(ctx context.Context, id int64, credits, storageBlocks int, renewAt time.Time) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateUserCredits", ctx, id, credits, renewAt)
+	ret := m.ctrl.Call(m, "UpdateUserCredits", ctx, id, credits, storageBlocks, renewAt)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UpdateUserCredits indicates an expected call of UpdateUserCredits.
-func (mr *MockUserRepositoryMockRecorder) UpdateUserCredits(ctx, id, credits, renewAt interface{}) *gomock.Call {
+func (mr *MockUserRepositoryMockRecorder) UpdateUserCredits(ctx, id, credits, storageBlocks, renewAt interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateUserCredits", reflect.TypeOf((*MockUserRepository)(nil).UpdateUserCredits), ctx, id, credits, renewAt)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateUserCredits", reflect.TypeOf((*MockUserRepository)(nil).UpdateUserCredits), ctx, id, credits, storageBlocks, renewAt)
 }

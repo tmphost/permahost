@@ -125,6 +125,9 @@ func TestListenTLS(t *testing.T) {
 	assert.Equal(t, "https://app.example.com:"+itoaPort(a.tlsPort)+"/setup", res.Header.Get("Location"))
 	_ = res.Body.Close()
 
+	// Only verified custom domains get a certificate prepared.
+	a.prepareCertificate("www.unknown.io")
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	require.NoError(t, a.Shutdown(ctx))

@@ -126,6 +126,16 @@ func FromHTTPRequestToOpenPublicFileRequestEntity(c fiber.Ctx, domain string) *e
 	return &entity.OpenPublicFileRequest{FolderID: folderID, Path: p}
 }
 
+// FromHTTPRequestToOpenDomainFileRequestEntity reads a request to a custom
+// domain serving folderID; the whole path is the file path.
+func FromHTTPRequestToOpenDomainFileRequestEntity(c fiber.Ctx, folderID int64) *entity.OpenPublicFileRequest {
+	p, err := url.PathUnescape(strings.TrimPrefix(c.Path(), "/"))
+	if err != nil {
+		return nil
+	}
+	return &entity.OpenPublicFileRequest{FolderID: folderID, Path: p}
+}
+
 // FromHTTPRequestToOpenPublicFileByPathRequestEntity reads a request to
 // /files/:user/:folder/*, where the wildcard is the file path. It returns
 // nil for malformed IDs.
@@ -149,11 +159,10 @@ func FromHTTPRequestToOpenPublicFileByPathRequestEntity(c fiber.Ctx) *entity.Ope
 // FromGetLimitsResponseEntityToHTTPResponse renders GET /limits.
 func FromGetLimitsResponseEntityToHTTPResponse(rs *entity.GetLimitsResponse) []byte {
 	return marshal(view.Limits{
+		MaxUploadBytes:       rs.MaxUploadBytes,
+		Pricing:              FromPricingEntityToPricingView(rs.Pricing),
 		DefaultTTLMinutes:    rs.DefaultTTLMinutes,
 		MaxTTLMinutes:        rs.MaxTTLMinutes,
-		MaxUploadBytes:       rs.MaxUploadBytes,
-		BillingBlockMinutes:  rs.BillingBlockMinutes,
-		BillingUnitBytes:     rs.BillingUnitBytes,
 		Anonymous:            rs.Anonymous,
 		FileOps:              rs.FileOps,
 		FileOpsWindowMinutes: rs.FileOpsWindowMinutes,
@@ -162,7 +171,18 @@ func FromGetLimitsResponseEntityToHTTPResponse(rs *entity.GetLimitsResponse) []b
 
 // FromCreateFolderResponseEntityToHTTPResponse renders POST /folders.
 func FromCreateFolderResponseEntityToHTTPResponse(rs *entity.CreateFolderResponse) []byte {
-	return marshal(view.FolderResponse{Folder: FromFolderEntityToFolderView(rs.Folder)})
+	return marshal(view.CreateFolderResponse{Folder: FromFolderEntityToFolderView(rs.Folder), CreditsSpent: rs.CreditsSpent})
+}
+
+// FromPricingEntityToPricingView maps the pricing to its JSON view.
+func FromPricingEntityToPricingView(e entity.Pricing) view.Pricing {
+	return view.Pricing{
+		StorageBlockBytes:  e.StorageBlockBytes,
+		StorageCredits:     e.StorageCredits,
+		FolderCredits:      e.FolderCredits,
+		DomainCredits:      e.DomainCredits,
+		DomainSetupCredits: e.DomainSetupCredits,
+	}
 }
 
 // FromListFoldersResponseEntityToHTTPResponse renders GET /folders.
@@ -195,11 +215,20 @@ func FromFolderEntityToFolderView(e entity.Folder) view.Folder {
 	return view.Folder{
 		ID:           idgen.FormatFolderID(e.ID),
 		CreatedAt:    e.CreatedAt.UTC().Format(time.RFC3339),
-		ExpiresAt:    e.ExpiresAt.UTC().Format(time.RFC3339),
+		ExpiresAt:    formatOptionalTime(e.ExpiresAt),
+		SizeBytes:    e.SizeBytes,
 		URL:          e.URL,
 		Title:        e.Title,
 		DefaultTitle: e.DefaultTitle,
 	}
+}
+
+// formatOptionalTime writes t in RFC 3339, or "" for the zero time.
+func formatOptionalTime(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+	return t.UTC().Format(time.RFC3339)
 }
 
 // FromFileEntityToFileView maps a file to its JSON view.

@@ -19,9 +19,14 @@ type User struct {
 	Picture   string `gorm:"type:text"`
 	// Provider is the identity provider the account was registered with.
 	Provider string `gorm:"type:varchar(32)"`
-	// Credits is the remaining operation balance for the current period.
+	// Credits is the remaining balance for the current period. It goes
+	// below zero when the monthly grant cannot pay for what the account
+	// hosts; its sites are then paused.
 	Credits int `gorm:"not null;default:0"`
-	// CreditsRenewAt is when the daily renewal job next resets the balance
-	// to the monthly grant. Always 00:00 UTC.
+	// CreditsRenewAt is when the daily renewal job next renews the balance
+	// and charges the hosting for the next period. Always 00:00 UTC.
 	CreditsRenewAt time.Time `gorm:"index"`
+	// StorageBlocksPaid is how many storage blocks the current period has
+	// been charged for.
+	StorageBlocksPaid int `gorm:"not null;default:0"`
 }

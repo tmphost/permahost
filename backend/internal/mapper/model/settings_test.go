@@ -32,7 +32,7 @@ func TestSettingsRoundTrip(t *testing.T) {
 			Local:  entity.LocalStorageSettings{Path: "/files"},
 			S3:     entity.S3Settings{Endpoint: "https://s3", Region: "r", Bucket: "b", AccessKeyID: "a", SecretAccessKey: "s", UsePathStyle: true},
 		},
-		Files: entity.FileSettings{MaxTTLMinutes: 60, MaxUploadMB: 2, AnonymousMaxTTLMinutes: 7, Subdomains: true, PublicDomain: "x.io"},
+		Files: entity.FileSettings{MaxUploadMB: 2, AnonymousMaxTTLMinutes: 7, Subdomains: true, PublicDomain: "x.io"},
 		Auth: entity.AuthSettings{
 			Google: entity.OAuthClientSettings{ClientID: "g", ClientSecret: "gs"},
 			GitHub: entity.OAuthClientSettings{ClientID: "h", ClientSecret: "hs"},
@@ -59,5 +59,16 @@ func TestSettingsStorageDriverFromOlderSettings(t *testing.T) {
 
 func TestFolderMappers(t *testing.T) {
 	at := time.Unix(10, 0)
-	assert.Equal(t, entity.Folder{ID: 1, UserID: 2, CreatedAt: at, ExpiresAt: at}, FromFolderModelToFolderEntity(model.Folder{ID: 1, UserID: 2, CreatedAt: at, ExpiresAt: at}))
+	assert.Equal(t, entity.Folder{ID: 1, UserID: 2, CreatedAt: at, ExpiresAt: at, SizeBytes: 3},
+		FromFolderModelToFolderEntity(model.Folder{ID: 1, UserID: 2, CreatedAt: at, ExpiresAt: &at, SizeBytes: 3}))
+	assert.Equal(t, entity.Folder{ID: 1, UserID: 2, CreatedAt: at, Title: "t"},
+		FromFolderModelToFolderEntity(model.Folder{ID: 1, UserID: 2, CreatedAt: at, Title: "t"}), "permanent: no expiry")
+}
+
+func TestDomainMappers(t *testing.T) {
+	at, checked := time.Unix(10, 0), time.Unix(20, 0)
+	assert.Equal(t, entity.Domain{ID: 1, UserID: 2, FolderID: 3, Hostname: "a.io", CreatedAt: at, VerifiedAt: checked, CheckedAt: checked},
+		FromDomainModelToDomainEntity(model.Domain{ID: 1, UserID: 2, FolderID: 3, Hostname: "a.io", CreatedAt: at, VerifiedAt: &checked, CheckedAt: &checked}))
+	assert.Equal(t, entity.Domain{ID: 1, Hostname: "a.io", CreatedAt: at, LastError: "no CNAME"},
+		FromDomainModelToDomainEntity(model.Domain{ID: 1, Hostname: "a.io", CreatedAt: at, LastError: "no CNAME"}), "pending, never checked")
 }

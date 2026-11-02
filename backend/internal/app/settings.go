@@ -67,9 +67,6 @@ func settingsFromConfig(cfg Config) entity.Settings {
 		localPath = _defaultFilesDir
 	}
 	files := entity.FileSettings(cfg.Files)
-	if files.MaxTTLMinutes == 0 {
-		files.MaxTTLMinutes = folder.DefaultMaxTTLMinutes
-	}
 	if files.MaxUploadMB == 0 {
 		files.MaxUploadMB = folder.DefaultMaxUploadMB
 	}

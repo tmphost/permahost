@@ -15,6 +15,7 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/google/jsonschema-go v0.4.3
 	github.com/jackc/pgx/v5 v5.10.0
+	github.com/miekg/dns v1.1.72
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 	github.com/mustafaturan/monoflake v1.2.0
 	github.com/robfig/cron/v3 v3.0.1
@@ -59,7 +60,6 @@ require (
 	github.com/kr/text v0.2.0 // indirect
 	github.com/mattn/go-colorable v0.1.16 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
-	github.com/miekg/dns v1.1.72 // indirect
 	github.com/molecule-man/go-brrr v1.3.0 // indirect
 	github.com/philhofer/fwd v1.2.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect

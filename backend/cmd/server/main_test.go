@@ -64,7 +64,6 @@ func TestLoadConfig_Defaults(t *testing.T) {
 	assert.Equal(t, "./_storage/files", cfg.Storage.LocalPath)
 	assert.False(t, cfg.Files.Subdomains)
 	assert.Empty(t, cfg.Files.PublicDomain)
-	assert.Equal(t, 432000, cfg.Files.MaxTTLMinutes)
 	assert.Equal(t, 16, cfg.Files.MaxUploadMB)
 	assert.Equal(t, "./_storage/settings.json", cfg.App.SettingsFile)
 	assert.Equal(t, "", cfg.Auth.Google.ClientID)

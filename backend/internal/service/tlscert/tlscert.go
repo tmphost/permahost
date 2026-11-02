@@ -3,9 +3,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 // Package tlscert serves Let's Encrypt certificates, obtained and renewed
-// with lego: one for the app host, and for the dynamic subdomains either one
+// with lego: one for the app host, for the dynamic subdomains either one
 // per subdomain on its first visit, or a single wildcard when a Cloudflare
-// API token is set.
+// API token is set, and one per verified custom domain, on its first visit
+// or as soon as it is verified (Prepare).
 //
 // Certificates for a host are proven over the TLS-ALPN-01 challenge, which
 // Let's Encrypt runs against this server's HTTPS port, so neither port 80 nor
@@ -76,6 +77,11 @@ type (
 		// Email is the optional ACME account email.
 		Email string
 		Sites SitesConfig
+		// AllowDomain reports whether host is a verified custom domain,
+		// which gets its own certificate on its first visit. A custom
+		// domain's certificate is dropped once it is no longer allowed.
+		// Nil allows none.
+		AllowDomain func(host string) bool
 		// CacheDir keeps the certificates, encrypted, across restarts.
 		CacheDir string
 	}
@@ -99,6 +105,9 @@ type (
 		// Start loads the cached certificates, then obtains and renews them
 		// in the background.
 		Start()
+		// Prepare obtains host's certificate in the background, if it is
+		// a custom domain without one, so its first visitor need not wait.
+		Prepare(host string)
 		// Stop ends the renewal loop.
 		Stop()
 	}
@@ -183,7 +192,7 @@ func (s *service) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, 
 	if cert := s.cached(name); cert != nil {
 		return cert, nil
 	}
-	if !s.perSiteCertificates() || !s.cfg.Sites.Allow(name) {
+	if !s.obtainsOnDemand(name) {
 		return nil, fmt.Errorf("tls: no certificate for %q", name)
 	}
 	cert, err, _ := s.onDemand.Do(name, func() (any, error) { return s.obtainOnDemand(name) })
@@ -240,6 +249,28 @@ func (s *service) CleanUp(domain, _, _ string) error {
 
 func (s *service) perSiteCertificates() bool {
 	return s.cfg.Sites.Enabled && s.cfg.Sites.CloudflareAPIToken == ""
+}
+
+// obtainsOnDemand reports whether name may get its own certificate on its
+// first visit: a dynamic subdomain without a wildcard, or a custom domain.
+func (s *service) obtainsOnDemand(name string) bool {
+	return (s.perSiteCertificates() && s.cfg.Sites.Allow(name)) || s.customDomain(name)
+}
+
+func (s *service) customDomain(name string) bool {
+	return s.cfg.AllowDomain != nil && s.cfg.AllowDomain(name)
+}
+
+func (s *service) Prepare(host string) {
+	name := strings.ToLower(host)
+	if s.cached(name) != nil || !s.customDomain(name) {
+		return
+	}
+	go func() {
+		if _, err, _ := s.onDemand.Do(name, func() (any, error) { return s.obtainOnDemand(name) }); err != nil {
+			log.Printf("tls: obtaining a certificate for %s failed: %v", name, err)
+		}
+	}()
 }
 
 // obtainOnDemand gets a subdomain's certificate during its first handshake,
@@ -306,9 +337,15 @@ func (s *service) names() []string {
 	return names
 }
 
-// refresh obtains every certificate that is missing or due for renewal.
+// refresh drops the certificates of custom domains that are gone, and
+// obtains every other certificate that is missing or due for renewal.
 func (s *service) refresh() {
 	for _, name := range s.names() {
+		if s.dropped(name) {
+			s.forget(name)
+			log.Printf("tls: certificate for %s dropped", name)
+			continue
+		}
 		s.mu.RLock()
 		cert := s.certs[name]
 		s.mu.RUnlock()
@@ -321,6 +358,26 @@ func (s *service) refresh() {
 		}
 		log.Printf("tls: certificate for %s installed", name)
 	}
+}
+
+// dropped reports whether name is a custom domain that is no longer
+// verified. Only custom domains are ever dropped.
+func (s *service) dropped(name string) bool {
+	if s.cfg.AllowDomain == nil || name == s.cfg.AppHost || strings.HasPrefix(name, "*.") {
+		return false
+	}
+	if s.cfg.Sites.Allow != nil && s.cfg.Sites.Allow(name) {
+		return false
+	}
+	return !s.cfg.AllowDomain(name)
+}
+
+// forget stops serving name's certificate and removes it from the cache.
+func (s *service) forget(name string) {
+	s.mu.Lock()
+	delete(s.certs, name)
+	s.mu.Unlock()
+	_ = os.Remove(filepath.Join(s.cfg.CacheDir, cacheFile(name)))
 }
 
 // usable reports whether cert is not due for renewal.

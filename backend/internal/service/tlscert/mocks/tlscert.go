@@ -50,6 +50,18 @@ func (mr *MockServiceMockRecorder) GetCertificate(hello interface{}) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCertificate", reflect.TypeOf((*MockService)(nil).GetCertificate), hello)
 }
 
+// Prepare mocks base method.
+func (m *MockService) Prepare(host string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Prepare", host)
+}
+
+// Prepare indicates an expected call of Prepare.
+func (mr *MockServiceMockRecorder) Prepare(host interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Prepare", reflect.TypeOf((*MockService)(nil).Prepare), host)
+}
+
 // Start mocks base method.
 func (m *MockService) Start() {
 	m.ctrl.T.Helper()

@@ -10,12 +10,15 @@ import (
 )
 
 type (
-	// Folder is a group of uploaded files that expire together.
+	// Folder is a group of uploaded files hosted together.
 	Folder struct {
 		ID        int64
 		UserID    int64
 		CreatedAt time.Time
+		// ExpiresAt is zero for a folder that does not expire; only
+		// anonymous folders do.
 		ExpiresAt time.Time
+		SizeBytes int64
 		// URL is the folder's public URL; its files are served below it.
 		URL string
 		// Title is the name the owner gave the folder; empty until renamed.
@@ -47,13 +50,14 @@ type (
 
 	// GetLimitsResponse carries the upload limits and pricing.
 	GetLimitsResponse struct {
-		DefaultTTLMinutes   int
-		MaxTTLMinutes       int
-		MaxUploadBytes      int64
-		BillingBlockMinutes int
-		BillingUnitBytes    int64
-		// Anonymous limits replace credits with a per-IP quota: at most
-		// FileOps file writes per FileOpsWindowMinutes.
+		MaxUploadBytes int64
+		Pricing        Pricing
+		// Anonymous folders expire, after DefaultTTLMinutes unless asked
+		// for at most MaxTTLMinutes, and replace credits with a per-IP
+		// quota: at most FileOps file writes per FileOpsWindowMinutes.
+		// The TTLs are zero for an account, whose folders do not expire.
+		DefaultTTLMinutes    int
+		MaxTTLMinutes        int
 		Anonymous            bool
 		FileOps              int
 		FileOpsWindowMinutes int
@@ -65,13 +69,15 @@ type (
 		// Anonymous marks a visitor without an account, who has the
 		// anonymous limits.
 		Anonymous bool
-		// TTLMinutes is the folder's lifetime; 0 picks the default.
+		// TTLMinutes is an anonymous folder's lifetime; 0 picks the
+		// default. An account's folders do not expire, so it is ignored.
 		TTLMinutes int
 	}
 
-	// CreateFolderResponse carries the new folder.
+	// CreateFolderResponse carries the new folder and what it cost.
 	CreateFolderResponse struct {
-		Folder Folder
+		Folder       Folder
+		CreditsSpent int
 	}
 
 	// ListFoldersRequest lists a user's live folders.

@@ -25,7 +25,8 @@ func (a *App) setupTLS(cfg Config, enc encryption.Service, h hosts) {
 			CloudflareAPIToken: cfg.TLS.Lego.CloudflareAPIToken,
 			Allow:              h.isSite,
 		},
-		CacheDir: filepath.Join(filepath.Dir(settingsFile(cfg)), "certs"),
+		AllowDomain: h.isDomain,
+		CacheDir:    filepath.Join(filepath.Dir(settingsFile(cfg)), "certs"),
 	}, enc)
 	a.certs = certs
 	a.tlsPort = cfg.TLS.Port

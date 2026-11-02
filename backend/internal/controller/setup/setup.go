@@ -45,11 +45,11 @@ const (
 
 	_maxMonthlyGrant = 1_000_000
 	// About ten years; anything longer is a typo, not a plan.
-	_maxTTLMinutes   = 10 * 365 * 24 * 60
-	_maxUploadMB     = 1024
-	_maxProviders    = 20
-	_maxProviderName = 64
-	_maxIconBytes    = 16 << 10
+	_maxAnonymousTTLMinutes = 7 * 24 * 60
+	_maxUploadMB            = 1024
+	_maxProviders           = 20
+	_maxProviderName        = 64
+	_maxIconBytes           = 16 << 10
 )
 
 var (
@@ -200,9 +200,6 @@ func withDefaults(s, defaults entity.Settings) entity.Settings {
 	}
 	if s.Storage.Local.Path == "" {
 		s.Storage.Local.Path = defaults.Storage.Local.Path
-	}
-	if s.Files.MaxTTLMinutes == 0 {
-		s.Files.MaxTTLMinutes = defaults.Files.MaxTTLMinutes
 	}
 	if s.Files.MaxUploadMB == 0 {
 		s.Files.MaxUploadMB = defaults.Files.MaxUploadMB
@@ -382,11 +379,8 @@ func validate(s entity.Settings) error {
 	if err := validateStorage(s.Storage); err != nil {
 		return err
 	}
-	if s.Files.MaxTTLMinutes < 1 || s.Files.MaxTTLMinutes > _maxTTLMinutes {
-		return fmt.Errorf("max TTL must be between 1 and %d minutes", _maxTTLMinutes)
-	}
-	if s.Files.AnonymousMaxTTLMinutes < 1 || s.Files.AnonymousMaxTTLMinutes > s.Files.MaxTTLMinutes {
-		return fmt.Errorf("max TTL without sign-in must be between 1 and %d minutes (the max TTL)", s.Files.MaxTTLMinutes)
+	if s.Files.AnonymousMaxTTLMinutes < 1 || s.Files.AnonymousMaxTTLMinutes > _maxAnonymousTTLMinutes {
+		return fmt.Errorf("max TTL without sign-in must be between 1 and %d minutes", _maxAnonymousTTLMinutes)
 	}
 	if s.Files.MaxUploadMB < 1 || s.Files.MaxUploadMB > _maxUploadMB {
 		return fmt.Errorf("max upload size must be between 1 and %d MB", _maxUploadMB)

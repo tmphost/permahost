@@ -18,6 +18,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	mockauth "github.com/tmphost/permahost/backend/internal/controller/auth/mocks"
+	"github.com/tmphost/permahost/backend/internal/controller/credit"
+	mockcredit "github.com/tmphost/permahost/backend/internal/controller/credit/mocks"
+	mockdomain "github.com/tmphost/permahost/backend/internal/controller/domain/mocks"
 	folderctrl "github.com/tmphost/permahost/backend/internal/controller/folder"
 	mockfolder "github.com/tmphost/permahost/backend/internal/controller/folder/mocks"
 	mockoauth "github.com/tmphost/permahost/backend/internal/controller/oauthserver/mocks"
@@ -33,6 +36,8 @@ type filesEnv struct {
 	app      *fiber.App
 	auth     *mockauth.MockController
 	folders  *mockfolder.MockController
+	domains  *mockdomain.MockController
+	credits  *mockcredit.MockController
 	oauth    *mockoauth.MockController
 	settings entity.FileSettings
 }
@@ -46,10 +51,12 @@ func newFilesApp(t *testing.T) *filesEnv {
 	auth.EXPECT().Authenticate(gomock.Any(), &entity.AuthenticateRequest{AccessToken: "access"}).Return(&entity.AuthenticateResponse{UserID: 7}, nil).AnyTimes()
 	e := &filesEnv{
 		app: fiber.New(), auth: auth, folders: mockfolder.NewMockController(mc), oauth: mockoauth.NewMockController(mc),
+		domains: mockdomain.NewMockController(mc), credits: mockcredit.NewMockController(mc),
 		settings: entity.FileSettings{Subdomains: true, PublicDomain: "tmp.host"},
 	}
 	New(Params{
 		Router: e.app, Auth: auth, Setup: mocksetup.NewMockController(mc), Folders: e.folders, OAuth: e.oauth,
+		Domains: e.domains, Credits: e.credits,
 		FileSettings: func() entity.FileSettings { return e.settings }, BasePath: "/base",
 		// Only tmp.host and httptest's example.com pass the host check.
 		Hosts: func(c fiber.Ctx) error {
@@ -75,10 +82,10 @@ func (e *filesEnv) do(t *testing.T, method, target, body string) (*http.Response
 
 func TestFolder_Limits(t *testing.T) {
 	e := newFilesApp(t)
-	e.folders.EXPECT().GetLimits(gomock.Any(), &entity.GetLimitsRequest{}).Return(&entity.GetLimitsResponse{DefaultTTLMinutes: 30, MaxTTLMinutes: 60, MaxUploadBytes: 1024, BillingBlockMinutes: 30, BillingUnitBytes: 1 << 20})
+	e.folders.EXPECT().GetLimits(gomock.Any(), &entity.GetLimitsRequest{}).Return(&entity.GetLimitsResponse{MaxUploadBytes: 1024, Pricing: credit.CurrentPricing()})
 	res, body := e.do(t, http.MethodGet, "/api/v1/limits", "")
 	assert.Equal(t, http.StatusOK, res.StatusCode)
-	assert.JSONEq(t, `{"defaultTtlMinutes":30,"maxTtlMinutes":60,"maxUploadBytes":1024,"billingBlockMinutes":30,"billingUnitBytes":1048576}`, body)
+	assert.JSONEq(t, `{"maxUploadBytes":1024,"pricing":{"storageBlockBytes":26214400,"storageCredits":500,"folderCredits":500,"domainCredits":500,"domainSetupCredits":500}}`, body)
 }
 
 // anonymous is a request without credentials from the web app at
@@ -99,10 +106,10 @@ func (e *filesEnv) anonymous(t *testing.T, method, target, body string) (*http.R
 func TestFolder_Anonymous(t *testing.T) {
 	e := newFilesApp(t)
 	e.folders.EXPECT().GetLimits(gomock.Any(), &entity.GetLimitsRequest{Anonymous: true}).
-		Return(&entity.GetLimitsResponse{DefaultTTLMinutes: 30, MaxTTLMinutes: 30, MaxUploadBytes: 4 << 20, BillingBlockMinutes: 30, BillingUnitBytes: 1 << 20, Anonymous: true, FileOps: 5, FileOpsWindowMinutes: 30})
+		Return(&entity.GetLimitsResponse{DefaultTTLMinutes: 30, MaxTTLMinutes: 30, MaxUploadBytes: 4 << 20, Pricing: credit.CurrentPricing(), Anonymous: true, FileOps: 5, FileOpsWindowMinutes: 30})
 	res, body := e.anonymous(t, http.MethodGet, "/api/v1/limits", "")
 	assert.Equal(t, http.StatusOK, res.StatusCode)
-	assert.JSONEq(t, `{"defaultTtlMinutes":30,"maxTtlMinutes":30,"maxUploadBytes":4194304,"billingBlockMinutes":30,"billingUnitBytes":1048576,"anonymous":true,"fileOps":5,"fileOpsWindowMinutes":30}`, body)
+	assert.JSONEq(t, `{"defaultTtlMinutes":30,"maxTtlMinutes":30,"maxUploadBytes":4194304,"pricing":{"storageBlockBytes":26214400,"storageCredits":500,"folderCredits":500,"domainCredits":500,"domainSetupCredits":500},"anonymous":true,"fileOps":5,"fileOpsWindowMinutes":30}`, body)
 
 	e.folders.EXPECT().CreateFolder(gomock.Any(), &entity.CreateFolderRequest{UserID: 3, Anonymous: true}).
 		Return(&entity.CreateFolderResponse{Folder: entity.Folder{ID: 1000, CreatedAt: _at, ExpiresAt: _at, URL: "u"}}, nil)
@@ -173,7 +180,7 @@ func TestFolder_Create(t *testing.T) {
 		Return(&entity.CreateFolderResponse{Folder: entity.Folder{ID: 1000, CreatedAt: _at, ExpiresAt: _at, URL: "u"}}, nil)
 	res, body := e.do(t, http.MethodPost, "/api/v1/folders", `{"ttlMinutes":60}`)
 	assert.Equal(t, http.StatusCreated, res.StatusCode)
-	assert.JSONEq(t, `{"folder":{"id":"000000000rs","createdAt":"2026-10-18T12:00:00Z","expiresAt":"2026-10-18T12:00:00Z","url":"u","title":"","defaultTitle":""}}`, body)
+	assert.JSONEq(t, `{"folder":{"id":"000000000rs","createdAt":"2026-10-18T12:00:00Z","expiresAt":"2026-10-18T12:00:00Z","sizeBytes":0,"url":"u","title":"","defaultTitle":""},"creditsSpent":0}`, body)
 
 	res, _ = e.do(t, http.MethodPost, "/api/v1/folders", `{`)
 	assert.Equal(t, http.StatusBadRequest, res.StatusCode)
@@ -229,7 +236,7 @@ func TestFolder_Update(t *testing.T) {
 		Return(&entity.UpdateFolderResponse{Folder: entity.Folder{ID: 1000, CreatedAt: _at, ExpiresAt: _at, URL: "u", Title: "Photos", DefaultTitle: "a.jpg"}}, nil)
 	res, body := e.do(t, http.MethodPatch, "/api/v1/folders/000000000rs", `{"title":"Photos"}`)
 	assert.Equal(t, http.StatusOK, res.StatusCode)
-	assert.JSONEq(t, `{"folder":{"id":"000000000rs","createdAt":"2026-10-18T12:00:00Z","expiresAt":"2026-10-18T12:00:00Z","url":"u","title":"Photos","defaultTitle":"a.jpg"}}`, body)
+	assert.JSONEq(t, `{"folder":{"id":"000000000rs","createdAt":"2026-10-18T12:00:00Z","expiresAt":"2026-10-18T12:00:00Z","sizeBytes":0,"url":"u","title":"Photos","defaultTitle":"a.jpg"}}`, body)
 
 	res, _ = e.do(t, http.MethodPatch, "/api/v1/folders/000000000rs", `{}`)
 	assert.Equal(t, http.StatusBadRequest, res.StatusCode)
@@ -330,7 +337,7 @@ func TestPublic(t *testing.T) {
 	e.folders.EXPECT().OpenPublicFile(gomock.Any(), &entity.OpenPublicFileRequest{FolderID: 1000, Path: ""}).Return(nil, folderctrl.ErrNotFound)
 	res, body = get(http.MethodGet, "f000000000rs.tmp.host", "/")
 	assert.Equal(t, http.StatusNotFound, res.StatusCode)
-	assert.Equal(t, "Not found. The file may have expired.", body)
+	assert.Equal(t, "Not found.", body)
 	assert.Contains(t, res.Header.Get("Content-Type"), "text/plain")
 
 	e.folders.EXPECT().OpenPublicFile(gomock.Any(), gomock.Any()).Return(nil, errBoom)
@@ -376,7 +383,7 @@ func TestPublic_Path(t *testing.T) {
 	e.folders.EXPECT().OpenPublicFile(gomock.Any(), &entity.OpenPublicFileRequest{UserID: 7, FolderID: 1000, Path: ""}).Return(nil, folderctrl.ErrNotFound)
 	res, body = get(http.MethodGet, "/files/7/000000000rs/")
 	assert.Equal(t, http.StatusNotFound, res.StatusCode)
-	assert.Equal(t, "Not found. The file may have expired.", body)
+	assert.Equal(t, "Not found.", body)
 
 	res, _ = get(http.MethodGet, "/files/7/000000000rs")
 	assert.Equal(t, http.StatusMovedPermanently, res.StatusCode)

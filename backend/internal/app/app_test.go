@@ -202,12 +202,12 @@ func TestSetupFlow_SettingsApplyAndPersist(t *testing.T) {
 		}
 	}
 	require.NoError(t, json.NewDecoder(res.Body).Decode(&got))
-	assert.Equal(t, 250, got.Settings.Credits.MonthlyGrant)
+	assert.Equal(t, credit.DefaultMonthlyGrant, got.Settings.Credits.MonthlyGrant)
 	assert.Equal(t, "sqlite", got.Settings.Database.Driver)
 
 	body := `{"settings":{"credits":{"monthlyGrant":500},"database":{"driver":"sqlite","sqlite":{"dsn":"` + cfg.SQLite.DSN + `"}},
 		"domain":{"appUrl":"http://localhost:3000"},
-		"storage":{"driver":"local","local":{"path":"` + cfg.Storage.LocalPath + `"}},"files":{"maxTtlMinutes":60,"maxUploadMb":1,"anonymousMaxTtlMinutes":10},
+		"storage":{"driver":"local","local":{"path":"` + cfg.Storage.LocalPath + `"}},"files":{"maxUploadMb":1,"anonymousMaxTtlMinutes":10},
 		"auth":{"github":{"clientId":"h"},"providers":[{"name":"Okta","icon":"<svg></svg>","clientId":"o","clientSecret":"okta-client-secret","authUrl":"https://okta.example.com"}]}}}`
 	req = httptest.NewRequest(http.MethodPut, "/api/v1/setup/settings", strings.NewReader(body))
 	req.AddCookie(root)
@@ -248,7 +248,7 @@ func TestSettingsFromConfig(t *testing.T) {
 	cfg.Postgres = PostgresConfig{Enabled: true, DSN: "postgres://u:p@h:1/d"}
 	cfg.S3 = S3Config{Endpoint: "e", Region: "r", Bucket: "b", AccessKeyID: "a", SecretAccessKey: "s", UsePathStyle: true}
 	cfg.Storage = StorageConfig{Driver: "s3", LocalPath: "/files"}
-	cfg.Files = FilesConfig{MaxTTLMinutes: 60, MaxUploadMB: 2, AnonymousMaxTTLMinutes: 15, Subdomains: true, PublicDomain: "tmp.site"}
+	cfg.Files = FilesConfig{MaxUploadMB: 2, AnonymousMaxTTLMinutes: 15, Subdomains: true, PublicDomain: "tmp.site"}
 	cfg.App.SitesDomain = "permahost.io"
 	cfg.TLS = TLSConfig{Enabled: true, Email: "e@x.io", Lego: LegoConfig{Enabled: true, CloudflareAPIToken: "cf"}}
 	s := settingsFromConfig(cfg)
@@ -259,7 +259,7 @@ func TestSettingsFromConfig(t *testing.T) {
 	defaults := settingsFromConfig(Config{})
 	assert.Equal(t, "local", defaults.Storage.Driver)
 	assert.Equal(t, "./_storage/files", defaults.Storage.Local.Path)
-	assert.Equal(t, entity.FileSettings{MaxTTLMinutes: 7200 * 60, MaxUploadMB: 16, AnonymousMaxTTLMinutes: 10}, defaults.Files)
+	assert.Equal(t, entity.FileSettings{MaxUploadMB: 16, AnonymousMaxTTLMinutes: 10}, defaults.Files)
 	withBase := settingsFromConfig(Config{App: AppConfig{BaseURL: "https://PermaHost.io:8443/x"}})
 	assert.Equal(t, "permahost.io:8443", withBase.Files.PublicDomain, "defaults to the base URL host")
 	withSites := settingsFromConfig(Config{App: AppConfig{BaseURL: "https://app.permahost.io", SitesDomain: "Sites.io"}})
@@ -312,7 +312,7 @@ func TestOpenStorage(t *testing.T) {
 func TestOAuth(t *testing.T) {
 	a, err := New(testConfig(t), fstest.MapFS{})
 	require.NoError(t, err)
-	require.NoError(t, a.db.Create(&model.User{ID: 7, Email: "a@x", Credits: 10, CreditsRenewAt: time.Now().Add(time.Hour)}).Error)
+	require.NoError(t, a.db.Create(&model.User{ID: 7, Email: "a@x", Credits: 2000, CreditsRenewAt: time.Now().Add(time.Hour)}).Error)
 
 	req := httptest.NewRequest(http.MethodGet, "/.well-known/oauth-authorization-server", nil)
 	req.Header.Set("Origin", "https://inspector.example")
@@ -422,7 +422,7 @@ func TestFileHosting(t *testing.T) {
 	cfg := testConfig(t)
 	a, err := New(cfg, fstest.MapFS{})
 	require.NoError(t, err)
-	require.NoError(t, a.db.Create(&model.User{ID: 7, Email: "a@x", Credits: 10, CreditsRenewAt: time.Now().Add(time.Hour)}).Error)
+	require.NoError(t, a.db.Create(&model.User{ID: 7, Email: "a@x", Credits: 2000, CreditsRenewAt: time.Now().Add(time.Hour)}).Error)
 	key := accessToken(t, a, "00000000001")
 
 	call := func(method, target, host, body string) (*http.Response, string) {
@@ -438,8 +438,10 @@ func TestFileHosting(t *testing.T) {
 		return res, string(b)
 	}
 
-	res, body := call(http.MethodPost, "/api/v1/folders", "", `{"ttlMinutes":60}`)
+	res, body := call(http.MethodPost, "/api/v1/folders", "", `{}`)
 	require.Equal(t, http.StatusCreated, res.StatusCode, body)
+	assert.Contains(t, body, `"creditsSpent":500`)
+	assert.NotContains(t, body, "expiresAt", "an account's folders do not expire")
 	var created struct{ Folder struct{ ID, URL string } }
 	require.NoError(t, json.Unmarshal([]byte(body), &created))
 	id := created.Folder.ID
@@ -447,7 +449,7 @@ func TestFileHosting(t *testing.T) {
 
 	res, body = call(http.MethodPut, "/api/v1/folders/"+id+"/files/site/index%20page.html", "", "<h1>hi</h1>")
 	require.Equal(t, http.StatusOK, res.StatusCode, body)
-	assert.Contains(t, body, `"creditsSpent":2`)
+	assert.Contains(t, body, `"creditsSpent":500`, "the first storage block")
 	res, _ = call(http.MethodPut, "/api/v1/folders/"+id+"/files/1/2/3/4/5/6/x.txt", "", "x")
 	assert.Equal(t, http.StatusBadRequest, res.StatusCode, "deeper than 5 directories")
 
@@ -489,9 +491,21 @@ func TestFileHosting(t *testing.T) {
 
 	var u model.User
 	require.NoError(t, a.db.First(&u, 7).Error)
-	assert.Equal(t, 6, u.Credits, "two files, two blocks each")
+	assert.Equal(t, 1000, u.Credits, "a folder and one storage block")
 
-	// Once expired, the sweep removes the record and the files.
+	res, body = call(http.MethodGet, "/api/v1/users/me/usage", "", "")
+	require.Equal(t, http.StatusOK, res.StatusCode, body)
+	assert.Contains(t, body, `"folders":1`)
+	assert.Contains(t, body, `"monthlyCredits":1000`)
+
+	// Out of credits, the folder's site is paused, not deleted.
+	require.NoError(t, a.db.Model(&model.User{}).Where("id = 7").Update("credits", -1).Error)
+	res, body = call(http.MethodGet, "/files/7/"+id+"/site/index.html", "", "")
+	assert.Equal(t, http.StatusPaymentRequired, res.StatusCode)
+	assert.Contains(t, body, "paused")
+
+	// Once expired (only anonymous folders do), the sweep removes the
+	// record and the files.
 	require.NoError(t, a.db.Model(&model.Folder{}).Where("1 = 1").Update("expires_at", time.Now().Add(-time.Second)).Error)
 	a.sweepFolders()
 	var n int64
@@ -515,7 +529,7 @@ func TestFileHosting_Subdomains(t *testing.T) {
 	cfg.Files = FilesConfig{Subdomains: true}
 	a, err := New(cfg, fstest.MapFS{})
 	require.NoError(t, err)
-	require.NoError(t, a.db.Create(&model.User{ID: 7, Email: "a@x", Credits: 10, CreditsRenewAt: time.Now().Add(time.Hour)}).Error)
+	require.NoError(t, a.db.Create(&model.User{ID: 7, Email: "a@x", Credits: 2000, CreditsRenewAt: time.Now().Add(time.Hour)}).Error)
 	key := accessToken(t, a, "00000000001")
 
 	call := func(method, target, host, body string) (*http.Response, string) {
@@ -579,7 +593,7 @@ func TestAnonymousUploads(t *testing.T) {
 
 	res, body := call(http.MethodGet, "/api/v1/limits", "203.0.113.7", web, "")
 	require.Equal(t, http.StatusOK, res.StatusCode, body)
-	assert.JSONEq(t, `{"defaultTtlMinutes":10,"maxTtlMinutes":10,"maxUploadBytes":4194304,"billingBlockMinutes":30,"billingUnitBytes":1048576,"anonymous":true,"fileOps":5,"fileOpsWindowMinutes":30}`, body)
+	assert.JSONEq(t, `{"defaultTtlMinutes":10,"maxTtlMinutes":10,"maxUploadBytes":4194304,"pricing":{"storageBlockBytes":26214400,"storageCredits":500,"folderCredits":500,"domainCredits":500,"domainSetupCredits":500},"anonymous":true,"fileOps":5,"fileOpsWindowMinutes":30}`, body)
 
 	res, body = call(http.MethodPost, "/api/v1/folders", "203.0.113.7", web, `{"ttlMinutes":11}`)
 	assert.Equal(t, http.StatusBadRequest, res.StatusCode, body)

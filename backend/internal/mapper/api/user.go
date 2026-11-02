@@ -42,3 +42,24 @@ func FromUserEntityToUserView(e entity.User) view.User {
 		CreatedAt:      e.CreatedAt.UTC().Format(time.RFC3339),
 	}
 }
+
+// FromHTTPRequestToGetUsageRequestEntity reads GET /users/me/usage.
+func FromHTTPRequestToGetUsageRequestEntity(c fiber.Ctx) *entity.GetUsageRequest {
+	id := localUserID(c)
+	if id == 0 {
+		return nil
+	}
+	return &entity.GetUsageRequest{UserID: id}
+}
+
+// FromGetUsageResponseEntityToHTTPResponse renders GET /users/me/usage.
+func FromGetUsageResponseEntityToHTTPResponse(rs *entity.GetUsageResponse) []byte {
+	return marshal(view.GetUsageResponse{Usage: view.Usage{
+		Folders:        rs.Usage.Folders,
+		StorageBytes:   rs.Usage.StorageBytes,
+		StorageBlocks:  rs.StorageBlocks,
+		Domains:        rs.Usage.Domains,
+		MonthlyCredits: rs.MonthlyCredits,
+		Pricing:        FromPricingEntityToPricingView(rs.Pricing),
+	}})
+}

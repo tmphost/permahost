@@ -74,8 +74,8 @@ s3:
   secretAccessKey: ${PERMAHOSTIO_S3_SECRET_ACCESS_KEY:}
   usePathStyle: ${PERMAHOSTIO_S3_USE_PATH_STYLE:false}
 files:
-  # Longest folder lifetime (7200 hours) and largest upload per request.
-  maxTtlMinutes: ${PERMAHOSTIO_FILES_MAX_TTL_MINUTES:432000}
+  # Largest upload per request, and the lifetime of a folder made without
+  # signing in. An account's folders do not expire.
   maxUploadMb: ${PERMAHOSTIO_FILES_MAX_UPLOAD_MB:16}
   anonymousMaxTtlMinutes: ${PERMAHOSTIO_FILES_ANONYMOUS_MAX_TTL_MINUTES:10}
   # Folders are served at <baseUrl>/files/<userId>/<folderId>/, or with
@@ -85,5 +85,9 @@ files:
   # locally as is.
   subdomains: ${PERMAHOSTIO_FILES_SUBDOMAINS:false}
   publicDomain: ${PERMAHOSTIO_FILES_PUBLIC_DOMAIN:}
+# Resolvers custom domains' CNAME records are looked up with, as a
+# comma-separated host:port list; empty asks 1.1.1.1 and 8.8.8.8.
+dns:
+  resolvers: ${PERMAHOSTIO_DNS_RESOLVERS:}
 idgen:
   node: ${PERMAHOSTIO_MONOFLAKE_NODE:0}

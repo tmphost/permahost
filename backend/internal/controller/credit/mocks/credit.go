@@ -35,6 +35,21 @@ func (m *MockController) EXPECT() *MockControllerMockRecorder {
 	return m.recorder
 }
 
+// GetUsage mocks base method.
+func (m *MockController) GetUsage(ctx context.Context, rq *entity.GetUsageRequest) (*entity.GetUsageResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUsage", ctx, rq)
+	ret0, _ := ret[0].(*entity.GetUsageResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUsage indicates an expected call of GetUsage.
+func (mr *MockControllerMockRecorder) GetUsage(ctx, rq interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUsage", reflect.TypeOf((*MockController)(nil).GetUsage), ctx, rq)
+}
+
 // RenewDueCredits mocks base method.
 func (m *MockController) RenewDueCredits(ctx context.Context) (*entity.RenewDueCreditsResponse, error) {
 	m.ctrl.T.Helper()

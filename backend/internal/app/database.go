@@ -42,7 +42,7 @@ func openDatabase(cfg Config) (*gorm.DB, error) {
 	if pool.MaxConnLifetime > 0 {
 		sqlDB.SetConnMaxLifetime(pool.MaxConnLifetime)
 	}
-	if err := db.AutoMigrate(&model.User{}, &model.Folder{}); err != nil {
+	if err := db.AutoMigrate(&model.User{}, &model.Folder{}, &model.Domain{}); err != nil {
 		_ = sqlDB.Close()
 		return nil, fmt.Errorf("%s: migrate: %w", dialector.Name(), err)
 	}

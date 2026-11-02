@@ -15,7 +15,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
 	"unicode/utf8"
 
 	"github.com/google/jsonschema-go/jsonschema"
@@ -43,9 +42,9 @@ const (
 	FormatText   = "textContent"
 )
 
-const _toolDescription = `Temporary file hosting on permahost.io. Files live in folders that expire after a TTL; each file is served at a public URL until then.
+const _toolDescription = `Permanent file hosting on permahost.io. Files live in folders; each file is served at a public URL for as long as the account's credits pay for its folder.
 Actions:
-- upload: store a file (fileName, its content in base64Content or textContent as format says, optional path inside the folder). Without id a new folder is created with ttl (default 30m); with id the file goes into that folder, and a file already at that path is replaced in place (an update; its url stays the same). Returns id and url. Costs 1 credit per started MB of the file per started 30 minutes of the folder's remaining lifetime.
+- upload: store a file (fileName, its content in base64Content or textContent as format says, optional path inside the folder). Without id a new folder is created; with id the file goes into that folder, and a file already at that path is replaced in place (an update; its url stays the same). Returns id and url. A new folder costs 500 credits a month, and storage 500 credits a month per started 25 MB the account stores; creditsSpent is what this upload took.
 - download: read a file (id, fileName, optional path). Returns its content in base64Content or, for UTF-8 text, in textContent as format says.
 - get: list a folder's files (id).
 - url: build the public URL of a folder (id), a directory (id, path) or a file (id, fileName, optional path).
@@ -69,7 +68,6 @@ type (
 	FileInput struct {
 		Action   string `json:"action" jsonschema:"what to do: upload, download, get or url"`
 		ID       string `json:"id,omitempty" jsonschema:"folder id; upload without it creates a new folder, with it adds or replaces files in that folder"`
-		TTL      string `json:"ttl,omitempty" jsonschema:"lifetime of a new folder, such as 30m or 2h (default 30m); upload only"`
 		FileName string `json:"fileName,omitempty" jsonschema:"file name, without directories"`
 		Path     string `json:"path,omitempty" jsonschema:"directory inside the folder, such as site/css, at most 5 levels; empty for the folder root"`
 		Format   string `json:"format,omitempty" jsonschema:"which field carries the content: base64Content (default) or textContent; upload and download only"`
@@ -83,7 +81,6 @@ type (
 	FileOutput struct {
 		ID           string `json:"id,omitempty"`
 		URL          string `json:"url,omitempty"`
-		ExpiresAt    string `json:"expiresAt,omitempty"`
 		FileName     string `json:"fileName,omitempty"`
 		Path         string `json:"path,omitempty"`
 		Size         int64  `json:"size,omitempty"`
@@ -182,8 +179,8 @@ func (t *tool) upload(ctx context.Context, userID int64, in FileInput) (FileOutp
 	rs, err := t.folders.PutFiles(ctx, &entity.PutFilesRequest{UserID: userID, FolderID: folderID, Files: []entity.FileUpload{{Path: p, Data: data}}})
 	if err != nil {
 		if created != nil {
-			// Don't leave an empty folder behind for a failed first upload.
-			_ = t.folders.DeleteFolder(ctx, &entity.DeleteFolderRequest{UserID: userID, FolderID: folderID})
+			// The new folder is paid for, so it is kept for a retry.
+			err = fmt.Errorf("%w (folder %s was created for %d credits: pass it as id to retry)", err, idgen.FormatFolderID(folderID), created.CreditsSpent)
 		}
 		return FileOutput{}, err
 	}
@@ -196,7 +193,7 @@ func (t *tool) upload(ctx context.Context, userID int64, in FileInput) (FileOutp
 		CreditsSpent: rs.CreditsSpent,
 	}
 	if created != nil {
-		out.ExpiresAt = formatTime(created.ExpiresAt)
+		out.CreditsSpent += created.CreditsSpent
 	}
 	return out, nil
 }
@@ -244,27 +241,16 @@ func contentFormat(format string) (string, error) {
 
 // uploadFolder resolves the folder an upload goes to, creating it when no
 // id is given. created is the new folder, if any.
-func (t *tool) uploadFolder(ctx context.Context, userID int64, in FileInput) (int64, *entity.Folder, error) {
+func (t *tool) uploadFolder(ctx context.Context, userID int64, in FileInput) (int64, *entity.CreateFolderResponse, error) {
 	if in.ID != "" {
-		if in.TTL != "" {
-			return 0, nil, errors.New("ttl only applies to a new folder: leave out id or ttl")
-		}
 		id, err := folderID(in.ID)
 		return id, nil, err
 	}
-	minutes := 0
-	if in.TTL != "" {
-		ttl, err := time.ParseDuration(in.TTL)
-		if err != nil || ttl%time.Minute != 0 {
-			return 0, nil, errors.New("ttl must be whole minutes, such as 30m or 2h")
-		}
-		minutes = int(ttl / time.Minute)
-	}
-	rs, err := t.folders.CreateFolder(ctx, &entity.CreateFolderRequest{UserID: userID, TTLMinutes: minutes})
+	rs, err := t.folders.CreateFolder(ctx, &entity.CreateFolderRequest{UserID: userID})
 	if err != nil {
 		return 0, nil, err
 	}
-	return rs.Folder.ID, &rs.Folder, nil
+	return rs.Folder.ID, rs, nil
 }
 
 func (t *tool) download(ctx context.Context, userID int64, in FileInput) (FileOutput, error) {
@@ -312,7 +298,7 @@ func (t *tool) get(ctx context.Context, userID int64, in FileInput) (FileOutput,
 	for i, f := range rs.Files {
 		files[i] = FileInfo{FileName: f.Path[strings.LastIndex(f.Path, "/")+1:], Path: dirOf(f.Path), Size: f.Size, URL: f.URL}
 	}
-	return FileOutput{ID: in.ID, URL: rs.Folder.URL, ExpiresAt: formatTime(rs.Folder.ExpiresAt), Files: files}, nil
+	return FileOutput{ID: in.ID, URL: rs.Folder.URL, Files: files}, nil
 }
 
 func (t *tool) url(ctx context.Context, userID int64, in FileInput) (FileOutput, error) {
@@ -335,7 +321,7 @@ func (t *tool) url(ctx context.Context, userID int64, in FileInput) (FileOutput,
 	}
 	// The folder URL ends with a slash; an empty fileName keeps one at the
 	// end of a directory URL too.
-	return FileOutput{ID: in.ID, URL: rs.Folder.URL + strings.Join(segs, "/"), ExpiresAt: formatTime(rs.Folder.ExpiresAt), FileName: in.FileName, Path: dir}, nil
+	return FileOutput{ID: in.ID, URL: rs.Folder.URL + strings.Join(segs, "/"), FileName: in.FileName, Path: dir}, nil
 }
 
 func (t *tool) folder(ctx context.Context, userID int64, rawID string) (*entity.GetFolderResponse, error) {
@@ -373,8 +359,4 @@ func dirOf(p string) string {
 		return p[:i]
 	}
 	return ""
-}
-
-func formatTime(t time.Time) string {
-	return t.UTC().Format(time.RFC3339)
 }

@@ -7,23 +7,33 @@ package view
 type (
 	// Limits are the upload limits and pricing.
 	Limits struct {
-		DefaultTTLMinutes   int   `json:"defaultTtlMinutes"`
-		MaxTTLMinutes       int   `json:"maxTtlMinutes"`
-		MaxUploadBytes      int64 `json:"maxUploadBytes"`
-		BillingBlockMinutes int   `json:"billingBlockMinutes"`
-		BillingUnitBytes    int64 `json:"billingUnitBytes"`
-		// Anonymous visitors pay no credits; they may write at most FileOps
-		// files per FileOpsWindowMinutes instead.
+		MaxUploadBytes int64   `json:"maxUploadBytes"`
+		Pricing        Pricing `json:"pricing"`
+		// Anonymous visitors pay no credits: their folders expire, and they
+		// may write at most FileOps files per FileOpsWindowMinutes.
+		DefaultTTLMinutes    int  `json:"defaultTtlMinutes,omitempty"`
+		MaxTTLMinutes        int  `json:"maxTtlMinutes,omitempty"`
 		Anonymous            bool `json:"anonymous,omitempty"`
 		FileOps              int  `json:"fileOps,omitempty"`
 		FileOpsWindowMinutes int  `json:"fileOpsWindowMinutes,omitempty"`
 	}
 
-	// Folder is a group of files that expire together.
+	// Pricing is what hosting costs, in credits.
+	Pricing struct {
+		StorageBlockBytes  int64 `json:"storageBlockBytes"`
+		StorageCredits     int   `json:"storageCredits"`
+		FolderCredits      int   `json:"folderCredits"`
+		DomainCredits      int   `json:"domainCredits"`
+		DomainSetupCredits int   `json:"domainSetupCredits"`
+	}
+
+	// Folder is a group of files hosted together.
 	Folder struct {
 		ID        string `json:"id"`
 		CreatedAt string `json:"createdAt"`
-		ExpiresAt string `json:"expiresAt"`
+		// ExpiresAt is set only for an anonymous folder.
+		ExpiresAt string `json:"expiresAt,omitempty"`
+		SizeBytes int64  `json:"sizeBytes"`
 		URL       string `json:"url"`
 		// Title is the name the owner gave the folder; empty until renamed.
 		Title string `json:"title"`
@@ -53,6 +63,12 @@ type (
 	// FolderResponse wraps a folder.
 	FolderResponse struct {
 		Folder Folder `json:"folder"`
+	}
+
+	// CreateFolderResponse is the new folder and what it cost.
+	CreateFolderResponse struct {
+		Folder       Folder `json:"folder"`
+		CreditsSpent int    `json:"creditsSpent"`
 	}
 
 	// ListFoldersResponse lists folders.

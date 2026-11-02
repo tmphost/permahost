@@ -14,7 +14,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/modelcontextprotocol/go-sdk/auth"
@@ -32,10 +31,9 @@ import (
 const _key = "access-token"
 
 var (
-	errBoom  = errors.New("boom")
-	_expires = time.Date(2026, 10, 18, 12, 30, 0, 0, time.UTC)
+	errBoom = errors.New("boom")
 	// Folder 1000 is "000000000rs" as an 11-character folder ID.
-	_folder = entity.Folder{ID: 1000, UserID: 7, ExpiresAt: _expires, URL: "https://f000000000rs.tmp.host/"}
+	_folder = entity.Folder{ID: 1000, UserID: 7, URL: "https://f000000000rs.tmp.host/"}
 )
 
 type env struct {
@@ -143,19 +141,19 @@ func TestContentFormat(t *testing.T) {
 func TestUpload_NewFolder(t *testing.T) {
 	e := newEnv(t)
 	gomock.InOrder(
-		e.folders.EXPECT().CreateFolder(gomock.Any(), &entity.CreateFolderRequest{UserID: 7, TTLMinutes: 120}).
-			Return(&entity.CreateFolderResponse{Folder: _folder}, nil),
+		e.folders.EXPECT().CreateFolder(gomock.Any(), &entity.CreateFolderRequest{UserID: 7}).
+			Return(&entity.CreateFolderResponse{Folder: _folder, CreditsSpent: 500}, nil),
 		e.folders.EXPECT().PutFiles(gomock.Any(), &entity.PutFilesRequest{UserID: 7, FolderID: 1000, Files: []entity.FileUpload{{Path: "site/index.html", Data: []byte("<p>")}}}).
 			Return(&entity.PutFilesResponse{Files: []entity.File{{Path: "site/index.html", Size: 3, URL: "https://f000000000rs.tmp.host/site/index.html"}}, CreditsSpent: 4}, nil),
 	)
 	out, msg := e.call(t, map[string]any{
-		"action": "upload", "ttl": "2h", "path": "/site/", "fileName": "index.html",
+		"action": "upload", "path": "/site/", "fileName": "index.html",
 		"base64Content": base64.StdEncoding.EncodeToString([]byte("<p>")),
 	})
 	require.Empty(t, msg)
 	assert.Equal(t, FileOutput{
-		ID: "000000000rs", URL: "https://f000000000rs.tmp.host/site/index.html", ExpiresAt: "2026-10-18T12:30:00Z",
-		FileName: "index.html", Path: "site", Size: 3, CreditsSpent: 4,
+		ID: "000000000rs", URL: "https://f000000000rs.tmp.host/site/index.html",
+		FileName: "index.html", Path: "site", Size: 3, CreditsSpent: 504,
 	}, out)
 }
 
@@ -199,10 +197,7 @@ func TestUpload_Errors(t *testing.T) {
 		"no text":        {map[string]any{"fileName": "a", "format": text}, "textContent is required with format textContent"},
 		"base64 as text": {map[string]any{"fileName": "a", "format": text, "textContent": "x", "base64Content": content}, "base64Content needs format base64Content"},
 		"bad format":     {map[string]any{"fileName": "a", "format": "hex", "base64Content": content}, "enum"},
-		"ttl with id":    {map[string]any{"fileName": "a", "base64Content": content, "id": "000000000rs", "ttl": "1h"}, "ttl only applies"},
 		"bad id":         {map[string]any{"fileName": "a", "base64Content": content, "id": "RS"}, "id must be a folder id"},
-		"bad ttl":        {map[string]any{"fileName": "a", "base64Content": content, "ttl": "soon"}, "whole minutes"},
-		"fractional ttl": {map[string]any{"fileName": "a", "base64Content": content, "ttl": "90s"}, "whole minutes"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			tc.args["action"] = "upload"
@@ -219,18 +214,18 @@ func TestUpload_ControllerErrors(t *testing.T) {
 
 	t.Run("create fails", func(t *testing.T) {
 		e := newEnv(t)
-		e.folders.EXPECT().CreateFolder(gomock.Any(), &entity.CreateFolderRequest{UserID: 7}).Return(nil, folderctrl.ErrInvalidTTL)
-		_, msg := e.call(t, args())
-		assert.Contains(t, msg, "invalid ttl")
-	})
-
-	t.Run("put fails and the new folder is removed", func(t *testing.T) {
-		e := newEnv(t)
-		e.folders.EXPECT().CreateFolder(gomock.Any(), gomock.Any()).Return(&entity.CreateFolderResponse{Folder: _folder}, nil)
-		e.folders.EXPECT().PutFiles(gomock.Any(), gomock.Any()).Return(nil, folderctrl.ErrInsufficientCredits)
-		e.folders.EXPECT().DeleteFolder(gomock.Any(), &entity.DeleteFolderRequest{UserID: 7, FolderID: 1000}).Return(nil)
+		e.folders.EXPECT().CreateFolder(gomock.Any(), &entity.CreateFolderRequest{UserID: 7}).Return(nil, folderctrl.ErrInsufficientCredits)
 		_, msg := e.call(t, args())
 		assert.Contains(t, msg, "insufficient credits")
+	})
+
+	t.Run("put fails and the paid-for folder is kept", func(t *testing.T) {
+		e := newEnv(t)
+		e.folders.EXPECT().CreateFolder(gomock.Any(), gomock.Any()).Return(&entity.CreateFolderResponse{Folder: _folder, CreditsSpent: 500}, nil)
+		e.folders.EXPECT().PutFiles(gomock.Any(), gomock.Any()).Return(nil, folderctrl.ErrInsufficientCredits)
+		_, msg := e.call(t, args())
+		assert.Contains(t, msg, "insufficient credits")
+		assert.Contains(t, msg, "folder 000000000rs was created for 500 credits: pass it as id to retry")
 	})
 
 	t.Run("put into an existing folder fails", func(t *testing.T) {
@@ -307,7 +302,7 @@ func TestGet(t *testing.T) {
 	}, nil)
 	out, msg := e.call(t, map[string]any{"action": "get", "id": "000000000rs"})
 	require.Empty(t, msg)
-	assert.Equal(t, FileOutput{ID: "000000000rs", URL: "https://f000000000rs.tmp.host/", ExpiresAt: "2026-10-18T12:30:00Z", Files: []FileInfo{
+	assert.Equal(t, FileOutput{ID: "000000000rs", URL: "https://f000000000rs.tmp.host/", Files: []FileInfo{
 		{FileName: "index.html", Path: "", Size: 1, URL: "https://f000000000rs.tmp.host/index.html"},
 		{FileName: "a.css", Path: "site/css", Size: 2, URL: "https://f000000000rs.tmp.host/site/css/a.css"},
 	}}, out)
@@ -336,7 +331,6 @@ func TestURL(t *testing.T) {
 		out, msg := e.call(t, tc.args)
 		require.Empty(t, msg)
 		assert.Equal(t, tc.url, out.URL)
-		assert.Equal(t, "2026-10-18T12:30:00Z", out.ExpiresAt)
 	}
 }
 
