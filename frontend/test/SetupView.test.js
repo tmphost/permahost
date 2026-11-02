@@ -53,8 +53,8 @@ function state(overrides = {}) {
   }
 }
 
-async function mountView() {
-  const wrapper = mount(SetupView)
+async function mountView(options) {
+  const wrapper = mount(SetupView, options)
   await flushPromises()
   return wrapper
 }
@@ -399,22 +399,39 @@ describe('SetupView', () => {
     }
   })
 
-  it('switches between settings and users, and signs in again when the session ends there', async () => {
+  it('shows one section at a time from the menu', async () => {
+    fetchSettings.mockResolvedValue(state())
+    const wrapper = await mountView({ attachTo: document.body })
+    const ids = ['domain', 'tls', 'credits', 'database', 'storage', 'files', 'signin']
+    expect(wrapper.find('[data-test="setup-tab-domain"]').attributes('aria-current')).toBe('page')
+    for (const id of ids) {
+      await wrapper.find(`[data-test="setup-tab-${id}"]`).trigger('click')
+      expect(wrapper.find(`[data-test="setup-tab-${id}"]`).attributes('aria-current')).toBe('page')
+      for (const other of ids) {
+        expect(wrapper.find(`[data-test="setup-${other}"]`).isVisible()).toBe(other === id)
+      }
+    }
+    wrapper.unmount()
+  })
+
+  it('switches between settings and users, keeps unsaved edits, and signs in again when the session ends there', async () => {
     fetchSettings.mockResolvedValue(state())
     listSetupUsers.mockResolvedValueOnce({ users: [], next: '' })
-    const wrapper = await mountView()
-    expect(wrapper.find('[data-test="setup-tab-settings"]').attributes('aria-selected')).toBe('true')
+    const wrapper = await mountView({ attachTo: document.body })
     expect(wrapper.find('[data-test="setup-users"]').exists()).toBe(false)
+    await wrapper.find('#app-url').setValue('https://edited.example')
 
+    await wrapper.find('[data-test="setup-tab-credits"]').trigger('click')
     await wrapper.find('[data-test="setup-grant-users"]').trigger('click')
     await flushPromises()
-    expect(wrapper.find('[data-test="setup-tab-users"]').attributes('aria-selected')).toBe('true')
+    expect(wrapper.find('[data-test="setup-tab-users"]').attributes('aria-current')).toBe('page')
     expect(wrapper.find('[data-test="setup-users"]').exists()).toBe(true)
-    expect(wrapper.find('[data-test="setup-form"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="setup-form"]').isVisible()).toBe(false)
     expect(wrapper.find('[data-test="setup-save"]').exists()).toBe(false)
 
-    await wrapper.find('[data-test="setup-tab-settings"]').trigger('click')
-    expect(wrapper.find('[data-test="setup-form"]').exists()).toBe(true)
+    await wrapper.find('[data-test="setup-tab-domain"]').trigger('click')
+    expect(wrapper.find('[data-test="setup-form"]').isVisible()).toBe(true)
+    expect(wrapper.find('#app-url').element.value).toBe('https://edited.example')
     expect(wrapper.find('[data-test="setup-save"]').attributes('form')).toBe('setup-form')
 
     listSetupUsers.mockRejectedValueOnce(Object.assign(new Error('unauthorized'), { status: 401 }))
@@ -422,5 +439,6 @@ describe('SetupView', () => {
     await flushPromises()
     expect(wrapper.find('[data-test="setup-login"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="setup-login-error"]').text()).toBe('Your setup session expired. Sign in again.')
+    wrapper.unmount()
   })
 })
