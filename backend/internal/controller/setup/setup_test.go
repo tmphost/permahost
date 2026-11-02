@@ -103,6 +103,16 @@ func TestNew(t *testing.T) {
 		assert.Equal(t, entity.FileSettings{MaxUploadMB: 16, AnonymousMaxTTLMinutes: 10, PublicDomain: "permahost.io"}, ctrl.FileLimits())
 	})
 
+	t.Run("a missing public domain is the saved sites domain", func(t *testing.T) {
+		repo := mockrepo.NewMockSettingsRepository(mc)
+		saved := defaults()
+		saved.Domain.SitesDomain, saved.Files.PublicDomain = "sites.example.com", ""
+		repo.EXPECT().LoadSettings().Return(mappermodel.FromSettingsEntityToSettingsModel(saved), nil)
+		ctrl, err := New(Params{Repository: repo, RootAccessToken: "x", Defaults: defaults()})
+		require.NoError(t, err)
+		assert.Equal(t, "sites.example.com", ctrl.FileLimits().PublicDomain)
+	})
+
 	t.Run("load error", func(t *testing.T) {
 		repo := mockrepo.NewMockSettingsRepository(mc)
 		repo.EXPECT().LoadSettings().Return(model.Settings{}, errBoom)
