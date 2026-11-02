@@ -6,3 +6,4 @@ backend/cmd/server/public/*
 _storage/
 .env
 coverage.out
+.claude/
