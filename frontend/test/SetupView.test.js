@@ -10,10 +10,14 @@ vi.mock('../src/api', () => ({
   saveSettings: vi.fn(),
   setupLogin: vi.fn(),
   setupLogout: vi.fn(),
-  listSetupUsers: vi.fn(),
+  fetchAdminStats: vi.fn(),
+  listAdminUsers: vi.fn(),
+  fetchAdminUser: vi.fn(),
+  listAdminUserCreditActivities: vi.fn(),
+  adjustUserCredits: vi.fn(),
 }))
 
-import { fetchSettings, listSetupUsers, saveSettings, setupLogin, setupLogout } from '../src/api'
+import { fetchAdminStats, fetchAdminUser, fetchSettings, listAdminUsers, saveSettings, setupLogin, setupLogout } from '../src/api'
 import SetupView from '../src/views/SetupView.vue'
 import { useToasts } from '../src/composables/useToasts'
 
@@ -59,9 +63,12 @@ async function mountView(options) {
   return wrapper
 }
 
+const STATS = { users: 0, credits: 0, paused: 0, used: 0, signups: 0, folders: 0, days: [] }
+
 describe('SetupView', () => {
   beforeEach(() => {
     useToasts().toasts.value = []
+    fetchAdminStats.mockResolvedValue(STATS)
   })
   afterEach(() => {
     useToasts().toasts.value = []
@@ -83,6 +90,9 @@ describe('SetupView', () => {
     await wrapper.find('[data-test="setup-login"]').trigger('submit')
     await flushPromises()
     expect(setupLogin).toHaveBeenCalledWith('root-token')
+    expect(wrapper.find('[data-test="setup-tab-overview"]').attributes('aria-current')).toBe('page')
+    expect(wrapper.find('[data-test="admin-overview"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="setup-save"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="setup-form"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="setup-grant"]').element.value).toBe('250')
   })
@@ -403,7 +413,8 @@ describe('SetupView', () => {
     fetchSettings.mockResolvedValue(state())
     const wrapper = await mountView({ attachTo: document.body })
     const ids = ['domain', 'tls', 'credits', 'database', 'storage', 'files', 'signin']
-    expect(wrapper.find('[data-test="setup-tab-domain"]').attributes('aria-current')).toBe('page')
+    expect(wrapper.find('[data-test="setup-tab-overview"]').attributes('aria-current')).toBe('page')
+    expect(wrapper.find('[data-test="setup-form"]').isVisible()).toBe(false)
     for (const id of ids) {
       await wrapper.find(`[data-test="setup-tab-${id}"]`).trigger('click')
       expect(wrapper.find(`[data-test="setup-tab-${id}"]`).attributes('aria-current')).toBe('page')
@@ -414,27 +425,61 @@ describe('SetupView', () => {
     wrapper.unmount()
   })
 
-  it('switches between settings and users, keeps unsaved edits, and signs in again when the session ends there', async () => {
+  it('switches between settings and users, keeps unsaved edits, opens a user, and signs in again when the session ends there', async () => {
     fetchSettings.mockResolvedValue(state())
-    listSetupUsers.mockResolvedValueOnce({ users: [], next: '' })
+    listAdminUsers.mockResolvedValue({
+      users: [
+        {
+          id: 'u1',
+          email: 'ann@example.com',
+          name: 'Ann',
+          credits: 10,
+          creditsLimit: 250,
+          createdAt: '2026-10-01T00:00:00Z',
+          paused: false,
+          used: 0,
+          usage: { folders: 0, storageBytes: 0, storageBlocks: 0, domains: 0, monthlyCredits: 0 },
+        },
+      ],
+      next: '',
+    })
+    fetchAdminUser.mockReturnValue(new Promise(() => {}))
     const wrapper = await mountView({ attachTo: document.body })
-    expect(wrapper.find('[data-test="setup-users"]').exists()).toBe(false)
+    await wrapper.find('[data-test="setup-tab-domain"]').trigger('click')
     await wrapper.find('#app-url').setValue('https://edited.example')
 
     await wrapper.find('[data-test="setup-tab-credits"]').trigger('click')
     await wrapper.find('[data-test="setup-grant-users"]').trigger('click')
     await flushPromises()
     expect(wrapper.find('[data-test="setup-tab-users"]').attributes('aria-current')).toBe('page')
-    expect(wrapper.find('[data-test="setup-users"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="admin-users"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="setup-form"]').isVisible()).toBe(false)
     expect(wrapper.find('[data-test="setup-save"]').exists()).toBe(false)
+
+    await wrapper.find('[data-test="admin-user-u1"]').trigger('click')
+    expect(fetchAdminUser).toHaveBeenCalledWith('u1')
+    expect(wrapper.find('[data-test="admin-user"]').exists()).toBe(true)
+    await wrapper.find('[data-test="admin-user-back"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-test="admin-user"]').exists()).toBe(false)
+
+    // Reopening the users section starts at the list again.
+    await wrapper.find('[data-test="admin-user-u1"]').trigger('click')
+    await wrapper.find('[data-test="setup-tab-users"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-test="admin-user"]').exists()).toBe(false)
 
     await wrapper.find('[data-test="setup-tab-domain"]').trigger('click')
     expect(wrapper.find('[data-test="setup-form"]').isVisible()).toBe(true)
     expect(wrapper.find('#app-url').element.value).toBe('https://edited.example')
     expect(wrapper.find('[data-test="setup-save"]').attributes('form')).toBe('setup-form')
 
-    listSetupUsers.mockRejectedValueOnce(Object.assign(new Error('unauthorized'), { status: 401 }))
+    fetchAdminStats.mockRejectedValueOnce(new Error('Failed to load stats (500)'))
+    await wrapper.find('[data-test="setup-tab-overview"]').trigger('click')
+    await flushPromises()
+    expect(useToasts().toasts.value.at(-1).message).toBe('Failed to load stats (500)')
+
+    listAdminUsers.mockRejectedValueOnce(Object.assign(new Error('unauthorized'), { status: 401 }))
     await wrapper.find('[data-test="setup-tab-users"]').trigger('click')
     await flushPromises()
     expect(wrapper.find('[data-test="setup-login"]').exists()).toBe(true)

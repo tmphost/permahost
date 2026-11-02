@@ -16,6 +16,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/tmphost/permahost/backend/internal/data/model"
+	"github.com/tmphost/permahost/backend/internal/service/idgen"
 )
 
 var (
@@ -55,25 +56,30 @@ type (
 		// below before (0: from the newest) and, unless q is empty, an
 		// email or name containing q, ignoring case.
 		SearchUsers(ctx context.Context, q string, before int64, limit int) ([]model.User, error)
-		// AdjustCredits adds a.Amount (negative to deduct) to a user's
-		// balance and records a in the ledger with the balance after it,
-		// in one transaction. A deduction that would take the balance
-		// below zero returns ErrInsufficientCredits and changes nothing;
-		// an unknown user returns ErrNotFound.
-		AdjustCredits(ctx context.Context, a model.CreditAdjustment) (model.CreditAdjustment, error)
-		// ListCreditAdjustments returns up to limit of a user's ledger
-		// entries, newest first, with IDs below before (0: from the newest).
-		ListCreditAdjustments(ctx context.Context, userID, before int64, limit int) ([]model.CreditAdjustment, error)
+		// AdjustCredits adds amount (negative to deduct) to a user's
+		// balance and records it as an admin grant or deduction by actor,
+		// with note, in one transaction. A deduction that would take the
+		// balance below zero returns ErrInsufficientCredits and changes
+		// nothing; an unknown user returns ErrNotFound.
+		AdjustCredits(ctx context.Context, id int64, amount int, actor, note string) (model.CreditActivity, error)
+		// ListCreditActivities returns up to limit of a user's credit
+		// activities, newest first, with IDs below before (0: from the
+		// newest).
+		ListCreditActivities(ctx context.Context, userID, before int64, limit int) ([]model.CreditActivity, error)
 	}
 
 	userRepository struct {
 		db *gorm.DB
+		// ids issues credit activity IDs.
+		ids idgen.Service
 	}
 )
 
-// NewUserRepository returns a GORM-backed user repository.
-func NewUserRepository(db *gorm.DB) UserRepository {
-	return &userRepository{db: db}
+// NewUserRepository returns a GORM-backed user repository. Every change to
+// a balance is recorded as a credit activity in the same transaction;
+// activities take their IDs from ids, so they are ordered by time.
+func NewUserRepository(db *gorm.DB, ids idgen.Service) UserRepository {
+	return &userRepository{db: db, ids: ids}
 }
 
 func (r *userRepository) FindUserByID(ctx context.Context, id int64) (model.User, error) {
@@ -84,8 +90,15 @@ func (r *userRepository) FindUserByEmail(ctx context.Context, email string) (mod
 	return r.first(ctx, "email = ?", email)
 }
 
+// CreateUser stores a new user and the grant it starts with.
 func (r *userRepository) CreateUser(ctx context.Context, u model.User) (model.User, error) {
-	if err := r.db.WithContext(ctx).Create(&u).Error; err != nil {
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&u).Error; err != nil {
+			return err
+		}
+		return r.record(tx, u.ID, model.CreditOpGrant, u.Credits)
+	})
+	if err != nil {
 		return model.User{}, err
 	}
 	return u, nil
@@ -112,26 +125,40 @@ func (r *userRepository) ListUsersDueForCreditRenewal(ctx context.Context, now t
 }
 
 func (r *userRepository) UpdateUserCredits(ctx context.Context, id int64, credits, storageBlocks int, renewAt time.Time) error {
-	return r.db.WithContext(ctx).Model(&model.User{}).Where("id = ?", id).
-		Updates(map[string]any{"credits": credits, "storage_blocks_paid": storageBlocks, "credits_renew_at": renewAt}).Error
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var old model.User
+		if err := tx.Select("credits").Where("id = ?", id).Take(&old).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil
+			}
+			return err
+		}
+		err := tx.Model(&model.User{}).Where("id = ?", id).
+			Updates(map[string]any{"credits": credits, "storage_blocks_paid": storageBlocks, "credits_renew_at": renewAt}).Error
+		if err != nil {
+			return err
+		}
+		return r.record(tx, id, model.CreditOpRenewal, credits-old.Credits)
+	})
 }
 
 func (r *userRepository) SpendCredits(ctx context.Context, id int64, n int) error {
-	res := r.db.WithContext(ctx).Model(&model.User{}).
-		Where("id = ? AND credits >= ?", id, n).
-		Update("credits", gorm.Expr("credits - ?", n))
-	if res.Error != nil {
-		return res.Error
-	}
-	if res.RowsAffected == 0 {
-		return ErrInsufficientCredits
-	}
-	return nil
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		res := tx.Model(&model.User{}).
+			Where("id = ? AND credits >= ?", id, n).
+			Update("credits", gorm.Expr("credits - ?", n))
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected == 0 {
+			return ErrInsufficientCredits
+		}
+		return r.record(tx, id, model.CreditOpSpend, -n)
+	})
 }
 
 func (r *userRepository) RefundCredits(ctx context.Context, id int64, n int) error {
-	return r.db.WithContext(ctx).Model(&model.User{}).Where("id = ?", id).
-		Update("credits", gorm.Expr("credits + ?", n)).Error
+	return r.refund(ctx, id, n, map[string]any{"credits": gorm.Expr("credits + ?", n)})
 }
 
 func (r *userRepository) PayStorageBlocks(ctx context.Context, id int64, blocks, price int) (int, error) {
@@ -147,26 +174,45 @@ func (r *userRepository) PayStorageBlocks(ctx context.Context, id int64, blocks,
 		if u.Credits < cost {
 			return 0, ErrInsufficientCredits
 		}
-		// The update only applies if nobody paid for blocks since the read;
-		// otherwise the cost is worked out again.
-		res := r.db.WithContext(ctx).Model(&model.User{}).
-			Where("id = ? AND storage_blocks_paid = ? AND credits >= ?", id, u.StorageBlocksPaid, cost).
-			Updates(map[string]any{"credits": gorm.Expr("credits - ?", cost), "storage_blocks_paid": blocks})
-		if res.Error != nil {
-			return 0, res.Error
+		paid := false
+		err = r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			// The update only applies if nobody paid for blocks since the
+			// read; otherwise the cost is worked out again.
+			res := tx.Model(&model.User{}).
+				Where("id = ? AND storage_blocks_paid = ? AND credits >= ?", id, u.StorageBlocksPaid, cost).
+				Updates(map[string]any{"credits": gorm.Expr("credits - ?", cost), "storage_blocks_paid": blocks})
+			if res.Error != nil || res.RowsAffected == 0 {
+				return res.Error
+			}
+			paid = true
+			return r.record(tx, id, model.CreditOpSpend, -cost)
+		})
+		if err != nil {
+			return 0, err
 		}
-		if res.RowsAffected > 0 {
+		if paid {
 			return cost, nil
 		}
 	}
 }
 
 func (r *userRepository) RefundStorageBlocks(ctx context.Context, id int64, blocks, n int) error {
-	return r.db.WithContext(ctx).Model(&model.User{}).Where("id = ?", id).
-		Updates(map[string]any{
-			"credits":             gorm.Expr("credits + ?", n),
-			"storage_blocks_paid": gorm.Expr("storage_blocks_paid - ?", blocks),
-		}).Error
+	return r.refund(ctx, id, n, map[string]any{
+		"credits":             gorm.Expr("credits + ?", n),
+		"storage_blocks_paid": gorm.Expr("storage_blocks_paid - ?", blocks),
+	})
+}
+
+// refund applies updates, which give n credits back, and records it. An
+// unknown user is left alone.
+func (r *userRepository) refund(ctx context.Context, id int64, n int, updates map[string]any) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		res := tx.Model(&model.User{}).Where("id = ?", id).Updates(updates)
+		if res.Error != nil || res.RowsAffected == 0 {
+			return res.Error
+		}
+		return r.record(tx, id, model.CreditOpRefund, n)
+	})
 }
 
 func (r *userRepository) SearchUsers(ctx context.Context, q string, before int64, limit int) ([]model.User, error) {
@@ -188,30 +234,35 @@ func (r *userRepository) SearchUsers(ctx context.Context, q string, before int64
 // _likeEscaper makes LIKE wildcards in a search match themselves.
 var _likeEscaper = strings.NewReplacer(`\`, `\\`, "%", `\%`, "_", `\_`)
 
-func (r *userRepository) AdjustCredits(ctx context.Context, a model.CreditAdjustment) (model.CreditAdjustment, error) {
+func (r *userRepository) AdjustCredits(ctx context.Context, id int64, amount int, actor, note string) (model.CreditActivity, error) {
+	a := model.CreditActivity{UserID: id, Ops: model.CreditOpAdminGrant, Change: amount, Actor: actor, Note: note}
+	if amount < 0 {
+		a.Ops = model.CreditOpAdminDeduct
+	}
 	for {
-		u, err := r.FindUserByID(ctx, a.UserID)
+		u, err := r.FindUserByID(ctx, id)
 		if err != nil {
-			return model.CreditAdjustment{}, err
+			return model.CreditActivity{}, err
 		}
-		a.BalanceAfter = u.Credits + a.Amount
-		if a.Amount < 0 && a.BalanceAfter < 0 {
-			return model.CreditAdjustment{}, ErrInsufficientCredits
+		a.Current = u.Credits + amount
+		if amount < 0 && a.Current < 0 {
+			return model.CreditActivity{}, ErrInsufficientCredits
 		}
 		applied := false
 		err = r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 			// The update only applies if no charge or refund changed the
 			// balance since the read; otherwise it is worked out again.
-			res := tx.Model(&model.User{}).Where("id = ? AND credits = ?", a.UserID, u.Credits).
-				Update("credits", a.BalanceAfter)
+			res := tx.Model(&model.User{}).Where("id = ? AND credits = ?", id, u.Credits).
+				Update("credits", a.Current)
 			if res.Error != nil || res.RowsAffected == 0 {
 				return res.Error
 			}
 			applied = true
+			a.ID = r.ids.NextID()
 			return tx.Create(&a).Error
 		})
 		if err != nil {
-			return model.CreditAdjustment{}, err
+			return model.CreditActivity{}, err
 		}
 		if applied {
 			return a, nil
@@ -219,16 +270,26 @@ func (r *userRepository) AdjustCredits(ctx context.Context, a model.CreditAdjust
 	}
 }
 
-func (r *userRepository) ListCreditAdjustments(ctx context.Context, userID, before int64, limit int) ([]model.CreditAdjustment, error) {
+func (r *userRepository) ListCreditActivities(ctx context.Context, userID, before int64, limit int) ([]model.CreditActivity, error) {
 	db := r.db.WithContext(ctx).Where("user_id = ?", userID)
 	if before > 0 {
 		db = db.Where("id < ?", before)
 	}
-	var as []model.CreditAdjustment
+	var as []model.CreditActivity
 	if err := db.Order("id DESC").Limit(limit).Find(&as).Error; err != nil {
 		return nil, err
 	}
 	return as, nil
+}
+
+// record writes a credit activity for a change made in tx, with the
+// balance after it.
+func (r *userRepository) record(tx *gorm.DB, id int64, ops uint8, change int) error {
+	var u model.User
+	if err := tx.Select("credits").Where("id = ?", id).Take(&u).Error; err != nil {
+		return err
+	}
+	return tx.Create(&model.CreditActivity{ID: r.ids.NextID(), UserID: id, Ops: ops, Change: change, Current: u.Credits}).Error
 }
 
 func (r *userRepository) first(ctx context.Context, query string, arg any) (model.User, error) {

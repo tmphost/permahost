@@ -37,15 +37,36 @@ func FromHTTPRequestToAdjustCreditsRequestEntity(c fiber.Ctx) *entity.AdjustCred
 	return &entity.AdjustCreditsRequest{UserID: id, Amount: body.Amount, Note: body.Note}
 }
 
-// FromHTTPRequestToListCreditAdjustmentsRequestEntity reads GET
+// FromHTTPRequestToGetAdminUserRequestEntity reads GET /setup/users/:id.
+func FromHTTPRequestToGetAdminUserRequestEntity(c fiber.Ctx) *entity.GetAdminUserRequest {
+	id := paramID(c, "id")
+	if id == 0 {
+		return nil
+	}
+	return &entity.GetAdminUserRequest{UserID: id}
+}
+
+// FromHTTPRequestToListCreditActivitiesRequestEntity reads GET
 // /setup/users/:id/credits?before=&limit=.
-func FromHTTPRequestToListCreditAdjustmentsRequestEntity(c fiber.Ctx) *entity.ListCreditAdjustmentsRequest {
+func FromHTTPRequestToListCreditActivitiesRequestEntity(c fiber.Ctx) *entity.ListCreditActivitiesRequest {
 	id := paramID(c, "id")
 	before, limit, ok := pageQuery(c)
 	if id == 0 || !ok {
 		return nil
 	}
-	return &entity.ListCreditAdjustmentsRequest{UserID: id, Before: before, Limit: limit}
+	return &entity.ListCreditActivitiesRequest{UserID: id, Before: before, Limit: limit}
+}
+
+// FromGetAdminStatsResponseEntityToHTTPResponse renders GET /setup/stats.
+func FromGetAdminStatsResponseEntityToHTTPResponse(rs *entity.GetAdminStatsResponse) []byte {
+	days := make([]view.AdminStatsDay, len(rs.Days))
+	for i, d := range rs.Days {
+		days[i] = view.AdminStatsDay{Date: d.Date, Used: d.Used, Signups: d.Signups}
+	}
+	return marshal(view.AdminStats{
+		Users: rs.Users, Credits: rs.Credits, Paused: rs.Paused, Used: rs.Used,
+		Signups: rs.Signups, Folders: rs.Folders, Days: days,
+	})
 }
 
 // FromListAdminUsersResponseEntityToHTTPResponse renders GET /setup/users.
@@ -57,23 +78,28 @@ func FromListAdminUsersResponseEntityToHTTPResponse(rs *entity.ListAdminUsersRes
 	return marshal(view.ListAdminUsersResponse{Users: users, Next: cursor(rs.Next)})
 }
 
+// FromGetAdminUserResponseEntityToHTTPResponse renders GET /setup/users/:id.
+func FromGetAdminUserResponseEntityToHTTPResponse(rs *entity.GetAdminUserResponse) []byte {
+	return marshal(view.GetAdminUserResponse{User: FromAdminUserEntityToAdminUserView(rs.User)})
+}
+
 // FromAdjustCreditsResponseEntityToHTTPResponse renders POST
 // /setup/users/:id/credits.
 func FromAdjustCreditsResponseEntityToHTTPResponse(rs *entity.AdjustCreditsResponse) []byte {
 	return marshal(view.AdjustCreditsResponse{
-		User:       FromAdminUserEntityToAdminUserView(rs.User),
-		Adjustment: FromCreditAdjustmentEntityToCreditAdjustmentView(rs.Adjustment),
+		User:     FromAdminUserEntityToAdminUserView(rs.User),
+		Activity: FromCreditActivityEntityToCreditActivityView(rs.Activity),
 	})
 }
 
-// FromListCreditAdjustmentsResponseEntityToHTTPResponse renders GET
+// FromListCreditActivitiesResponseEntityToHTTPResponse renders GET
 // /setup/users/:id/credits.
-func FromListCreditAdjustmentsResponseEntityToHTTPResponse(rs *entity.ListCreditAdjustmentsResponse) []byte {
-	as := make([]view.CreditAdjustment, len(rs.Adjustments))
-	for i, a := range rs.Adjustments {
-		as[i] = FromCreditAdjustmentEntityToCreditAdjustmentView(a)
+func FromListCreditActivitiesResponseEntityToHTTPResponse(rs *entity.ListCreditActivitiesResponse) []byte {
+	as := make([]view.CreditActivity, len(rs.Activities))
+	for i, a := range rs.Activities {
+		as[i] = FromCreditActivityEntityToCreditActivityView(a)
 	}
-	return marshal(view.ListCreditAdjustmentsResponse{Adjustments: as, Next: cursor(rs.Next)})
+	return marshal(view.ListCreditActivitiesResponse{Activities: as, Next: cursor(rs.Next)})
 }
 
 // FromAdminUserEntityToAdminUserView maps a user as root sees it.
@@ -81,6 +107,7 @@ func FromAdminUserEntityToAdminUserView(e entity.AdminUser) view.AdminUser {
 	return view.AdminUser{
 		User:   FromUserEntityToUserView(e.User),
 		Paused: e.User.Credits < 0,
+		Used:   e.Used,
 		Usage: view.AdminUsage{
 			Folders:        e.Usage.Folders,
 			StorageBytes:   e.Usage.StorageBytes,
@@ -91,16 +118,17 @@ func FromAdminUserEntityToAdminUserView(e entity.AdminUser) view.AdminUser {
 	}
 }
 
-// FromCreditAdjustmentEntityToCreditAdjustmentView maps a ledger entry.
-func FromCreditAdjustmentEntityToCreditAdjustmentView(e entity.CreditAdjustment) view.CreditAdjustment {
-	return view.CreditAdjustment{
-		ID:           FromIDToBase62(e.ID),
-		UserID:       FromIDToBase62(e.UserID),
-		Actor:        e.Actor,
-		Amount:       e.Amount,
-		Note:         e.Note,
-		BalanceAfter: e.BalanceAfter,
-		CreatedAt:    e.CreatedAt.UTC().Format(time.RFC3339),
+// FromCreditActivityEntityToCreditActivityView maps a credit activity.
+func FromCreditActivityEntityToCreditActivityView(e entity.CreditActivity) view.CreditActivity {
+	return view.CreditActivity{
+		ID:        FromIDToBase62(e.ID),
+		UserID:    FromIDToBase62(e.UserID),
+		Ops:       e.Ops,
+		Change:    e.Change,
+		Current:   e.Current,
+		Actor:     e.Actor,
+		Note:      e.Note,
+		CreatedAt: e.CreatedAt.UTC().Format(time.RFC3339),
 	}
 }
 

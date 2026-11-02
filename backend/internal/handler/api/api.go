@@ -137,8 +137,10 @@ func New(p Params) {
 	r.Post("/setup/logout", setup.Logout)
 	r.Get("/setup/settings", AuthenticateRoot(p.Setup), setup.Get)
 	r.Put("/setup/settings", AuthenticateRoot(p.Setup), setup.Update)
+	r.Get("/setup/stats", AuthenticateRoot(p.Setup), admin.GetStats)
 	r.Get("/setup/users", AuthenticateRoot(p.Setup), admin.ListUsers)
-	r.Get("/setup/users/:id/credits", AuthenticateRoot(p.Setup), admin.ListCreditAdjustments)
+	r.Get("/setup/users/:id", AuthenticateRoot(p.Setup), admin.GetUser)
+	r.Get("/setup/users/:id/credits", AuthenticateRoot(p.Setup), admin.ListCreditActivities)
 	r.Post("/setup/users/:id/credits", AuthenticateRoot(p.Setup), admin.AdjustCredits)
 }
 

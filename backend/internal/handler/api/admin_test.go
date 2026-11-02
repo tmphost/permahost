@@ -37,13 +37,50 @@ func TestAdmin_RootOnly(t *testing.T) {
 	app, _ := newAdminApp(t)
 	id := mapper.FromIDToBase62(42)
 	for _, r := range []struct{ method, target string }{
+		{http.MethodGet, "/api/v1/setup/stats"},
 		{http.MethodGet, "/api/v1/setup/users"},
+		{http.MethodGet, "/api/v1/setup/users/" + id},
 		{http.MethodGet, "/api/v1/setup/users/" + id + "/credits"},
 		{http.MethodPost, "/api/v1/setup/users/" + id + "/credits"},
 	} {
 		res, _ := send(t, app, r.method, r.target, `{"amount":1,"note":"n"}`)
 		assert.Equal(t, http.StatusUnauthorized, res.StatusCode, r.target)
 	}
+}
+
+func TestAdmin_GetStats(t *testing.T) {
+	app, admin := newAdminApp(t)
+	admin.EXPECT().GetStats(gomock.Any(), &entity.GetAdminStatsRequest{}).Return(&entity.GetAdminStatsResponse{Users: 3}, nil)
+	res, body := send(t, app, http.MethodGet, "/api/v1/setup/stats", "", _rootCookie)
+	assert.Equal(t, http.StatusOK, res.StatusCode)
+	assert.Contains(t, body, `"users":3`)
+
+	admin.EXPECT().GetStats(gomock.Any(), gomock.Any()).Return(nil, errBoom)
+	res, body = send(t, app, http.MethodGet, "/api/v1/setup/stats", "", _rootCookie)
+	assert.Equal(t, http.StatusInternalServerError, res.StatusCode)
+	assert.JSONEq(t, `{"error":"failed to load stats"}`, body)
+}
+
+func TestAdmin_GetUser(t *testing.T) {
+	app, admin := newAdminApp(t)
+	target := "/api/v1/setup/users/" + mapper.FromIDToBase62(42)
+	admin.EXPECT().GetUser(gomock.Any(), &entity.GetAdminUserRequest{UserID: 42}).
+		Return(&entity.GetAdminUserResponse{User: entity.AdminUser{User: entity.User{ID: 42, Email: "a@x"}}}, nil)
+	res, body := send(t, app, http.MethodGet, target, "", _rootCookie)
+	assert.Equal(t, http.StatusOK, res.StatusCode)
+	assert.Contains(t, body, `"email":"a@x"`)
+
+	res, _ = send(t, app, http.MethodGet, "/api/v1/setup/users/!!", "", _rootCookie)
+	assert.Equal(t, http.StatusBadRequest, res.StatusCode)
+
+	admin.EXPECT().GetUser(gomock.Any(), gomock.Any()).Return(nil, adminctrl.ErrUserNotFound)
+	res, _ = send(t, app, http.MethodGet, target, "", _rootCookie)
+	assert.Equal(t, http.StatusNotFound, res.StatusCode)
+
+	admin.EXPECT().GetUser(gomock.Any(), gomock.Any()).Return(nil, errBoom)
+	res, body = send(t, app, http.MethodGet, target, "", _rootCookie)
+	assert.Equal(t, http.StatusInternalServerError, res.StatusCode)
+	assert.JSONEq(t, `{"error":"failed to load user"}`, body)
 }
 
 func TestAdmin_ListUsers(t *testing.T) {
@@ -73,12 +110,12 @@ func TestAdmin_AdjustCredits(t *testing.T) {
 
 	admin.EXPECT().AdjustCredits(gomock.Any(), &entity.AdjustCreditsRequest{UserID: 42, Amount: 500, Note: "support"}).
 		Return(&entity.AdjustCreditsResponse{
-			User:       entity.AdminUser{User: entity.User{ID: 42, Credits: 400}},
-			Adjustment: entity.CreditAdjustment{ID: 7, UserID: 42, Actor: "root", Amount: 500, Note: "support", BalanceAfter: 400, CreatedAt: at},
+			User:     entity.AdminUser{User: entity.User{ID: 42, Credits: 400}},
+			Activity: entity.CreditActivity{ID: 7, UserID: 42, Ops: "admin_grant", Actor: "root", Change: 500, Note: "support", Current: 400, CreatedAt: at},
 		}, nil)
 	res, body := send(t, app, http.MethodPost, target, `{"amount":500,"note":"support"}`, _rootCookie)
 	assert.Equal(t, http.StatusCreated, res.StatusCode)
-	assert.Contains(t, body, `"balanceAfter":400`)
+	assert.Contains(t, body, `"current":400`)
 	assert.Contains(t, body, `"paused":false`)
 
 	res, _ = send(t, app, http.MethodPost, target, `{`, _rootCookie)
@@ -101,24 +138,24 @@ func TestAdmin_AdjustCredits(t *testing.T) {
 	}
 }
 
-func TestAdmin_ListCreditAdjustments(t *testing.T) {
+func TestAdmin_ListCreditActivities(t *testing.T) {
 	app, admin := newAdminApp(t)
 	target := "/api/v1/setup/users/" + mapper.FromIDToBase62(42) + "/credits"
 
-	admin.EXPECT().ListCreditAdjustments(gomock.Any(), &entity.ListCreditAdjustmentsRequest{UserID: 42}).
-		Return(&entity.ListCreditAdjustmentsResponse{Adjustments: []entity.CreditAdjustment{}}, nil)
+	admin.EXPECT().ListCreditActivities(gomock.Any(), &entity.ListCreditActivitiesRequest{UserID: 42}).
+		Return(&entity.ListCreditActivitiesResponse{Activities: []entity.CreditActivity{}}, nil)
 	res, body := send(t, app, http.MethodGet, target, "", _rootCookie)
 	assert.Equal(t, http.StatusOK, res.StatusCode)
-	assert.JSONEq(t, `{"adjustments":[],"next":""}`, body)
+	assert.JSONEq(t, `{"activities":[],"next":""}`, body)
 
 	res, _ = send(t, app, http.MethodGet, "/api/v1/setup/users/!!/credits", "", _rootCookie)
 	assert.Equal(t, http.StatusBadRequest, res.StatusCode)
 
-	admin.EXPECT().ListCreditAdjustments(gomock.Any(), gomock.Any()).Return(nil, adminctrl.ErrUserNotFound)
+	admin.EXPECT().ListCreditActivities(gomock.Any(), gomock.Any()).Return(nil, adminctrl.ErrUserNotFound)
 	res, _ = send(t, app, http.MethodGet, target, "", _rootCookie)
 	assert.Equal(t, http.StatusNotFound, res.StatusCode)
 
-	admin.EXPECT().ListCreditAdjustments(gomock.Any(), gomock.Any()).Return(nil, errBoom)
+	admin.EXPECT().ListCreditActivities(gomock.Any(), gomock.Any()).Return(nil, errBoom)
 	res, body = send(t, app, http.MethodGet, target, "", _rootCookie)
 	assert.Equal(t, http.StatusInternalServerError, res.StatusCode)
 	assert.JSONEq(t, `{"error":"failed to load credit history"}`, body)

@@ -2,9 +2,10 @@
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
-// Package admin implements the Users section of the root-only setup page:
-// searching users with their balance and usage, and granting or deducting
-// one user's credits with a note kept in a ledger.
+// Package admin implements the root-only setup page's view of every
+// account: totals and daily stats, users with their balance and usage, each
+// user's credit history, and granting or deducting one user's credits with
+// a note.
 //
 // An adjustment changes the same balance the hosting charges draw from, so
 // it lasts until the next renewal resets the balance to the monthly grant
@@ -30,6 +31,9 @@ import (
 )
 
 const (
+	// StatsDays is how many UTC days, ending today, the stats and each
+	// user's usage cover: one renewal period.
+	StatsDays = int(creditctrl.Period / _day)
 	// ActorRoot names root as who made an adjustment.
 	ActorRoot = "root"
 	// DefaultLimit is the page size unless asked otherwise.
@@ -40,6 +44,8 @@ const (
 	MaxAdjustment = 1_000_000
 	// MaxNoteLength is the longest note, in characters.
 	MaxNoteLength = 500
+
+	_day = 24 * time.Hour
 )
 
 var (
@@ -55,37 +61,42 @@ var (
 type (
 	// Controller is the setup page's user administration.
 	Controller interface {
+		// GetStats returns the totals over every account and one entry per
+		// day of the last StatsDays days.
+		GetStats(ctx context.Context, rq *entity.GetAdminStatsRequest) (*entity.GetAdminStatsResponse, error)
 		// ListUsers returns a page of users, newest first, with their usage.
 		ListUsers(ctx context.Context, rq *entity.ListAdminUsersRequest) (*entity.ListAdminUsersResponse, error)
+		// GetUser returns one user with their usage.
+		GetUser(ctx context.Context, rq *entity.GetAdminUserRequest) (*entity.GetAdminUserResponse, error)
 		// AdjustCredits grants or deducts a user's credits and records it.
 		AdjustCredits(ctx context.Context, rq *entity.AdjustCreditsRequest) (*entity.AdjustCreditsResponse, error)
-		// ListCreditAdjustments returns a page of a user's adjustments,
+		// ListCreditActivities returns a page of a user's credit history,
 		// newest first.
-		ListCreditAdjustments(ctx context.Context, rq *entity.ListCreditAdjustmentsRequest) (*entity.ListCreditAdjustmentsResponse, error)
+		ListCreditActivities(ctx context.Context, rq *entity.ListCreditActivitiesRequest) (*entity.ListCreditActivitiesResponse, error)
 	}
 
 	// Params are the controller's dependencies.
 	Params struct {
 		Users   repository.UserRepository
+		Stats   repository.StatsRepository
 		Credits creditctrl.Controller
 		// Grant returns the current monthly grant; it can change at runtime.
 		Grant func() int
-		NewID func() int64
 		Now   func() time.Time
 	}
 
 	controller struct {
 		users   repository.UserRepository
+		stats   repository.StatsRepository
 		credits creditctrl.Controller
 		grant   func() int
-		newID   func() int64
 		now     func() time.Time
 	}
 )
 
 // New returns the admin controller.
 func New(p Params) Controller {
-	c := &controller{users: p.Users, credits: p.Credits, grant: creditctrl.GrantOrDefault(p.Grant), newID: p.NewID, now: p.Now}
+	c := &controller{users: p.Users, stats: p.Stats, credits: p.Credits, grant: creditctrl.GrantOrDefault(p.Grant), now: p.Now}
 	if c.now == nil {
 		c.now = time.Now
 	}
@@ -99,19 +110,70 @@ func (c *controller) ListUsers(ctx context.Context, rq *entity.ListAdminUsersReq
 	if err != nil {
 		return nil, fmt.Errorf("search users: %w", err)
 	}
-	rs := &entity.ListAdminUsersResponse{Users: make([]entity.AdminUser, 0, len(ms))}
+	rs := &entity.ListAdminUsersResponse{}
 	if len(ms) > limit {
 		ms = ms[:limit]
 		rs.Next = ms[limit-1].ID
 	}
-	for _, m := range ms {
-		u, err := c.adminUser(ctx, m)
-		if err != nil {
-			return nil, err
-		}
-		rs.Users = append(rs.Users, u)
+	if rs.Users, err = c.adminUsers(ctx, ms); err != nil {
+		return nil, err
 	}
 	return rs, nil
+}
+
+// since is the start (00:00 UTC) of the first stats day.
+func (c *controller) since() time.Time {
+	return c.now().UTC().Truncate(_day).Add(-time.Duration(StatsDays-1) * _day)
+}
+
+func (c *controller) GetStats(ctx context.Context, _ *entity.GetAdminStatsRequest) (*entity.GetAdminStatsResponse, error) {
+	now, since := c.now(), c.since()
+	totals, err := c.stats.Totals(ctx, now)
+	if err != nil {
+		return nil, fmt.Errorf("totals: %w", err)
+	}
+	used, err := c.stats.DailyCreditUsage(ctx, since)
+	if err != nil {
+		return nil, fmt.Errorf("daily credit usage: %w", err)
+	}
+	signups, err := c.stats.DailySignups(ctx, since)
+	if err != nil {
+		return nil, fmt.Errorf("daily signups: %w", err)
+	}
+	rs := &entity.GetAdminStatsResponse{
+		Users: totals.Users, Credits: totals.Credits, Paused: totals.Paused, Folders: totals.Folders,
+		Days: make([]entity.AdminStatsDay, StatsDays),
+	}
+	index := make(map[string]int, StatsDays)
+	for i := range rs.Days {
+		rs.Days[i].Date = since.Add(time.Duration(i) * _day).Format(time.DateOnly)
+		index[rs.Days[i].Date] = i
+	}
+	for _, d := range used {
+		if i, ok := index[d.Day]; ok {
+			rs.Days[i].Used = d.Count
+			rs.Used += d.Count
+		}
+	}
+	for _, d := range signups {
+		if i, ok := index[d.Day]; ok {
+			rs.Days[i].Signups = d.Count
+			rs.Signups += d.Count
+		}
+	}
+	return rs, nil
+}
+
+func (c *controller) GetUser(ctx context.Context, rq *entity.GetAdminUserRequest) (*entity.GetAdminUserResponse, error) {
+	m, err := c.findUser(ctx, rq.UserID)
+	if err != nil {
+		return nil, err
+	}
+	us, err := c.adminUsers(ctx, []model.User{m})
+	if err != nil {
+		return nil, err
+	}
+	return &entity.GetAdminUserResponse{User: us[0]}, nil
 }
 
 func (c *controller) AdjustCredits(ctx context.Context, rq *entity.AdjustCreditsRequest) (*entity.AdjustCreditsResponse, error) {
@@ -126,14 +188,7 @@ func (c *controller) AdjustCredits(ctx context.Context, rq *entity.AdjustCredits
 	case utf8.RuneCountInString(note) > MaxNoteLength:
 		return nil, fmt.Errorf("%w: the note must be at most %d characters", ErrInvalidAdjustment, MaxNoteLength)
 	}
-	a, err := c.users.AdjustCredits(ctx, model.CreditAdjustment{
-		ID:        c.newID(),
-		CreatedAt: c.now(),
-		UserID:    rq.UserID,
-		Actor:     ActorRoot,
-		Amount:    rq.Amount,
-		Note:      note,
-	})
+	a, err := c.users.AdjustCredits(ctx, rq.UserID, rq.Amount, ActorRoot, note)
 	switch {
 	case errors.Is(err, repository.ErrNotFound):
 		return nil, ErrUserNotFound
@@ -142,32 +197,28 @@ func (c *controller) AdjustCredits(ctx context.Context, rq *entity.AdjustCredits
 	case err != nil:
 		return nil, fmt.Errorf("adjust credits: %w", err)
 	}
-	m, err := c.findUser(ctx, rq.UserID)
+	u, err := c.GetUser(ctx, &entity.GetAdminUserRequest{UserID: rq.UserID})
 	if err != nil {
 		return nil, err
 	}
-	u, err := c.adminUser(ctx, m)
-	if err != nil {
-		return nil, err
-	}
-	return &entity.AdjustCreditsResponse{User: u, Adjustment: mappermodel.FromCreditAdjustmentModelToCreditAdjustmentEntity(a)}, nil
+	return &entity.AdjustCreditsResponse{User: u.User, Activity: mappermodel.FromCreditActivityModelToCreditActivityEntity(a)}, nil
 }
 
-func (c *controller) ListCreditAdjustments(ctx context.Context, rq *entity.ListCreditAdjustmentsRequest) (*entity.ListCreditAdjustmentsResponse, error) {
+func (c *controller) ListCreditActivities(ctx context.Context, rq *entity.ListCreditActivitiesRequest) (*entity.ListCreditActivitiesResponse, error) {
 	if _, err := c.findUser(ctx, rq.UserID); err != nil {
 		return nil, err
 	}
 	limit := pageSize(rq.Limit)
-	ms, err := c.users.ListCreditAdjustments(ctx, rq.UserID, rq.Before, limit+1)
+	ms, err := c.users.ListCreditActivities(ctx, rq.UserID, rq.Before, limit+1)
 	if err != nil {
-		return nil, fmt.Errorf("list credit adjustments: %w", err)
+		return nil, fmt.Errorf("list credit activities: %w", err)
 	}
-	rs := &entity.ListCreditAdjustmentsResponse{}
+	rs := &entity.ListCreditActivitiesResponse{}
 	if len(ms) > limit {
 		ms = ms[:limit]
 		rs.Next = ms[limit-1].ID
 	}
-	rs.Adjustments = mappermodel.FromCreditAdjustmentModelsToCreditAdjustmentEntities(ms)
+	rs.Activities = mappermodel.FromCreditActivityModelsToCreditActivityEntities(ms)
 	return rs, nil
 }
 
@@ -182,17 +233,36 @@ func (c *controller) findUser(ctx context.Context, id int64) (model.User, error)
 	return m, nil
 }
 
-func (c *controller) adminUser(ctx context.Context, m model.User) (entity.AdminUser, error) {
-	usage, err := c.credits.GetUsage(ctx, &entity.GetUsageRequest{UserID: m.ID})
-	if err != nil {
-		return entity.AdminUser{}, fmt.Errorf("usage of user %d: %w", m.ID, err)
+// adminUsers maps users to admin users, with what each hosts and what each
+// spent over the stats days.
+func (c *controller) adminUsers(ctx context.Context, ms []model.User) ([]entity.AdminUser, error) {
+	us := make([]entity.AdminUser, len(ms))
+	if len(ms) == 0 {
+		return us, nil
 	}
-	return entity.AdminUser{
-		User:           mappermodel.FromUserModelToUserEntity(m, c.grant()),
-		Usage:          usage.Usage,
-		StorageBlocks:  usage.StorageBlocks,
-		MonthlyCredits: usage.MonthlyCredits,
-	}, nil
+	ids := make([]int64, len(ms))
+	for i, m := range ms {
+		ids[i] = m.ID
+	}
+	used, err := c.stats.CreditUsageByUser(ctx, ids, c.since())
+	if err != nil {
+		return nil, fmt.Errorf("credit usage: %w", err)
+	}
+	grant := c.grant()
+	for i, m := range ms {
+		usage, err := c.credits.GetUsage(ctx, &entity.GetUsageRequest{UserID: m.ID})
+		if err != nil {
+			return nil, fmt.Errorf("usage of user %d: %w", m.ID, err)
+		}
+		us[i] = entity.AdminUser{
+			User:           mappermodel.FromUserModelToUserEntity(m, grant),
+			Usage:          usage.Usage,
+			StorageBlocks:  usage.StorageBlocks,
+			MonthlyCredits: usage.MonthlyCredits,
+			Used:           used[m.ID],
+		}
+	}
+	return us, nil
 }
 
 // pageSize is limit within [1, MaxLimit], DefaultLimit when unset.

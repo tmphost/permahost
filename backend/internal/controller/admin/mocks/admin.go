@@ -50,19 +50,49 @@ func (mr *MockControllerMockRecorder) AdjustCredits(ctx, rq interface{}) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AdjustCredits", reflect.TypeOf((*MockController)(nil).AdjustCredits), ctx, rq)
 }
 
-// ListCreditAdjustments mocks base method.
-func (m *MockController) ListCreditAdjustments(ctx context.Context, rq *entity.ListCreditAdjustmentsRequest) (*entity.ListCreditAdjustmentsResponse, error) {
+// GetStats mocks base method.
+func (m *MockController) GetStats(ctx context.Context, rq *entity.GetAdminStatsRequest) (*entity.GetAdminStatsResponse, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListCreditAdjustments", ctx, rq)
-	ret0, _ := ret[0].(*entity.ListCreditAdjustmentsResponse)
+	ret := m.ctrl.Call(m, "GetStats", ctx, rq)
+	ret0, _ := ret[0].(*entity.GetAdminStatsResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// ListCreditAdjustments indicates an expected call of ListCreditAdjustments.
-func (mr *MockControllerMockRecorder) ListCreditAdjustments(ctx, rq interface{}) *gomock.Call {
+// GetStats indicates an expected call of GetStats.
+func (mr *MockControllerMockRecorder) GetStats(ctx, rq interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCreditAdjustments", reflect.TypeOf((*MockController)(nil).ListCreditAdjustments), ctx, rq)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStats", reflect.TypeOf((*MockController)(nil).GetStats), ctx, rq)
+}
+
+// GetUser mocks base method.
+func (m *MockController) GetUser(ctx context.Context, rq *entity.GetAdminUserRequest) (*entity.GetAdminUserResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUser", ctx, rq)
+	ret0, _ := ret[0].(*entity.GetAdminUserResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUser indicates an expected call of GetUser.
+func (mr *MockControllerMockRecorder) GetUser(ctx, rq interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUser", reflect.TypeOf((*MockController)(nil).GetUser), ctx, rq)
+}
+
+// ListCreditActivities mocks base method.
+func (m *MockController) ListCreditActivities(ctx context.Context, rq *entity.ListCreditActivitiesRequest) (*entity.ListCreditActivitiesResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListCreditActivities", ctx, rq)
+	ret0, _ := ret[0].(*entity.ListCreditActivitiesResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListCreditActivities indicates an expected call of ListCreditActivities.
+func (mr *MockControllerMockRecorder) ListCreditActivities(ctx, rq interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCreditActivities", reflect.TypeOf((*MockController)(nil).ListCreditActivities), ctx, rq)
 }
 
 // ListUsers mocks base method.
