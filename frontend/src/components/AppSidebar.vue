@@ -138,7 +138,7 @@ function logout() {
         data-test="sidebar-credits"
       >
         <div class="flex items-baseline justify-between">
-          <span class="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500">Operations</span>
+          <span class="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-zinc-500">Credits</span>
           <span class="text-xs font-bold tabular-nums text-gray-900 dark:text-zinc-100">
             {{ user.credits }}<span class="text-gray-400 dark:text-zinc-500 font-medium"> / {{ user.creditsLimit }}</span>
           </span>

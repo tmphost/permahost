@@ -64,7 +64,7 @@ describe('LoginView', () => {
     const plain = wrapper.find('[data-test="login-bare"]')
     expect(plain.find('img').exists()).toBe(false)
     expect(plain.find('svg').exists()).toBe(false)
-    expect(wrapper.text()).toContain('250 free operations')
+    expect(wrapper.text()).toContain('free credits every month')
     expect(wrapper.find('[data-test="login-setup"]').attributes('href')).toBe('/setup')
     expect(wrapper.find('[data-test="login-upload"]').attributes('href')).toBe('/upload')
   })

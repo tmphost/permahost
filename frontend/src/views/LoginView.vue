@@ -98,7 +98,7 @@ onMounted(async () => {
           {{ button.label }}
         </a>
         <p class="pt-2 text-center text-[11px] text-gray-400 dark:text-zinc-500">
-          New accounts get <span class="font-bold text-gray-500 dark:text-zinc-400">250 free operations</span> every month.
+          New accounts get <span class="font-bold text-gray-500 dark:text-zinc-400">free credits</span> every month to host with.
         </p>
       </div>
 

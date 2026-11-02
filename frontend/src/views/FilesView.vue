@@ -573,11 +573,11 @@ onMounted(() => {
             </button>
           </div>
           <div class="flex items-center gap-1 pl-11 pr-2 pb-1.5">
-            <span class="grow min-w-0 truncate text-[11px] text-gray-400 dark:text-zinc-500">
-              <template v-if="folderTitle(folder) !== folder.id">
-                <span class="font-mono" data-test="folder-id">{{ folder.id }}</span> ·
-              </template>
-              <span class="tabular-nums" data-test="folder-size">{{ formatBytes(folder.sizeBytes ?? 0) }}</span>
+            <span class="grow min-w-0 flex items-baseline gap-1 text-[11px] text-gray-400 dark:text-zinc-500">
+              <span class="shrink-0 tabular-nums" data-test="folder-size">{{ formatBytes(folder.sizeBytes ?? 0) }}</span>
+              <span v-if="folderTitle(folder) !== folder.id" class="min-w-0 truncate font-mono" :title="folder.id" data-test="folder-id">
+                {{ folder.id }}
+              </span>
             </span>
             <button
               type="button"

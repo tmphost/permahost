@@ -289,7 +289,7 @@ onMounted(refresh)
         <section class="rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5">
           <h2 class="text-sm font-bold text-gray-900 dark:text-zinc-100">Credits</h2>
           <p class="text-xs text-gray-500 dark:text-zinc-400 mb-4">Applies immediately: new accounts and the daily 00:00 UTC renewal use it.</p>
-          <label for="monthly-grant" :class="LABEL">Operations per account, every 30 days</label>
+          <label for="monthly-grant" :class="LABEL">Credits per account, every 30 days</label>
           <input
             id="monthly-grant"
             v-model.number="form.credits.monthlyGrant"
