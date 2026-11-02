@@ -5,8 +5,8 @@
 -->
 
 <script setup>
-// The permahost.io mark (see /favicon-light.svg): a ring that is half solid
-// (present) and half dashed (expiring), around code brackets.
+// The permahost.io mark (see /favicon-light.svg): a disk drive whose status
+// light is green, i.e. online and staying online.
 defineProps({
   // tile draws the mark white on a black square, like the favicon.
   tile: { type: Boolean, default: false },
@@ -24,14 +24,13 @@ defineProps({
       fill="none"
       stroke="currentColor"
       stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
       aria-hidden="true"
     >
-      <path d="M12 3a9 9 0 0 0 0 18" />
-      <path d="M12 3a9 9 0 0 1 9 9" stroke-dasharray="2.5 3.5" />
-      <path d="M21 12a9 9 0 0 1-9 9" stroke-dasharray="1 4" opacity="0.5" />
-      <path d="m8 9.5-2.5 2.5 2.5 2.5" />
-      <path d="m16 9.5 2.5 2.5-2.5 2.5" />
-      <path d="m13.5 7.5-3 9" />
+      <rect x="2" y="7" width="20" height="10" rx="3" />
+      <path d="M6 12h.01M9 12h.01" />
+      <circle cx="17" cy="12" r="1.8" class="fill-green-500" stroke="none" />
     </svg>
   </span>
 </template>

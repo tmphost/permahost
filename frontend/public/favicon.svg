@@ -2,17 +2,12 @@
   <!-- Solid black background -->
   <rect width="512" height="512" fill="#000000" />
 
-  <g transform="scale(21.333333)" fill="none" stroke="#ffffff" stroke-width="2">
-    <!-- Solid half of the ring (Present) -->
-    <path d="M12 3a9 9 0 0 0 0 18" />
-    
-    <!-- Dashed half of the ring (Expiring / Temporary) -->
-    <path d="M12 3a9 9 0 0 1 9 9" stroke-dasharray="2.5 3.5" />
-    <path d="M21 12a9 9 0 0 1-9 9" stroke-dasharray="1 4" opacity="0.5" />
-
-    <!-- Code Brackets + Clock Hand Slash -->
-    <path d="m8 9.5-2.5 2.5 2.5 2.5" />
-    <path d="m16 9.5 2.5 2.5-2.5 2.5" />
-    <path d="m13.5 7.5-3 9" />
+  <!-- The 24px mark at 4/5 of the tile, centred -->
+  <g transform="translate(51.2 51.2) scale(17.066667)" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <!-- A disk drive... -->
+    <rect x="2" y="7" width="20" height="10" rx="3" />
+    <path d="M6 12h.01M9 12h.01" />
+    <!-- ...with its status light green: online, and staying online -->
+    <circle cx="17" cy="12" r="1.8" fill="#22c55e" stroke="none" />
   </g>
 </svg>

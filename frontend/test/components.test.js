@@ -12,7 +12,8 @@ describe('BrandLogo', () => {
   it('renders plain and tile variants', () => {
     const plain = mount(BrandLogo)
     expect(plain.classes()).toContain('text-gray-900')
-    expect(plain.findAll('path')).toHaveLength(6)
+    expect(plain.find('rect').exists()).toBe(true)
+    expect(plain.find('circle').classes()).toContain('fill-green-500')
     const tile = mount(BrandLogo, { props: { tile: true } })
     expect(tile.classes()).toContain('bg-black')
     expect(tile.find('svg').classes()).toContain('w-3/4')
