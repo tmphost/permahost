@@ -51,17 +51,29 @@ func TestFromHTTPRequestToAdjustCreditsRequestEntity(t *testing.T) {
 	assert.Nil(t, read(id, `{"amount":"1"}`), "amount is a number")
 }
 
-func TestFromHTTPRequestToListCreditAdjustmentsRequestEntity(t *testing.T) {
-	read := func(target string) *entity.ListCreditAdjustmentsRequest {
-		var got *entity.ListCreditAdjustmentsRequest
+func TestFromHTTPRequestToGetAdminUserRequestEntity(t *testing.T) {
+	read := func(id string) *entity.GetAdminUserRequest {
+		var got *entity.GetAdminUserRequest
+		run(t, "/setup/users/:id", httptest.NewRequest(http.MethodGet, "/setup/users/"+id, nil), func(c fiber.Ctx) {
+			got = FromHTTPRequestToGetAdminUserRequestEntity(c)
+		})
+		return got
+	}
+	assert.Equal(t, &entity.GetAdminUserRequest{UserID: 42}, read(FromIDToBase62(42)))
+	assert.Nil(t, read("!!"))
+}
+
+func TestFromHTTPRequestToListCreditActivitiesRequestEntity(t *testing.T) {
+	read := func(target string) *entity.ListCreditActivitiesRequest {
+		var got *entity.ListCreditActivitiesRequest
 		run(t, "/setup/users/:id/credits", httptest.NewRequest(http.MethodGet, target, nil), func(c fiber.Ctx) {
-			got = FromHTTPRequestToListCreditAdjustmentsRequestEntity(c)
+			got = FromHTTPRequestToListCreditActivitiesRequestEntity(c)
 		})
 		return got
 	}
 	id, before := FromIDToBase62(42), FromIDToBase62(99)
-	assert.Equal(t, &entity.ListCreditAdjustmentsRequest{UserID: 42}, read("/setup/users/"+id+"/credits"))
-	assert.Equal(t, &entity.ListCreditAdjustmentsRequest{UserID: 42, Before: 99, Limit: 10}, read("/setup/users/"+id+"/credits?before="+before+"&limit=10"))
+	assert.Equal(t, &entity.ListCreditActivitiesRequest{UserID: 42}, read("/setup/users/"+id+"/credits"))
+	assert.Equal(t, &entity.ListCreditActivitiesRequest{UserID: 42, Before: 99, Limit: 10}, read("/setup/users/"+id+"/credits?before="+before+"&limit=10"))
 	assert.Nil(t, read("/setup/users/!!/credits"), "bad ID")
 	assert.Nil(t, read("/setup/users/"+id+"/credits?limit=no"), "bad limit")
 }
@@ -73,22 +85,31 @@ func TestAdminResponses(t *testing.T) {
 		Usage:          entity.Usage{Folders: 2, StorageBytes: 30 << 20, Domains: 1},
 		StorageBlocks:  2,
 		MonthlyCredits: 2500,
+		Used:           1500,
 	}
 	userJSON := `{"id":"` + FromIDToBase62(42) + `","email":"a@x","name":"A","picture":"","provider":"","credits":-100,"creditsLimit":2000,
-		"creditsRenewAt":"2026-11-02T07:00:00Z","createdAt":"2026-11-02T07:00:00Z","paused":true,
+		"creditsRenewAt":"2026-11-02T07:00:00Z","createdAt":"2026-11-02T07:00:00Z","paused":true,"used":1500,
 		"usage":{"folders":2,"storageBytes":31457280,"storageBlocks":2,"domains":1,"monthlyCredits":2500}}`
-	adj := entity.CreditAdjustment{ID: 7, UserID: 42, Actor: "root", Amount: 300, Note: "n", BalanceAfter: 200, CreatedAt: at}
-	adjJSON := `{"id":"` + FromIDToBase62(7) + `","userId":"` + FromIDToBase62(42) + `","actor":"root","amount":300,"note":"n","balanceAfter":200,"createdAt":"2026-11-02T07:00:00Z"}`
+	act := entity.CreditActivity{ID: 7, UserID: 42, Ops: "admin_grant", Change: 300, Current: 200, Actor: "root", Note: "n", CreatedAt: at}
+	actJSON := `{"id":"` + FromIDToBase62(7) + `","userId":"` + FromIDToBase62(42) + `","ops":"admin_grant","change":300,"current":200,"actor":"root","note":"n","createdAt":"2026-11-02T07:00:00Z"}`
+
+	assert.JSONEq(t, `{"users":3,"credits":900,"paused":1,"used":500,"signups":2,"folders":4,"days":[{"date":"2026-11-02","used":500,"signups":2}]}`,
+		string(FromGetAdminStatsResponseEntityToHTTPResponse(&entity.GetAdminStatsResponse{
+			Users: 3, Credits: 900, Paused: 1, Used: 500, Signups: 2, Folders: 4,
+			Days: []entity.AdminStatsDay{{Date: "2026-11-02", Used: 500, Signups: 2}},
+		})))
 
 	assert.JSONEq(t, `{"users":[`+userJSON+`],"next":"`+FromIDToBase62(42)+`"}`,
 		string(FromListAdminUsersResponseEntityToHTTPResponse(&entity.ListAdminUsersResponse{Users: []entity.AdminUser{user}, Next: 42})))
 	assert.JSONEq(t, `{"users":[],"next":""}`, string(FromListAdminUsersResponseEntityToHTTPResponse(&entity.ListAdminUsersResponse{})))
 
-	assert.JSONEq(t, `{"user":`+userJSON+`,"adjustment":`+adjJSON+`}`,
-		string(FromAdjustCreditsResponseEntityToHTTPResponse(&entity.AdjustCreditsResponse{User: user, Adjustment: adj})))
+	assert.JSONEq(t, `{"user":`+userJSON+`}`, string(FromGetAdminUserResponseEntityToHTTPResponse(&entity.GetAdminUserResponse{User: user})))
 
-	assert.JSONEq(t, `{"adjustments":[`+adjJSON+`],"next":""}`,
-		string(FromListCreditAdjustmentsResponseEntityToHTTPResponse(&entity.ListCreditAdjustmentsResponse{Adjustments: []entity.CreditAdjustment{adj}})))
+	assert.JSONEq(t, `{"user":`+userJSON+`,"activity":`+actJSON+`}`,
+		string(FromAdjustCreditsResponseEntityToHTTPResponse(&entity.AdjustCreditsResponse{User: user, Activity: act})))
+
+	assert.JSONEq(t, `{"activities":[`+actJSON+`],"next":""}`,
+		string(FromListCreditActivitiesResponseEntityToHTTPResponse(&entity.ListCreditActivitiesResponse{Activities: []entity.CreditActivity{act}})))
 
 	user.User.Credits = 0
 	assert.False(t, FromAdminUserEntityToAdminUserView(user).Paused, "zero is paid for")

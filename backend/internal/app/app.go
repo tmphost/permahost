@@ -256,8 +256,8 @@ func New(cfg Config, web fs.FS) (*App, error) {
 		return nil, err
 	}
 
-	users := repository.NewUserRepository(db)
 	ids := idgen.New(cfg.IDGen.Node)
+	users := repository.NewUserRepository(db, ids)
 	basePath := strings.TrimRight(cfg.App.BasePath, "/")
 	baseURL := strings.TrimRight(cfg.App.BaseURL, "/")
 	auth := authctrl.New(authctrl.Params{
@@ -329,7 +329,7 @@ func New(cfg Config, web fs.FS) (*App, error) {
 		Folders:      folders,
 		Domains:      domains,
 		Credits:      credits,
-		Admin:        adminctrl.New(adminctrl.Params{Users: users, Credits: credits, Grant: setup.MonthlyGrant, NewID: ids.NextID}),
+		Admin:        adminctrl.New(adminctrl.Params{Users: users, Stats: repository.NewStatsRepository(db), Credits: credits, Grant: setup.MonthlyGrant}),
 		OAuth:        a.oauth,
 		FileSettings: setup.FileLimits,
 		BasePath:     basePath,

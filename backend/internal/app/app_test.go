@@ -610,7 +610,7 @@ func TestFileHosting(t *testing.T) {
 	}
 	res, body = adjust(`{"amount":501,"note":"support"}`)
 	require.Equal(t, http.StatusCreated, res.StatusCode, body)
-	assert.Contains(t, body, `"balanceAfter":500`)
+	assert.Contains(t, body, `"current":500`)
 	assert.Contains(t, body, `"paused":false`)
 	res, _ = call(http.MethodGet, "/files/7/"+id+"/site/index.html", "", "")
 	assert.Equal(t, http.StatusOK, res.StatusCode, "resumed")
@@ -626,6 +626,25 @@ func TestFileHosting(t *testing.T) {
 	require.NoError(t, err)
 	b, _ = io.ReadAll(res.Body)
 	assert.Contains(t, string(b), `"folders":2`)
+	assert.Contains(t, string(b), `"used":1500`, "two folders and a storage block, recorded as they were charged")
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/setup/users/"+monoflake.ID(7).String()+"/credits", nil)
+	req.AddCookie(root)
+	res, err = a.Handler().Test(req)
+	require.NoError(t, err)
+	b, _ = io.ReadAll(res.Body)
+	var history struct{ Activities []struct{ Ops string } }
+	require.NoError(t, json.Unmarshal(b, &history))
+	ops := []string{}
+	for _, h := range history.Activities {
+		ops = append(ops, h.Ops)
+	}
+	assert.Equal(t, []string{"spend", "admin_grant", "spend", "spend"}, ops, "newest first; the raw -1 test update is not an activity")
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/setup/stats", nil)
+	req.AddCookie(root)
+	res, err = a.Handler().Test(req)
+	require.NoError(t, err)
+	b, _ = io.ReadAll(res.Body)
+	assert.Contains(t, string(b), `"used":1500`)
 
 	// Once expired (only anonymous folders do), the sweep removes the
 	// record and the files.

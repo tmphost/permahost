@@ -37,18 +37,18 @@ func (m *MockUserRepository) EXPECT() *MockUserRepositoryMockRecorder {
 }
 
 // AdjustCredits mocks base method.
-func (m *MockUserRepository) AdjustCredits(ctx context.Context, a model.CreditAdjustment) (model.CreditAdjustment, error) {
+func (m *MockUserRepository) AdjustCredits(ctx context.Context, id int64, amount int, actor, note string) (model.CreditActivity, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AdjustCredits", ctx, a)
-	ret0, _ := ret[0].(model.CreditAdjustment)
+	ret := m.ctrl.Call(m, "AdjustCredits", ctx, id, amount, actor, note)
+	ret0, _ := ret[0].(model.CreditActivity)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AdjustCredits indicates an expected call of AdjustCredits.
-func (mr *MockUserRepositoryMockRecorder) AdjustCredits(ctx, a interface{}) *gomock.Call {
+func (mr *MockUserRepositoryMockRecorder) AdjustCredits(ctx, id, amount, actor, note interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AdjustCredits", reflect.TypeOf((*MockUserRepository)(nil).AdjustCredits), ctx, a)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AdjustCredits", reflect.TypeOf((*MockUserRepository)(nil).AdjustCredits), ctx, id, amount, actor, note)
 }
 
 // CreateUser mocks base method.
@@ -96,19 +96,19 @@ func (mr *MockUserRepositoryMockRecorder) FindUserByID(ctx, id interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindUserByID", reflect.TypeOf((*MockUserRepository)(nil).FindUserByID), ctx, id)
 }
 
-// ListCreditAdjustments mocks base method.
-func (m *MockUserRepository) ListCreditAdjustments(ctx context.Context, userID, before int64, limit int) ([]model.CreditAdjustment, error) {
+// ListCreditActivities mocks base method.
+func (m *MockUserRepository) ListCreditActivities(ctx context.Context, userID, before int64, limit int) ([]model.CreditActivity, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListCreditAdjustments", ctx, userID, before, limit)
-	ret0, _ := ret[0].([]model.CreditAdjustment)
+	ret := m.ctrl.Call(m, "ListCreditActivities", ctx, userID, before, limit)
+	ret0, _ := ret[0].([]model.CreditActivity)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// ListCreditAdjustments indicates an expected call of ListCreditAdjustments.
-func (mr *MockUserRepositoryMockRecorder) ListCreditAdjustments(ctx, userID, before, limit interface{}) *gomock.Call {
+// ListCreditActivities indicates an expected call of ListCreditActivities.
+func (mr *MockUserRepositoryMockRecorder) ListCreditActivities(ctx, userID, before, limit interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCreditAdjustments", reflect.TypeOf((*MockUserRepository)(nil).ListCreditAdjustments), ctx, userID, before, limit)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCreditActivities", reflect.TypeOf((*MockUserRepository)(nil).ListCreditActivities), ctx, userID, before, limit)
 }
 
 // ListUsersDueForCreditRenewal mocks base method.

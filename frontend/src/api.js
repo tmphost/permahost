@@ -131,27 +131,39 @@ function pageQuery(params) {
   return query ? `?${query}` : ''
 }
 
-// listSetupUsers returns { users, next } as root: a page of users, newest
+// fetchAdminStats returns root's stats over every account: { users,
+// credits, paused, used, signups, folders, days: [{ date, used, signups }] }.
+export function fetchAdminStats() {
+  return request('GET', '/setup/stats', { fallback: 'Failed to load stats' })
+}
+
+// listAdminUsers returns { users, next } as root: a page of users, newest
 // first, whose email or name contains q. Pass next as before for the next
 // page; it is '' on the last.
-export function listSetupUsers({ q = '', before = '' } = {}) {
+export function listAdminUsers({ q = '', before = '' } = {}) {
   return request('GET', `/setup/users${pageQuery({ q, before })}`, { fallback: 'Failed to load users' })
 }
 
+// fetchAdminUser returns one user, as root.
+export async function fetchAdminUser(id) {
+  const body = await request('GET', `/setup/users/${encodeURIComponent(id)}`, { fallback: 'Failed to load user' })
+  return body.user
+}
+
+// listAdminUserCreditActivities returns { activities, next } as root: a page
+// of one user's credit history, newest first.
+export function listAdminUserCreditActivities(id, before = '') {
+  return request('GET', `/setup/users/${encodeURIComponent(id)}/credits${pageQuery({ before })}`, {
+    fallback: 'Failed to load credit history',
+  })
+}
+
 // adjustUserCredits grants (a positive amount) or deducts (a negative one) a
-// user's credits as root, and returns { user, adjustment }.
+// user's credits as root, and returns { user, activity }.
 export function adjustUserCredits(id, amount, note) {
   return request('POST', `/setup/users/${encodeURIComponent(id)}/credits`, {
     body: { amount, note },
     fallback: 'Failed to adjust credits',
-  })
-}
-
-// listUserCreditAdjustments returns { adjustments, next } as root: a page of
-// one user's credit adjustments, newest first.
-export function listUserCreditAdjustments(id, before = '') {
-  return request('GET', `/setup/users/${encodeURIComponent(id)}/credits${pageQuery({ before })}`, {
-    fallback: 'Failed to load credit history',
   })
 }
 

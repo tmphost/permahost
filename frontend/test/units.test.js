@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { usePlatformStore } from '../src/stores/platformStore'
 import { useToasts } from '../src/composables/useToasts'
-import { creditsPercent, renewsIn } from '../src/utils/credits'
+import { CHART_COLORS, creditsPercent, dailyCreditSeries, formatChange, opsLabel, renewsIn } from '../src/utils/credits'
 import { loginErrorMessage } from '../src/utils/loginErrors'
 import {
   droppedFiles,
@@ -69,6 +69,71 @@ describe('useToasts', () => {
 })
 
 describe('credits', () => {
+  it('formatChange signs the amount', () => {
+    expect(formatChange(2500)).toBe(`+${(2500).toLocaleString()}`)
+    expect(formatChange(-3)).toBe('-3')
+    expect(formatChange(0)).toBe('0')
+  })
+
+  it('opsLabel names every op and passes unknown ones through', () => {
+    expect(['grant', 'renewal', 'spend', 'refund', 'admin_grant', 'admin_deduct'].map(opsLabel)).toEqual([
+      'Sign-up grant',
+      'Renewal',
+      'Hosting charge',
+      'Refund',
+      'Root grant',
+      'Root deduction',
+    ])
+    expect(opsLabel('mystery')).toBe('mystery')
+  })
+
+  it('uses the same chart colours in light and dark', () => {
+    expect(CHART_COLORS).toEqual({ used: '#aec477', balance: '#a8a3d9' })
+  })
+
+  it('dailyCreditSeries makes one point per UTC day', () => {
+    const now = Date.parse('2026-10-19T12:00:00Z')
+    const series = dailyCreditSeries(
+      [
+        // Newest first, as the API lists them.
+        { ops: 'spend', change: -2, current: 3, createdAt: '2026-10-20T00:00:01Z' },
+        { ops: 'refund', change: 4, current: 5, createdAt: '2026-10-19T10:00:00Z' },
+        { ops: 'spend', change: -6, current: 1, createdAt: '2026-10-19T09:00:00Z' },
+        { ops: 'renewal', change: 247, current: 250, createdAt: '2026-10-17T00:00:00Z' },
+        { ops: 'spend', change: -1, current: 7, createdAt: '2026-10-16T08:00:00Z' },
+        { ops: 'grant', change: 1000, current: 1000, createdAt: '2026-10-01T00:00:00Z' },
+      ],
+      3,
+      now,
+    )
+    expect(series.used).toEqual([
+      { date: '2026-10-17', count: 0 },
+      { date: '2026-10-18', count: 0 },
+      { date: '2026-10-19', count: 4 },
+    ])
+    expect(series.balance).toEqual([
+      { date: '2026-10-17', count: 250 },
+      { date: '2026-10-18', count: 250 },
+      { date: '2026-10-19', count: 3 },
+    ])
+  })
+
+  it('dailyCreditSeries carries the opening balance and never shows negative use', () => {
+    const now = Date.parse('2026-10-19T12:00:00Z')
+    const series = dailyCreditSeries(
+      [
+        { ops: 'refund', change: 4, current: 11, createdAt: '2026-10-19T00:00:00Z' },
+        { ops: 'spend', change: -3, current: 7, createdAt: '2026-10-10T00:00:00Z' },
+      ],
+      2,
+      now,
+    )
+    expect(series.used.map((d) => d.count)).toEqual([0, 0])
+    expect(series.balance.map((d) => d.count)).toEqual([7, 11])
+    expect(dailyCreditSeries([], 1, now).balance).toEqual([{ date: '2026-10-19', count: 0 }])
+    expect(dailyCreditSeries([]).used).toHaveLength(30)
+  })
+
   it('creditsPercent clamps and handles missing data', () => {
     expect(creditsPercent(null)).toBe(0)
     expect(creditsPercent({ credits: 5, creditsLimit: 0 })).toBe(0)

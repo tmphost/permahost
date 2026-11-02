@@ -5,9 +5,11 @@
 -->
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import AdminOverview from '../components/AdminOverview.vue'
+import AdminUserDetail from '../components/AdminUserDetail.vue'
+import AdminUsers from '../components/AdminUsers.vue'
 import BrandLogo from '../components/BrandLogo.vue'
-import SetupUsers from '../components/SetupUsers.vue'
 import { fetchSettings, saveSettings, setupLogin, setupLogout } from '../api'
 import { useToasts } from '../composables/useToasts'
 import { formatMinutes } from '../utils/files'
@@ -24,9 +26,16 @@ const PRIMARY =
 const SECONDARY =
   'rounded-lg border border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-2.5 text-[11px] font-black uppercase tracking-widest text-gray-900 dark:text-zinc-100 hover:border-gray-300 dark:hover:border-zinc-600 transition-colors'
 
-// The setup menu: one section at a time. Every section but Users edits the
-// server settings, which one Save stores together.
+// The setup menu: one section at a time. Overview and Users manage accounts;
+// every other section edits the server settings, which one Save stores
+// together.
 const SECTIONS = [
+  { id: 'overview', label: 'Overview', icon: 'M3 3v18h18M7 15l4-4 3 3 5-6' },
+  {
+    id: 'users',
+    label: 'Users',
+    icon: 'M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0z',
+  },
   {
     id: 'domain',
     label: 'Domains',
@@ -37,7 +46,11 @@ const SECTIONS = [
     label: 'TLS',
     icon: 'M16.5 10.5V7a4.5 4.5 0 1 0-9 0v3.5M6.75 21h10.5a2.25 2.25 0 0 0 2.25-2.25v-6a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6A2.25 2.25 0 0 0 6.75 21z',
   },
-  { id: 'credits', label: 'Credits', icon: 'M3 3v18h18M7 15l4-4 3 3 5-6' },
+  {
+    id: 'credits',
+    label: 'Credits',
+    icon: 'M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z',
+  },
   {
     id: 'database',
     label: 'Database',
@@ -54,18 +67,18 @@ const SECTIONS = [
     label: 'Sign-in',
     icon: 'M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25z',
   },
-  {
-    id: 'users',
-    label: 'Users',
-    icon: 'M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0z',
-  },
 ]
+// ACCOUNT_SECTIONS are the sections that don't edit the server settings.
+const ACCOUNT_SECTIONS = ['overview', 'users']
 
 const { notifyError, notifySuccess } = useToasts()
 
 // 'loading' | 'login' | 'settings'
 const phase = ref('loading')
 const section = ref(SECTIONS[0].id)
+// The user whose page is open in the users section; empty for the list.
+const userId = ref('')
+const editingSettings = computed(() => !ACCOUNT_SECTIONS.includes(section.value))
 const token = ref('')
 const loginError = ref('')
 const busy = ref(false)
@@ -116,6 +129,7 @@ async function logout() {
     // The cookie expires on its own; forget the session here regardless.
   }
   form.value = null
+  openSection(SECTIONS[0].id)
   phase.value = 'login'
 }
 
@@ -123,6 +137,21 @@ async function logout() {
 function expire() {
   phase.value = 'login'
   loginError.value = 'Your setup session expired. Sign in again.'
+}
+
+// openSection shows a section; the users section starts at the list.
+function openSection(id) {
+  section.value = id
+  userId.value = ''
+}
+
+// onError signs in again when the root session is gone, else reports the error.
+function onError(err) {
+  if (err.status === 401) {
+    expire()
+    return
+  }
+  notifyError(err.message)
 }
 
 async function save() {
@@ -223,17 +252,17 @@ onMounted(refresh)
         <BrandLogo tile class="w-9 h-9" />
         <div class="grow min-w-0">
           <h1 class="text-lg font-bold text-gray-900 dark:text-zinc-100 tracking-tight">Setup</h1>
-          <p class="text-xs text-gray-500 dark:text-zinc-400">Server settings and users of permahost.io. Only root can see this page.</p>
+          <p class="text-xs text-gray-500 dark:text-zinc-400">Accounts and server settings of permahost.io. Only root can see this page.</p>
         </div>
         <button type="button" :class="SECONDARY" data-test="setup-logout" @click="logout">Sign out</button>
-        <button v-if="section !== 'users'" type="submit" form="setup-form" :disabled="busy" :class="PRIMARY" data-test="setup-save">Save</button>
+        <button v-if="editingSettings" type="submit" form="setup-form" :disabled="busy" :class="PRIMARY" data-test="setup-save">Save</button>
       </header>
 
       <div class="flex flex-col md:flex-row gap-4 md:gap-8 min-w-0">
         <!-- Menu: a scrolling row above the section on phones, a column beside it from md up. -->
         <nav class="w-full md:w-48 shrink-0" aria-label="Setup">
           <ul class="flex md:flex-col gap-1 overflow-x-auto no-scrollbar">
-            <li v-for="item in SECTIONS" :key="item.id" class="shrink-0" :class="{ 'md:mt-3 md:pt-3 md:border-t border-gray-200 dark:border-zinc-800': item.id === 'users' }">
+            <li v-for="item in SECTIONS" :key="item.id" class="shrink-0" :class="{ 'md:mt-3 md:pt-3 md:border-t border-gray-200 dark:border-zinc-800': item.id === 'domain' }">
               <button
                 type="button"
                 :aria-current="section === item.id ? 'page' : undefined"
@@ -244,7 +273,7 @@ onMounted(refresh)
                     : 'text-gray-500 dark:text-zinc-400 hover:bg-gray-100 dark:hover:bg-zinc-800 hover:text-gray-900 dark:hover:text-zinc-100',
                 ]"
                 :data-test="`setup-tab-${item.id}`"
-                @click="section = item.id"
+                @click="openSection(item.id)"
               >
                 <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
                   <path stroke-linecap="round" stroke-linejoin="round" :d="item.icon" />
@@ -256,10 +285,12 @@ onMounted(refresh)
         </nav>
 
         <div class="flex-1 min-w-0">
-          <SetupUsers v-if="section === 'users'" @expired="expire" />
+          <AdminOverview v-if="section === 'overview'" @error="onError" />
+          <AdminUserDetail v-else-if="section === 'users' && userId" :id="userId" :key="userId" @back="userId = ''" @error="onError" />
+          <AdminUsers v-else-if="section === 'users'" @open="userId = $event" @error="onError" />
 
-          <!-- Settings: kept mounted while Users is open, so unsaved edits survive. -->
-          <form v-show="section !== 'users'" id="setup-form" data-test="setup-form" @submit.prevent="save">
+          <!-- Settings: kept mounted while Overview or Users is open, so unsaved edits survive. -->
+          <form v-show="editingSettings" id="setup-form" data-test="setup-form" @submit.prevent="save">
 
             <p
               v-if="restartRequired"
@@ -375,7 +406,7 @@ onMounted(refresh)
                 />
                 <p class="mt-1 text-[11px] text-gray-400 dark:text-zinc-500" data-test="setup-grant-hint">
                   To grant or deduct one account's credits, open
-                  <button type="button" class="font-bold underline hover:text-gray-900 dark:hover:text-zinc-100" data-test="setup-grant-users" @click="section = 'users'">Users</button>.
+                  <button type="button" class="font-bold underline hover:text-gray-900 dark:hover:text-zinc-100" data-test="setup-grant-users" @click="openSection('users')">Users</button>.
                 </p>
               </section>
 
