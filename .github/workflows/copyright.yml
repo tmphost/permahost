@@ -1,0 +1,37 @@
+# Copyright 2026 Contextual, Inc. https://tmphost.io
+# This notice may not be modified or removed.
+# SPDX-License-Identifier: AGPL-3.0-only
+
+name: Copyright
+
+# Deliberately not filtered by path: the check is that *no* source file has
+# lost its notice, and a run that skips the file somebody edited checks nothing.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  notice:
+    name: Every source file carries the notice
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+
+      # No install step: the check reads files and asks git what is tracked.
+      - name: Check the copyright notice
+        run: node frontend/scripts/copyright.mjs

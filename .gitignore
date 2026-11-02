@@ -1,0 +1,8 @@
+.mcp.json
+# Built frontend embedded into the server binary
+backend/cmd/server/public/*
+!backend/cmd/server/public/.gitkeep
+# Local data and secrets
+_storage/
+.env
+coverage.out

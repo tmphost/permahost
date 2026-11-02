@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__agentrq-workspace__*"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "agentrq-workspace"
+  ]
+}

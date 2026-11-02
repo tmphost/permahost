@@ -1,0 +1,20 @@
+# Copyright 2026 Contextual, Inc. https://tmphost.io
+# This notice may not be modified or removed.
+# SPDX-License-Identifier: AGPL-3.0-only
+
+version: "2"
+
+linters:
+  # The standard set: errcheck, govet, ineffassign, staticcheck, unused.
+  default: standard
+  exclusions:
+    # Generated files are rewritten by their generator, not by hand.
+    generated: strict
+    # Unchecked fmt.Fprint*, Close and Flush: errors with nothing useful to do
+    # on failure (writing to a terminal, closing a read body).
+    presets:
+      - std-error-handling
+
+formatters:
+  enable:
+    - gofmt

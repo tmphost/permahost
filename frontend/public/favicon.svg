@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Solid black background -->
+  <rect width="512" height="512" fill="#000000" />
+
+  <g transform="scale(21.333333)" fill="none" stroke="#ffffff" stroke-width="2">
+    <!-- Solid half of the ring (Present) -->
+    <path d="M12 3a9 9 0 0 0 0 18" />
+    
+    <!-- Dashed half of the ring (Expiring / Temporary) -->
+    <path d="M12 3a9 9 0 0 1 9 9" stroke-dasharray="2.5 3.5" />
+    <path d="M21 12a9 9 0 0 1-9 9" stroke-dasharray="1 4" opacity="0.5" />
+
+    <!-- Code Brackets + Clock Hand Slash -->
+    <path d="m8 9.5-2.5 2.5 2.5 2.5" />
+    <path d="m16 9.5 2.5 2.5-2.5 2.5" />
+    <path d="m13.5 7.5-3 9" />
+  </g>
+</svg>

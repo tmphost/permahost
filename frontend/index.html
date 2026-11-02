@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<!--
+  Copyright 2026 Contextual, Inc. https://tmphost.io
+  This notice may not be modified or removed.
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
+
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>tmphost.io</title>
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <meta name="theme-color" content="#fafafa" />
+    <script>
+      // Apply the saved theme before first paint, so a dark page does not
+      // flash white while the app loads. stores/themeStore.js owns it after.
+      (function () {
+        var theme = null
+        try { theme = localStorage.getItem('theme') } catch (e) {}
+        var dark = theme === 'dark' || (theme !== 'light' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)
+        if (!dark) return
+        document.documentElement.classList.add('dark')
+        document.querySelector('meta[name="theme-color"]').setAttribute('content', '#09090b')
+      })()
+    </script>
+  </head>
+  <body class="bg-zinc-50">
+    <div id="app"></div>
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>

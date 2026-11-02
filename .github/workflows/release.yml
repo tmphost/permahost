@@ -1,0 +1,73 @@
+# Copyright 2026 Contextual, Inc. https://tmphost.io
+# This notice may not be modified or removed.
+# SPDX-License-Identifier: AGPL-3.0-only
+
+name: Release CLI on Tag
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  release:
+    name: Build and upload CLI binaries
+    runs-on: ubuntu-latest
+    permissions:
+      # Creating the release and uploading its assets.
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: cli/go.mod
+          cache-dependency-path: cli/go.sum
+
+      - name: Test
+        run: go test -race ./...
+        working-directory: cli
+
+      - name: Build
+        # Asset names are what install.sh and install.ps1 download:
+        # tmphost_<os>_<arch>.tar.gz, or .zip on Windows, plus checksums.txt.
+        run: |
+          set -eu
+          mkdir -p ../dist
+          for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64; do
+            os=${target%/*}
+            arch=${target#*/}
+            name="tmphost_${os}_${arch}"
+            bin=tmphost
+            [ "$os" = windows ] && bin=tmphost.exe
+            work="../dist/$name"
+            mkdir -p "$work"
+            CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -trimpath \
+              -ldflags "-s -w -X main.version=${GITHUB_REF_NAME}" -o "$work/$bin" .
+            cp ../LICENSE README.md "$work/"
+            if [ "$os" = windows ]; then
+              (cd "$work" && zip -q "../$name.zip" "$bin" LICENSE README.md)
+            else
+              tar -C "$work" -czf "../dist/$name.tar.gz" "$bin" LICENSE README.md
+            fi
+            rm -rf "$work"
+          done
+          cd ../dist && sha256sum -- *.tar.gz *.zip > checksums.txt
+          cat checksums.txt
+        working-directory: cli
+
+      - name: Upload to the release
+        # Creates the release if the Docker workflow has not yet, otherwise
+        # adds to it; --clobber makes re-running the job safe.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 ||
+            gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes --title "$GITHUB_REF_NAME"
+          gh release upload "$GITHUB_REF_NAME" dist/* --clobber

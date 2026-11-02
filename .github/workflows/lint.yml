@@ -1,0 +1,82 @@
+# Copyright 2026 Contextual, Inc. https://tmphost.io
+# This notice may not be modified or removed.
+# SPDX-License-Identifier: AGPL-3.0-only
+
+name: Lint
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/**'
+      - 'cli/**'
+      - 'frontend/**'
+      - '.github/workflows/lint.yml'
+  pull_request:
+    paths:
+      - 'backend/**'
+      - 'cli/**'
+      - 'frontend/**'
+      - '.github/workflows/lint.yml'
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  go:
+    name: golangci-lint (${{ matrix.module }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        # Each Go module carries its own .golangci.yml.
+        module: [backend, cli]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: ${{ matrix.module }}/go.mod
+          cache-dependency-path: ${{ matrix.module }}/go.sum
+
+      - name: golangci-lint
+        # Rules live in <module>/.golangci.yml. Pinned so a new release cannot
+        # fail an unchanged tree.
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.15.0
+          working-directory: ${{ matrix.module }}
+
+  frontend:
+    name: ESLint
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: ESLint
+        # Rules live in frontend/eslint.config.js; warnings fail the run too.
+        run: npm run lint

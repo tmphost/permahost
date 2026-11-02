@@ -1,0 +1,15 @@
+# Keep secrets and local data out of the build context.
+**/_storage
+**/.env
+**/*.db
+**/settings.json
+.git
+.claude
+.mcp.json
+bin
+coverage.out
+**/coverage
+frontend/node_modules
+frontend/dist
+backend/cmd/server/public/*
+!backend/cmd/server/public/.gitkeep
