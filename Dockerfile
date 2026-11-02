@@ -4,15 +4,20 @@
 
 # One image, one binary: the SPA and the base config are embedded in the
 # server, so the final image holds only the binary, CA certs and /data.
+#
+# The build stages run on the builder's own platform: the SPA is the same on
+# every platform and Go cross-compiles (no cgo), so a multi-platform build
+# never runs npm or the Go toolchain under QEMU emulation.
 
-FROM node:26-alpine3.22 AS frontend
+FROM --platform=$BUILDPLATFORM node:26-alpine3.22 AS frontend
 WORKDIR /app
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 COPY frontend/ ./
 RUN npm run build
 
-FROM golang:1.27-alpine AS backend
+FROM --platform=$BUILDPLATFORM golang:1.27-alpine AS backend
+ARG TARGETOS TARGETARCH
 RUN apk add --no-cache ca-certificates
 WORKDIR /app
 COPY backend/go.mod backend/go.sum ./
@@ -21,7 +26,7 @@ COPY backend/ ./
 # Only the fresh build is embedded, never whatever sat in public/ locally.
 RUN find cmd/server/public -mindepth 1 ! -name .gitkeep -delete
 COPY --from=frontend /app/dist/ cmd/server/public/
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /permahost ./cmd/server
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w" -o /permahost ./cmd/server
 RUN echo 'nobody:x:65534:65534:nobody:/:' > /etc_passwd && mkdir -p /data
 
 FROM scratch
