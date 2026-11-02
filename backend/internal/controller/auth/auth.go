@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -18,14 +18,14 @@ import (
 
 	"github.com/mustafaturan/monoflake"
 
-	"github.com/tmphost/tmphost/backend/internal/controller/credit"
-	"github.com/tmphost/tmphost/backend/internal/data/entity"
-	"github.com/tmphost/tmphost/backend/internal/data/model"
-	mappermodel "github.com/tmphost/tmphost/backend/internal/mapper/model"
-	"github.com/tmphost/tmphost/backend/internal/repository"
-	"github.com/tmphost/tmphost/backend/internal/service/idgen"
-	"github.com/tmphost/tmphost/backend/internal/service/oauth"
-	"github.com/tmphost/tmphost/backend/internal/service/token"
+	"github.com/tmphost/permahost/backend/internal/controller/credit"
+	"github.com/tmphost/permahost/backend/internal/data/entity"
+	"github.com/tmphost/permahost/backend/internal/data/model"
+	mappermodel "github.com/tmphost/permahost/backend/internal/mapper/model"
+	"github.com/tmphost/permahost/backend/internal/repository"
+	"github.com/tmphost/permahost/backend/internal/service/idgen"
+	"github.com/tmphost/permahost/backend/internal/service/oauth"
+	"github.com/tmphost/permahost/backend/internal/service/token"
 )
 
 var (

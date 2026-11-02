@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -40,9 +40,9 @@ describe('ConnectView', () => {
     expect(wrapper.find('h1').text()).toBe('Connect')
     expect(wrapper.find('[data-test="snippet-mcp-url"]').text()).toBe(mcpUrl())
     expect(JSON.parse(wrapper.find('[data-test="snippet-mcp-json"]').text())).toEqual({
-      mcpServers: { tmphost: { type: 'http', url: mcpUrl() } },
+      mcpServers: { permahost: { type: 'http', url: mcpUrl() } },
     })
-    expect(wrapper.find('[data-test="snippet-mcp-claude"]').text()).toBe(`claude mcp add --transport http tmphost ${mcpUrl()}`)
+    expect(wrapper.find('[data-test="snippet-mcp-claude"]').text()).toBe(`claude mcp add --transport http permahost ${mcpUrl()}`)
     expect(wrapper.find('[data-test="connect-mcp-note"]').text()).toContain('consent screen')
     expect(wrapper.find('[data-test="connect-mcp-note"]').text()).toContain('No secret or key is needed')
     const tool = wrapper.find('[data-test="connect-mcp-tool"]').text()
@@ -54,16 +54,16 @@ describe('ConnectView', () => {
   it('explains CLI install, login and usage', async () => {
     const { wrapper } = await mountView('/connect?tab=cli')
     expect(wrapper.find('[data-test="snippet-cli-install-unix"]').text()).toBe(
-      'curl -fsSL https://raw.githubusercontent.com/tmphost/tmphost/main/install.sh | sh',
+      'curl -fsSL https://raw.githubusercontent.com/tmphost/permahost/main/install.sh | sh',
     )
     expect(wrapper.find('[data-test="snippet-cli-install-windows"]').text()).toBe(
-      'irm https://raw.githubusercontent.com/tmphost/tmphost/main/install.ps1 | iex',
+      'irm https://raw.githubusercontent.com/tmphost/permahost/main/install.ps1 | iex',
     )
-    expect(wrapper.find('[data-test="snippet-cli-login"]').text()).toBe(`tmphost login --server ${server()}`)
+    expect(wrapper.find('[data-test="snippet-cli-login"]').text()).toBe(`permahost login --server ${server()}`)
     expect(wrapper.find('[data-test="snippet-cli-examples"]').text().split('\n')).toEqual([
-      'tmphost file upload ./index.html --ttl 1h',
-      'tmphost file get --id <id>',
-      'tmphost file url --id <id>',
+      'permahost file upload ./index.html --ttl 1h',
+      'permahost file get --id <id>',
+      'permahost file url --id <id>',
     ])
     expect(wrapper.find('[data-test="connect-cli"] [data-test="connect-mcp-tool"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="connect-cli-note"]').text()).toContain('browser')
@@ -155,7 +155,7 @@ describe('ConnectView', () => {
     await flushPromises()
     await wrapper.find('[data-test="copy-cli-login"]').trigger('click')
     await flushPromises()
-    expect(writeText).toHaveBeenLastCalledWith(`tmphost login --server ${server()}`)
+    expect(writeText).toHaveBeenLastCalledWith(`permahost login --server ${server()}`)
     expect(lastToast()).toMatchObject({ type: 'success', message: 'Sign in (opens the browser) copied' })
   })
 })

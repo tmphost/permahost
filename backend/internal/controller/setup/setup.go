@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -24,10 +24,10 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/tmphost/tmphost/backend/internal/data/entity"
-	mappermodel "github.com/tmphost/tmphost/backend/internal/mapper/model"
-	"github.com/tmphost/tmphost/backend/internal/repository"
-	"github.com/tmphost/tmphost/backend/internal/service/token"
+	"github.com/tmphost/permahost/backend/internal/data/entity"
+	mappermodel "github.com/tmphost/permahost/backend/internal/mapper/model"
+	"github.com/tmphost/permahost/backend/internal/repository"
+	"github.com/tmphost/permahost/backend/internal/service/token"
 )
 
 const (
@@ -395,7 +395,7 @@ func validate(s entity.Settings) error {
 		return errors.New("public domain is required for subdomains")
 	}
 	if s.Files.PublicDomain != "" && !_domain.MatchString(s.Files.PublicDomain) {
-		return errors.New("public domain must be a host name, such as tmphost.io, with an optional port")
+		return errors.New("public domain must be a host name, such as permahost.io, with an optional port")
 	}
 	if (s.Auth.Google.ClientID == "") != (s.Auth.Google.ClientSecret == "") {
 		return errors.New("google needs both client ID and secret, or neither")
@@ -410,10 +410,10 @@ func validateDomain(d entity.DomainSettings) error {
 	u, err := url.Parse(d.AppURL)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" ||
 		u.Path != "" || u.RawQuery != "" || u.Fragment != "" || u.User != nil {
-		return errors.New("app URL must be an http(s) URL with no path, e.g. https://app.tmphost.io")
+		return errors.New("app URL must be an http(s) URL with no path, e.g. https://app.permahost.io")
 	}
 	if d.SitesDomain != "" && !_hostnameRE.MatchString(d.SitesDomain) {
-		return errors.New("sites domain must be a domain name, e.g. tmphost.io")
+		return errors.New("sites domain must be a domain name, e.g. permahost.io")
 	}
 	return nil
 }

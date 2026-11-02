@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -11,9 +11,9 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	authctrl "github.com/tmphost/tmphost/backend/internal/controller/auth"
-	mapper "github.com/tmphost/tmphost/backend/internal/mapper/api"
-	"github.com/tmphost/tmphost/backend/internal/service/token"
+	authctrl "github.com/tmphost/permahost/backend/internal/controller/auth"
+	mapper "github.com/tmphost/permahost/backend/internal/mapper/api"
+	"github.com/tmphost/permahost/backend/internal/service/token"
 )
 
 // Login error codes the frontend shows on /login?error=<code>.

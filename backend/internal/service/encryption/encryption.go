@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -21,13 +21,13 @@ import (
 const (
 	// MasterKeyEnv is the environment variable holding the master key. It is
 	// never read from a config file.
-	MasterKeyEnv = "TMPHOSTIO_MASTER_KEY"
+	MasterKeyEnv = "PERMAHOSTIO_MASTER_KEY"
 	// MinMasterKeyLength is the shortest master key accepted.
 	MinMasterKeyLength = 32
 	// Algorithm names the cipher, for stored envelopes.
 	Algorithm = "AES-256-GCM"
 
-	_keyInfo = "tmphost.io data-at-rest v1"
+	_keyInfo = "permahost.io data-at-rest v1"
 )
 
 // ErrDecrypt is returned when data cannot be opened: a wrong master key, or

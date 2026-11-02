@@ -1,6 +1,6 @@
-# tmphost Backend Coding Style and Naming Conventions
+# permahost Backend Coding Style and Naming Conventions
 
-This document outlines the coding style and naming conventions for the tmphost backend project. AI assistants (like Gemini) should strictly adhere to these guidelines when generating or modifying code.
+This document outlines the coding style and naming conventions for the permahost backend project. AI assistants (like Gemini) should strictly adhere to these guidelines when generating or modifying code.
 
 ## 1. Project Structure
 

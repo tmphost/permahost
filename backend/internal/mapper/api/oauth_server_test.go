@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -14,7 +14,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/tmphost/tmphost/backend/internal/data/entity"
+	"github.com/tmphost/permahost/backend/internal/data/entity"
 )
 
 func TestOAuthMetadataMappers(t *testing.T) {
@@ -26,7 +26,7 @@ func TestOAuthMetadataMappers(t *testing.T) {
 		string(FromGetOAuthServerMetadataResponseEntityToHTTPResponse(&entity.GetOAuthServerMetadataResponse{
 			Issuer: "https://t.io", AuthorizationEndpoint: "https://t.io/a", TokenEndpoint: "https://t.io/t", RegistrationEndpoint: "https://t.io/r",
 		})))
-	assert.JSONEq(t, `{"resource":"https://t.io/mcp","authorization_servers":["https://t.io"],"bearer_methods_supported":["header"],"resource_name":"tmphost.io"}`,
+	assert.JSONEq(t, `{"resource":"https://t.io/mcp","authorization_servers":["https://t.io"],"bearer_methods_supported":["header"],"resource_name":"permahost.io"}`,
 		string(FromGetProtectedResourceMetadataResponseEntityToHTTPResponse(&entity.GetProtectedResourceMetadataResponse{
 			Resource: "https://t.io/mcp", AuthorizationServers: []string{"https://t.io"},
 		})))

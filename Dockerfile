@@ -1,4 +1,4 @@
-# Copyright 2026 Contextual, Inc. https://tmphost.io
+# Copyright 2026 Contextual, Inc. https://permahost.io
 # This notice may not be modified or removed.
 # SPDX-License-Identifier: AGPL-3.0-only
 
@@ -21,19 +21,19 @@ COPY backend/ ./
 # Only the fresh build is embedded, never whatever sat in public/ locally.
 RUN find cmd/server/public -mindepth 1 ! -name .gitkeep -delete
 COPY --from=frontend /app/dist/ cmd/server/public/
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /tmphost ./cmd/server
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /permahost ./cmd/server
 RUN echo 'nobody:x:65534:65534:nobody:/:' > /etc_passwd && mkdir -p /data
 
 FROM scratch
 COPY --from=backend /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=backend /etc_passwd /etc/passwd
-COPY --from=backend /tmphost /tmphost
+COPY --from=backend /permahost /permahost
 COPY --from=backend --chown=65534:65534 /data /data
-ENV TMPHOSTIO_SETTINGS_FILE=/data/settings.json \
-    TMPHOSTIO_STORAGE_LOCAL_PATH=/data/files \
-    TMPHOSTIO_SQLITE_DSN=/data/tmphost.db?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)
+ENV PERMAHOSTIO_SETTINGS_FILE=/data/settings.json \
+    PERMAHOSTIO_STORAGE_LOCAL_PATH=/data/files \
+    PERMAHOSTIO_SQLITE_DSN=/data/permahost.db?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)
 VOLUME /data
 # 2027 serves the app; with TLS enabled it redirects to 443.
 EXPOSE 2027 443
 USER nobody
-CMD ["/tmphost"]
+CMD ["/permahost"]

@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/tmphost/tmphost/cli/internal/config"
+	"github.com/tmphost/permahost/cli/internal/config"
 )
 
 func TestExecute_otherErrorsHaveNoHint(t *testing.T) {
@@ -22,9 +22,9 @@ func TestExecute_otherErrorsHaveNoHint(t *testing.T) {
 func TestExecute_helpAndVersion(t *testing.T) {
 	h := newHarness(t)
 	assert.Equal(t, 0, h.run("--help"))
-	assert.Contains(t, h.stdout.String(), "tmphost login")
+	assert.Contains(t, h.stdout.String(), "permahost login")
 	assert.Equal(t, 0, h.run("--version"))
-	assert.Equal(t, "tmphost version v1.2.3\n", h.stdout.String())
+	assert.Equal(t, "permahost version v1.2.3\n", h.stdout.String())
 }
 
 func TestHumanDuration(t *testing.T) {
@@ -54,7 +54,7 @@ func TestHumanSize(t *testing.T) {
 
 func TestServerURL(t *testing.T) {
 	a := &app{opts: Options{Getenv: func(string) string { return "" }}}
-	assert.Equal(t, "https://tmphost.io", a.serverURL(config.Config{}))
+	assert.Equal(t, "https://permahost.io", a.serverURL(config.Config{}))
 	assert.Equal(t, "https://saved.example", a.serverURL(config.Config{Server: "https://saved.example"}))
 	a.opts.Getenv = func(string) string { return "https://env.example/" }
 	assert.Equal(t, "https://env.example", a.serverURL(config.Config{Server: "https://saved.example"}))

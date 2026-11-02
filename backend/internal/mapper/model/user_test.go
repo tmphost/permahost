@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -10,8 +10,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/tmphost/tmphost/backend/internal/data/entity"
-	"github.com/tmphost/tmphost/backend/internal/data/model"
+	"github.com/tmphost/permahost/backend/internal/data/entity"
+	"github.com/tmphost/permahost/backend/internal/data/model"
 )
 
 func TestFromUserModelToUserEntity(t *testing.T) {

@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -62,7 +62,7 @@ type (
 	// Consent is what the consent page shows.
 	Consent struct {
 		ClientName string
-		// Verified is true for tmphost's own client, whose name is not
+		// Verified is true for permahost's own client, whose name is not
 		// just its own claim.
 		Verified bool
 		// Destination is where the browser goes back to, for people.

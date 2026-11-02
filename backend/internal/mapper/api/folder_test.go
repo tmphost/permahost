@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/valyala/fasthttp"
 
-	"github.com/tmphost/tmphost/backend/internal/data/entity"
+	"github.com/tmphost/permahost/backend/internal/data/entity"
 )
 
 // runAs executes fn inside a real fiber request on route, as the given
@@ -89,10 +89,10 @@ func TestFromHTTPRequestToGetLimitsRequestEntity(t *testing.T) {
 func TestFromHTTPRequestToAuthenticateAnonymousRequestEntity(t *testing.T) {
 	var got *entity.AuthenticateAnonymousRequest
 	req := httptest.NewRequest(http.MethodPost, "/folders", nil)
-	req.Header.Set("Origin", "https://tmphost.io")
-	req.Header.Set("Referer", "https://tmphost.io/upload")
+	req.Header.Set("Origin", "https://permahost.io")
+	req.Header.Set("Referer", "https://permahost.io/upload")
 	runAs(t, 0, "/folders", req, func(c fiber.Ctx) { got = FromHTTPRequestToAuthenticateAnonymousRequestEntity(c) })
-	assert.Equal(t, &entity.AuthenticateAnonymousRequest{IP: "0.0.0.0", Origin: "https://tmphost.io", Referer: "https://tmphost.io/upload"}, got)
+	assert.Equal(t, &entity.AuthenticateAnonymousRequest{IP: "0.0.0.0", Origin: "https://permahost.io", Referer: "https://permahost.io/upload"}, got)
 }
 
 func TestFromHTTPRequestToFolderRequestEntities(t *testing.T) {

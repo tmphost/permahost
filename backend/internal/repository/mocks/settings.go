@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	model "github.com/tmphost/tmphost/backend/internal/data/model"
+	model "github.com/tmphost/permahost/backend/internal/data/model"
 )
 
 // MockSettingsRepository is a mock of SettingsRepository interface.

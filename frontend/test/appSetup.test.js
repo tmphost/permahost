@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -21,7 +21,7 @@ vi.mock('../src/api', () => ({
   deleteFile: vi.fn(),
 }))
 
-import { clickOutside, createAuthGuard, createtmphostApp, routes } from '../src/app'
+import { clickOutside, createAuthGuard, createpermahostApp, routes } from '../src/app'
 import { usePlatformStore } from '../src/stores/platformStore'
 
 describe('routes', () => {
@@ -86,41 +86,41 @@ describe('clickOutside', () => {
   })
 })
 
-describe('createtmphostApp', () => {
+describe('createpermahostApp', () => {
   it('wires router, pinia, platform and titles', async () => {
-    const { app, router, pinia } = createtmphostApp({ history: createMemoryHistory(), platform: 'desktop' })
+    const { app, router, pinia } = createpermahostApp({ history: createMemoryHistory(), platform: 'desktop' })
     expect(usePlatformStore(pinia).isDesktop).toBe(true)
     expect(app._context.directives['click-outside']).toBe(clickOutside)
 
     await router.push('/')
     expect(router.currentRoute.value.name).toBe('files')
-    expect(document.title).toBe('Files · tmphost.io')
+    expect(document.title).toBe('Files · permahost.io')
     await router.push('/connect')
     expect(router.currentRoute.value.name).toBe('connect')
-    expect(document.title).toBe('Connect · tmphost.io')
+    expect(document.title).toBe('Connect · permahost.io')
 
     await router.push('/nowhere')
     expect(router.currentRoute.value.path).toBe('/')
 
     router.addRoute({ path: '/untitled', component: { render: () => null } })
     await router.push('/untitled')
-    expect(document.title).toBe('tmphost.io')
+    expect(document.title).toBe('permahost.io')
   })
 
   it('defaults to the web platform', () => {
-    const { pinia } = createtmphostApp({ history: createMemoryHistory() })
+    const { pinia } = createpermahostApp({ history: createMemoryHistory() })
     expect(usePlatformStore(pinia).isWeb).toBe(true)
   })
 
   it('applies the saved theme', () => {
     localStorage.setItem('theme', 'dark')
-    createtmphostApp({ history: createMemoryHistory() })
+    createpermahostApp({ history: createMemoryHistory() })
     expect(document.documentElement.classList.contains('dark')).toBe(true)
     localStorage.clear()
     document.documentElement.classList.remove('dark')
   })
 
   it('requires a history', () => {
-    expect(() => createtmphostApp()).toThrow()
+    expect(() => createpermahostApp()).toThrow()
   })
 })

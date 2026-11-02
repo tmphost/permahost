@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -18,12 +18,12 @@ import (
 
 // DefaultServer is used when neither a flag, the environment nor the config
 // file names a server.
-const DefaultServer = "https://tmphost.io"
+const DefaultServer = "https://permahost.io"
 
 // Environment variables the CLI reads.
 const (
-	EnvConfig = "TMPHOSTIO_CONFIG"
-	EnvServer = "TMPHOSTIO_SERVER"
+	EnvConfig = "PERMAHOSTIO_CONFIG"
+	EnvServer = "PERMAHOSTIO_SERVER"
 )
 
 // userConfigDir is swapped in tests to exercise its failure path.
@@ -43,8 +43,8 @@ func (c Config) LoggedIn() bool {
 	return c.AccessToken != "" || c.RefreshToken != ""
 }
 
-// Path returns where the config file lives: $TMPHOSTIO_CONFIG when set,
-// otherwise tmphost/config.json under the user's config directory.
+// Path returns where the config file lives: $PERMAHOSTIO_CONFIG when set,
+// otherwise permahost/config.json under the user's config directory.
 func Path(getenv func(string) string) (string, error) {
 	if p := getenv(EnvConfig); p != "" {
 		return p, nil
@@ -53,7 +53,7 @@ func Path(getenv func(string) string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("locate config directory: %w", err)
 	}
-	return filepath.Join(dir, "tmphost", "config.json"), nil
+	return filepath.Join(dir, "permahost", "config.json"), nil
 }
 
 // Load reads the config file; a missing file is an empty config.

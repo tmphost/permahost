@@ -1,15 +1,15 @@
-# Copyright 2026 Contextual, Inc. https://tmphost.io
+# Copyright 2026 Contextual, Inc. https://permahost.io
 # This notice may not be modified or removed.
 # SPDX-License-Identifier: AGPL-3.0-only
 
-# Installs the tmphost CLI on Windows:
+# Installs the permahost CLI on Windows:
 #
-#   irm https://raw.githubusercontent.com/tmphost/tmphost/main/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/tmphost/permahost/main/install.ps1 | iex
 #
 # Environment:
-#   TMPHOSTIO_VERSION      release tag to install, such as v1.2.3 (default: latest)
-#   TMPHOSTIO_INSTALL_DIR  where to put tmphost.exe (default: %LOCALAPPDATA%\tmphost\bin)
-#   TMPHOSTIO_DOWNLOAD_URL base URL holding the release assets, for mirrors and testing
+#   PERMAHOSTIO_VERSION      release tag to install, such as v1.2.3 (default: latest)
+#   PERMAHOSTIO_INSTALL_DIR  where to put permahost.exe (default: %LOCALAPPDATA%\permahost\bin)
+#   PERMAHOSTIO_DOWNLOAD_URL base URL holding the release assets, for mirrors and testing
 
 # Wrapped in a script block so piping into iex does not leave variables or
 # preferences behind in the caller's session.
@@ -17,25 +17,25 @@
     $ErrorActionPreference = 'Stop'
     $ProgressPreference = 'SilentlyContinue' # Invoke-WebRequest is far slower with the progress bar.
 
-    $repo = 'tmphost/tmphost'
+    $repo = 'permahost/permahost'
 
     $arch = switch ($env:PROCESSOR_ARCHITECTURE) {
         'AMD64' { 'amd64' }
         'ARM64' { 'arm64' }
         default { throw "unsupported architecture $env:PROCESSOR_ARCHITECTURE" }
     }
-    $version = if ($env:TMPHOSTIO_VERSION) { $env:TMPHOSTIO_VERSION } else { 'latest' }
-    $asset = "tmphost_windows_$arch.zip"
-    $base = if ($env:TMPHOSTIO_DOWNLOAD_URL) {
-        $env:TMPHOSTIO_DOWNLOAD_URL.TrimEnd('/')
+    $version = if ($env:PERMAHOSTIO_VERSION) { $env:PERMAHOSTIO_VERSION } else { 'latest' }
+    $asset = "permahost_windows_$arch.zip"
+    $base = if ($env:PERMAHOSTIO_DOWNLOAD_URL) {
+        $env:PERMAHOSTIO_DOWNLOAD_URL.TrimEnd('/')
     } elseif ($version -eq 'latest') {
         "https://github.com/$repo/releases/latest/download"
     } else {
         "https://github.com/$repo/releases/download/$version"
     }
-    $dir = if ($env:TMPHOSTIO_INSTALL_DIR) { $env:TMPHOSTIO_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA 'tmphost\bin' }
+    $dir = if ($env:PERMAHOSTIO_INSTALL_DIR) { $env:PERMAHOSTIO_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA 'permahost\bin' }
 
-    $tmp = Join-Path ([IO.Path]::GetTempPath()) ("tmphost-" + [Guid]::NewGuid())
+    $tmp = Join-Path ([IO.Path]::GetTempPath()) ("permahost-" + [Guid]::NewGuid())
     New-Item -ItemType Directory -Path $tmp | Out-Null
     try {
         Write-Host "Downloading $asset ($version)..."
@@ -50,8 +50,8 @@
 
         Expand-Archive -Path (Join-Path $tmp $asset) -DestinationPath $tmp -Force
         New-Item -ItemType Directory -Path $dir -Force | Out-Null
-        Copy-Item -Path (Join-Path $tmp 'tmphost.exe') -Destination (Join-Path $dir 'tmphost.exe') -Force
-        Write-Host "Installed tmphost to $dir\tmphost.exe"
+        Copy-Item -Path (Join-Path $tmp 'permahost.exe') -Destination (Join-Path $dir 'permahost.exe') -Force
+        Write-Host "Installed permahost to $dir\permahost.exe"
 
         # Add to the user PATH (not the machine one, which needs admin rights).
         $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
@@ -61,7 +61,7 @@
             $env:Path = "$env:Path;$dir"
             Write-Host "Added $dir to your user PATH; open a new terminal to use it everywhere."
         }
-        Write-Host 'Run "tmphost login" to get started.'
+        Write-Host 'Run "permahost login" to get started.'
     } finally {
         Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
     }

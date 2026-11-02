@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -10,7 +10,7 @@ function json(body, status = 200) {
 
 async function loadApi(basePath) {
   vi.resetModules()
-  window.__TMPHOST_BASE_PATH__ = basePath
+  window.__PERMAHOST_BASE_PATH__ = basePath
   return import('../src/api.js')
 }
 
@@ -19,7 +19,7 @@ describe('api', () => {
     globalThis.fetch = vi.fn()
   })
   afterEach(() => {
-    delete window.__TMPHOST_BASE_PATH__
+    delete window.__PERMAHOST_BASE_PATH__
   })
 
   it('builds the API base from the injected base path', async () => {

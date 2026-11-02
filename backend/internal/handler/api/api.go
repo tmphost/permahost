@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -13,12 +13,12 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/cors"
 	"github.com/gofiber/fiber/v3/middleware/limiter"
 
-	authctrl "github.com/tmphost/tmphost/backend/internal/controller/auth"
-	folderctrl "github.com/tmphost/tmphost/backend/internal/controller/folder"
-	oauthctrl "github.com/tmphost/tmphost/backend/internal/controller/oauthserver"
-	setupctrl "github.com/tmphost/tmphost/backend/internal/controller/setup"
-	"github.com/tmphost/tmphost/backend/internal/data/entity"
-	mapper "github.com/tmphost/tmphost/backend/internal/mapper/api"
+	authctrl "github.com/tmphost/permahost/backend/internal/controller/auth"
+	folderctrl "github.com/tmphost/permahost/backend/internal/controller/folder"
+	oauthctrl "github.com/tmphost/permahost/backend/internal/controller/oauthserver"
+	setupctrl "github.com/tmphost/permahost/backend/internal/controller/setup"
+	"github.com/tmphost/permahost/backend/internal/data/entity"
+	mapper "github.com/tmphost/permahost/backend/internal/mapper/api"
 )
 
 // RoutePrefix is where the API is mounted.

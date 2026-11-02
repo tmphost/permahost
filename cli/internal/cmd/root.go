@@ -1,8 +1,8 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
-// Package cmd implements the tmphost commands. Command names and arguments
+// Package cmd implements the permahost commands. Command names and arguments
 // mirror the server's MCP tools, so they must stay in sync with them.
 package cmd
 
@@ -21,8 +21,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/tmphost/tmphost/cli/internal/client"
-	"github.com/tmphost/tmphost/cli/internal/config"
+	"github.com/tmphost/permahost/cli/internal/client"
+	"github.com/tmphost/permahost/cli/internal/config"
 )
 
 // Options are the process boundaries a command touches, injected so tests
@@ -64,18 +64,18 @@ func Execute(args []string, opts Options) int {
 	fmt.Fprintf(opts.Err, "error: %s\n", err)
 	var apiErr *client.APIError
 	if errors.As(err, &apiErr) && apiErr.Status == http.StatusUnauthorized {
-		fmt.Fprintln(opts.Err, `Run "tmphost login" to sign in again.`)
+		fmt.Fprintln(opts.Err, `Run "permahost login" to sign in again.`)
 	}
 	return 1
 }
 
 func newRoot(a *app) *cobra.Command {
 	root := &cobra.Command{
-		Use:   "tmphost",
+		Use:   "permahost",
 		Short: "Share files from temporary public folders",
-		Long: `tmphost uploads files to temporary public folders that expire on their own.
+		Long: `permahost uploads files to temporary public folders that expire on their own.
 
-Sign in with "tmphost login", which opens the browser. The "file" commands
+Sign in with "permahost login", which opens the browser. The "file" commands
 mirror the "file" tool of the server's MCP endpoint.`,
 		Version:       a.opts.Version,
 		SilenceUsage:  true,
@@ -89,7 +89,7 @@ mirror the "file" tool of the server's MCP endpoint.`,
 	return root
 }
 
-// serverURL picks the server: --server, then $TMPHOSTIO_SERVER, then the one
+// serverURL picks the server: --server, then $PERMAHOSTIO_SERVER, then the one
 // logged in to, then the default.
 func (a *app) serverURL(cfg config.Config) string {
 	for _, s := range []string{a.server, a.opts.Getenv(config.EnvServer), cfg.Server} {
@@ -109,7 +109,7 @@ func (a *app) client() (*client.Client, error) {
 	server := a.serverURL(cfg)
 	// Tokens are only ever sent to the server that issued them.
 	if !cfg.LoggedIn() || cfg.Server != server {
-		return nil, fmt.Errorf(`not logged in to %s: run "tmphost login"`, server)
+		return nil, fmt.Errorf(`not logged in to %s: run "permahost login"`, server)
 	}
 	return client.New(server, &session{a: a, cfg: cfg}), nil
 }

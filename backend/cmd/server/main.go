@@ -1,8 +1,8 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
-// Command server runs the tmphost.io API and serves the bundled frontend.
+// Command server runs the permahost.io API and serves the bundled frontend.
 package main
 
 import (
@@ -15,9 +15,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/tmphost/tmphost/backend/internal/app"
-	"github.com/tmphost/tmphost/backend/internal/service/config"
-	"github.com/tmphost/tmphost/backend/internal/service/encryption"
+	"github.com/tmphost/permahost/backend/internal/app"
+	"github.com/tmphost/permahost/backend/internal/service/config"
+	"github.com/tmphost/permahost/backend/internal/service/encryption"
 )
 
 // bundled holds the built frontend (public/) and the configuration.
@@ -55,7 +55,7 @@ func run(ctx context.Context, getenv func(string) string) error {
 
 	errCh := make(chan error, 1)
 	go func() { errCh <- a.Listen() }()
-	log.Printf("tmphost.io listening on :%d", cfg.App.Port)
+	log.Printf("permahost.io listening on :%d", cfg.App.Port)
 
 	select {
 	case err := <-errCh:

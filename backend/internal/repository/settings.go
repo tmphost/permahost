@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -15,15 +15,15 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/tmphost/tmphost/backend/internal/data/model"
-	"github.com/tmphost/tmphost/backend/internal/service/encryption"
+	"github.com/tmphost/permahost/backend/internal/data/model"
+	"github.com/tmphost/permahost/backend/internal/service/encryption"
 )
 
 const (
 	_settingsVersion = 1
 	// _settingsAAD binds the ciphertext to its purpose, so another sealed
 	// blob cannot be swapped in as settings.
-	_settingsAAD = "tmphost.io/settings/v1"
+	_settingsAAD = "permahost.io/settings/v1"
 )
 
 type (

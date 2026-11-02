@@ -1,6 +1,6 @@
-# tmphost Frontend Design System
+# permahost Frontend Design System
 
-This document outlines the core design principles and UI patterns to ensure consistency across the tmphost application.
+This document outlines the core design principles and UI patterns to ensure consistency across the permahost application.
 
 ## 1. General Aesthetic
 
@@ -54,13 +54,13 @@ This document outlines the core design principles and UI patterns to ensure cons
 ## 7. Application Bootstrap
 
 - **One route table**: routes, the auth guard, the `v-click-outside` directive and the pinia
-  setup all live in `src/app.js`, exported as `createtmphostApp({ history, platform })`.
+  setup all live in `src/app.js`, exported as `createpermahostApp({ history, platform })`.
   `src/main.js` (browser) and `desktop/src/renderer/main.js` are thin bootstraps that call it.
 - **Never add a route anywhere else.** The desktop app mounts this same table, so a second
   copy would silently let the two builds drift apart. Add the route in `src/app.js` and both
   applications get it.
 - **Platform-specific behavior**: read `usePlatformStore()` (`platform`, `isDesktop`, `isWeb`)
-  rather than sniffing the user agent or probing for `window.tmphost`. That store is the
+  rather than sniffing the user agent or probing for `window.permahost`. That store is the
   supported seam for an affordance only one build can offer.
 - **Browser-only concerns** - the base path the backend injects, the service worker - belong
   in `src/main.js`, not in the shared factory. The desktop build has its own answers for both.

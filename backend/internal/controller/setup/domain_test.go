@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/tmphost/tmphost/backend/internal/data/entity"
-	"github.com/tmphost/tmphost/backend/internal/data/model"
+	"github.com/tmphost/permahost/backend/internal/data/entity"
+	"github.com/tmphost/permahost/backend/internal/data/model"
 )
 
 const _icon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"></svg>`
@@ -34,7 +34,7 @@ func update(t *testing.T, e *env, next entity.Settings) (*entity.UpdateSettingsR
 func TestUpdateSettings_DomainAndProviders(t *testing.T) {
 	e := newEnv(t)
 	next := defaults()
-	next.Domain = entity.DomainSettings{AppURL: " HTTPS://App.TmpHost.io/ ", SitesDomain: " *.TmpHost.IO. "}
+	next.Domain = entity.DomainSettings{AppURL: " HTTPS://App.PermaHost.io/ ", SitesDomain: " *.PermaHost.IO. "}
 	next.Auth.Providers = []entity.OAuthProviderSettings{okta()}
 	original := next.Auth.Providers[0]
 
@@ -47,7 +47,7 @@ func TestUpdateSettings_DomainAndProviders(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, original, next.Auth.Providers[0], "the request is not changed in place")
 	assert.True(t, rs.RestartRequired)
-	assert.Equal(t, entity.DomainSettings{AppURL: "https://app.tmphost.io", SitesDomain: "tmphost.io"}, rs.Settings.Domain)
+	assert.Equal(t, entity.DomainSettings{AppURL: "https://app.permahost.io", SitesDomain: "permahost.io"}, rs.Settings.Domain)
 	assert.Equal(t, []entity.OAuthProviderSettings{{
 		ID: "okta-sso", Name: "Okta SSO", Icon: _icon, ClientID: "oid", AuthURL: "https://acme.okta.com",
 	}}, rs.Settings.Auth.Providers, "secret blanked in the response")
@@ -192,7 +192,7 @@ func TestUpdateSettings_DomainAndProviderValidation(t *testing.T) {
 
 func TestHelpers(t *testing.T) {
 	assert.Equal(t, "okta-sso-2", ProviderID("  Okta SSO #2! "))
-	assert.Equal(t, "app.tmphost.io", AppHost("https://app.tmphost.io:8443"))
+	assert.Equal(t, "app.permahost.io", AppHost("https://app.permahost.io:8443"))
 	assert.Equal(t, "", AppHost("http://[::1"))
 	assert.Equal(t, "not a url", normalizeAppURL("not a url"))
 	assert.Equal(t, "https://x.io:8443", normalizeAppURL("HTTPS://X.io:8443/"))

@@ -1,21 +1,21 @@
 #!/bin/sh
-# Copyright 2026 Contextual, Inc. https://tmphost.io
+# Copyright 2026 Contextual, Inc. https://permahost.io
 # This notice may not be modified or removed.
 # SPDX-License-Identifier: AGPL-3.0-only
 
-# Installs the tmphost CLI on macOS and Linux:
+# Installs the permahost CLI on macOS and Linux:
 #
-#   curl -fsSL https://raw.githubusercontent.com/tmphost/tmphost/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/tmphost/permahost/main/install.sh | sh
 #
 # Environment:
-#   TMPHOSTIO_VERSION      release tag to install, such as v1.2.3 (default: latest)
-#   TMPHOSTIO_INSTALL_DIR  where to put the binary (default: /usr/local/bin when
+#   PERMAHOSTIO_VERSION      release tag to install, such as v1.2.3 (default: latest)
+#   PERMAHOSTIO_INSTALL_DIR  where to put the binary (default: /usr/local/bin when
 #                        writable, else $HOME/.local/bin)
-#   TMPHOSTIO_DOWNLOAD_URL base URL holding the release assets, for mirrors and
+#   PERMAHOSTIO_DOWNLOAD_URL base URL holding the release assets, for mirrors and
 #                        testing (default: the GitHub release)
 set -eu
 
-REPO="tmphost/tmphost"
+REPO="permahost/permahost"
 
 log() { printf '%s\n' "$*" >&2; }
 fail() { log "error: $*"; exit 1; }
@@ -57,8 +57,8 @@ sha256() { # file
 }
 
 install_dir() {
-	if [ -n "${TMPHOSTIO_INSTALL_DIR:-}" ]; then
-		echo "$TMPHOSTIO_INSTALL_DIR"
+	if [ -n "${PERMAHOSTIO_INSTALL_DIR:-}" ]; then
+		echo "$PERMAHOSTIO_INSTALL_DIR"
 	elif [ -d /usr/local/bin ] && [ -w /usr/local/bin ]; then
 		echo /usr/local/bin
 	else
@@ -69,10 +69,10 @@ install_dir() {
 main() {
 	os=$(detect_os)
 	arch=$(detect_arch)
-	version=${TMPHOSTIO_VERSION:-latest}
-	asset="tmphost_${os}_${arch}.tar.gz"
-	if [ -n "${TMPHOSTIO_DOWNLOAD_URL:-}" ]; then
-		base=${TMPHOSTIO_DOWNLOAD_URL%/}
+	version=${PERMAHOSTIO_VERSION:-latest}
+	asset="permahost_${os}_${arch}.tar.gz"
+	if [ -n "${PERMAHOSTIO_DOWNLOAD_URL:-}" ]; then
+		base=${PERMAHOSTIO_DOWNLOAD_URL%/}
 	elif [ "$version" = latest ]; then
 		base="https://github.com/$REPO/releases/latest/download"
 	else
@@ -91,21 +91,21 @@ main() {
 	got=$(sha256 "$tmp/$asset")
 	[ "$want" = "$got" ] || fail "checksum mismatch for $asset: expected $want, got $got"
 
-	tar -xzf "$tmp/$asset" -C "$tmp" tmphost
+	tar -xzf "$tmp/$asset" -C "$tmp" permahost
 	dir=$(install_dir)
 	mkdir -p "$dir"
-	# Install to a temporary name and rename, so a running tmphost is never
+	# Install to a temporary name and rename, so a running permahost is never
 	# left half-written.
-	cp "$tmp/tmphost" "$dir/.tmphost.new"
-	chmod 755 "$dir/.tmphost.new"
-	mv "$dir/.tmphost.new" "$dir/tmphost"
-	log "Installed tmphost to $dir/tmphost"
+	cp "$tmp/permahost" "$dir/.permahost.new"
+	chmod 755 "$dir/.permahost.new"
+	mv "$dir/.permahost.new" "$dir/permahost"
+	log "Installed permahost to $dir/permahost"
 
 	case ":$PATH:" in
 		*":$dir:"*) ;;
 		*) log "Add $dir to your PATH, e.g.: export PATH=\"$dir:\$PATH\"" ;;
 	esac
-	log 'Run "tmphost login" to get started.'
+	log 'Run "permahost login" to get started.'
 }
 
 main "$@"

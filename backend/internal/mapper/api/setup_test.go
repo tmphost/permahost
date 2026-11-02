@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/tmphost/tmphost/backend/internal/data/entity"
+	"github.com/tmphost/permahost/backend/internal/data/entity"
 )
 
 func runBody(t *testing.T, body string, fn func(c fiber.Ctx)) {
@@ -53,8 +53,8 @@ func TestFromHTTPRequestToAuthenticateRootRequestEntity(t *testing.T) {
 }
 
 const _settingsJSON = `{
-	"domain": {"appUrl": "https://app.tmphost.io", "sitesDomain": "tmphost.io"},
-	"tls": {"enabled": true, "port": 8443, "email": "ops@tmphost.io",
+	"domain": {"appUrl": "https://app.permahost.io", "sitesDomain": "permahost.io"},
+	"tls": {"enabled": true, "port": 8443, "email": "ops@permahost.io",
 		"lego": {"enabled": true, "cloudflareApiToken": "cf"}},
 	"credits": {"monthlyGrant": 300},
 	"database": {"driver": "postgres", "sqlite": {"dsn": "x.db"},
@@ -74,9 +74,9 @@ func TestSettingsMapping(t *testing.T) {
 	assert.Equal(t, "postgres://u:p@h/d", got.Settings.Database.Postgres.DSN)
 	assert.Equal(t, "hs", got.Settings.Auth.GitHub.ClientSecret)
 	assert.Equal(t, entity.FileSettings{MaxTTLMinutes: 60, MaxUploadMB: 2, AnonymousMaxTTLMinutes: 7, Subdomains: true, PublicDomain: "x.io"}, got.Settings.Files)
-	assert.Equal(t, entity.DomainSettings{AppURL: "https://app.tmphost.io", SitesDomain: "tmphost.io"}, got.Settings.Domain)
+	assert.Equal(t, entity.DomainSettings{AppURL: "https://app.permahost.io", SitesDomain: "permahost.io"}, got.Settings.Domain)
 	assert.Equal(t, entity.TLSSettings{
-		Enabled: true, Port: 8443, Email: "ops@tmphost.io",
+		Enabled: true, Port: 8443, Email: "ops@permahost.io",
 		Lego: entity.LegoSettings{Enabled: true, CloudflareAPIToken: "cf"},
 	}, got.Settings.TLS)
 	assert.Equal(t, []entity.OAuthProviderSettings{{

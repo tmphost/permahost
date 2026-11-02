@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -19,11 +19,11 @@ type (
 	// DomainSettings choose where the app and the dynamic subdomains are
 	// served.
 	DomainSettings struct {
-		// AppURL is the public URL of the app, e.g. https://app.tmphost.io.
+		// AppURL is the public URL of the app, e.g. https://app.permahost.io.
 		// Its host is the app host, and OAuth callbacks are built on it.
 		AppURL string
 		// SitesDomain is the parent domain of the dynamic subdomains, e.g.
-		// tmphost.io for f<11 characters>.tmphost.io. Empty disables them.
+		// permahost.io for f<11 characters>.permahost.io. Empty disables them.
 		SitesDomain string
 	}
 

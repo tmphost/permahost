@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -9,8 +9,8 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	folderctrl "github.com/tmphost/tmphost/backend/internal/controller/folder"
-	mapper "github.com/tmphost/tmphost/backend/internal/mapper/api"
+	folderctrl "github.com/tmphost/permahost/backend/internal/controller/folder"
+	mapper "github.com/tmphost/permahost/backend/internal/mapper/api"
 )
 
 // Folder handles the signed-in user's folders and files.

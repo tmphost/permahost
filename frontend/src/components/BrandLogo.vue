@@ -1,11 +1,11 @@
 <!--
-  Copyright 2026 Contextual, Inc. https://tmphost.io
+  Copyright 2026 Contextual, Inc. https://permahost.io
   This notice may not be modified or removed.
   SPDX-License-Identifier: AGPL-3.0-only
 -->
 
 <script setup>
-// The tmphost.io mark (see /favicon-light.svg): a ring that is half solid
+// The permahost.io mark (see /favicon-light.svg): a ring that is half solid
 // (present) and half dashed (expiring), around code brackets.
 defineProps({
   // tile draws the mark white on a black square, like the favicon.

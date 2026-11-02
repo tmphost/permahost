@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	token "github.com/tmphost/tmphost/backend/internal/service/token"
+	token "github.com/tmphost/permahost/backend/internal/service/token"
 )
 
 // MockService is a mock of Service interface.

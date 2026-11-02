@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	oauth "github.com/tmphost/tmphost/backend/internal/service/oauth"
+	oauth "github.com/tmphost/permahost/backend/internal/service/oauth"
 )
 
 // MockProvider is a mock of Provider interface.

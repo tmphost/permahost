@@ -1,5 +1,5 @@
 <!--
-  Copyright 2026 Contextual, Inc. https://tmphost.io
+  Copyright 2026 Contextual, Inc. https://permahost.io
   This notice may not be modified or removed.
   SPDX-License-Identifier: AGPL-3.0-only
 -->
@@ -83,7 +83,7 @@ function logout() {
       <div :class="['flex', compact ? 'flex-col items-center gap-2' : 'items-center gap-1']">
         <router-link to="/" :class="['flex items-center gap-2.5 min-w-0 p-1', compact ? '' : 'grow']">
           <BrandLogo tile class="w-7 h-7" />
-          <span v-if="!compact" class="text-sm font-bold truncate" data-test="sidebar-brand">tmphost.io</span>
+          <span v-if="!compact" class="text-sm font-bold truncate" data-test="sidebar-brand">permahost.io</span>
         </router-link>
         <button
           type="button"

@@ -1,4 +1,4 @@
-# Copyright 2026 Contextual, Inc. https://tmphost.io
+# Copyright 2026 Contextual, Inc. https://permahost.io
 # This notice may not be modified or removed.
 # SPDX-License-Identifier: AGPL-3.0-only
 
@@ -15,11 +15,11 @@ frontend:
 	cp -r frontend/dist/. $(PUBLIC)/
 
 backend:
-	cd backend && go build -o ../bin/tmphost ./cmd/server
+	cd backend && go build -o ../bin/permahost ./cmd/server
 
-# bin/tmphost is the server, so the CLI gets its own name; rename it on install.
+# bin/permahost is the server, so the CLI gets its own name; rename it on install.
 cli:
-	cd cli && go build -o ../bin/tmphost-cli .
+	cd cli && go build -o ../bin/permahost-cli .
 
 test: test-backend test-frontend test-cli
 
@@ -33,7 +33,7 @@ test-frontend:
 	cd frontend && npm run test:coverage
 
 docker:
-	docker build -t tmphost .
+	docker build -t permahost .
 
 mocks:
 	cd backend && go generate ./...
@@ -63,7 +63,7 @@ dev:
 	$(MAKE) -j2 --no-print-directory dev-backend dev-frontend
 
 dev-backend:
-	cd backend && TMPHOSTIO_BASE_URL=http://localhost:5173 go run ./cmd/server
+	cd backend && PERMAHOSTIO_BASE_URL=http://localhost:5173 go run ./cmd/server
 
 dev-frontend:
 	cd frontend && npm run dev

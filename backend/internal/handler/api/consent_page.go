@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -10,8 +10,8 @@ import (
 	"encoding/base64"
 	"html/template"
 
-	"github.com/tmphost/tmphost/backend/internal/data/entity"
-	mapper "github.com/tmphost/tmphost/backend/internal/mapper/api"
+	"github.com/tmphost/permahost/backend/internal/data/entity"
+	mapper "github.com/tmphost/permahost/backend/internal/mapper/api"
 )
 
 // _themeScript applies the theme picked in the web app (same origin, same
@@ -37,7 +37,7 @@ var _pageTemplate = template.Must(template.New("page").Parse(`<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>{{if .Consent}}Allow access to tmphost.io?{{else}}tmphost.io{{end}}</title>
+<title>{{if .Consent}}Allow access to permahost.io?{{else}}permahost.io{{end}}</title>
 <script>` + _themeScript + `</script>
 <style>
 :root {
@@ -103,9 +103,9 @@ button:focus-visible { outline: 2px solid var(--muted); outline-offset: 2px; }
   </div>
 {{with .Consent}}
   <h1 data-test="consent-client">{{if .ClientName}}{{.ClientName}}{{else}}An unnamed app{{end}}</h1>
-  <p class="lead">wants to use your tmphost.io account.</p>
+  <p class="lead">wants to use your permahost.io account.</p>
   {{if .Verified}}
-  <p class="note ok" data-test="consent-verified">This is the official tmphost.io command line tool.</p>
+  <p class="note ok" data-test="consent-verified">This is the official permahost.io command line tool.</p>
   {{else}}
   <p class="note warn" data-test="consent-unverified">Apps name themselves, so this name is not verified. Check where it sends you back.</p>
   {{end}}

@@ -1,4 +1,4 @@
-module github.com/tmphost/tmphost/backend
+module github.com/tmphost/permahost/backend
 
 go 1.27.2
 

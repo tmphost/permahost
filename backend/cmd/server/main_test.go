@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -32,12 +32,12 @@ func freePort(t *testing.T) int {
 func envFor(t *testing.T, port int) map[string]string {
 	t.Helper()
 	return map[string]string{
-		"TMPHOSTIO_PORT":               strconv.Itoa(port),
-		"TMPHOSTIO_AUTH_JWT_SECRET":    "secret",
-		"TMPHOSTIO_MASTER_KEY":         "a-master-key-of-at-least-32-characters",
-		"TMPHOSTIO_SQLITE_DSN":         filepath.Join(t.TempDir(), "tmphost.db"),
-		"TMPHOSTIO_SETTINGS_FILE":      filepath.Join(t.TempDir(), "settings.json"),
-		"TMPHOSTIO_STORAGE_LOCAL_PATH": filepath.Join(t.TempDir(), "files"),
+		"PERMAHOSTIO_PORT":               strconv.Itoa(port),
+		"PERMAHOSTIO_AUTH_JWT_SECRET":    "secret",
+		"PERMAHOSTIO_MASTER_KEY":         "a-master-key-of-at-least-32-characters",
+		"PERMAHOSTIO_SQLITE_DSN":         filepath.Join(t.TempDir(), "permahost.db"),
+		"PERMAHOSTIO_SETTINGS_FILE":      filepath.Join(t.TempDir(), "settings.json"),
+		"PERMAHOSTIO_STORAGE_LOCAL_PATH": filepath.Join(t.TempDir(), "files"),
 	}
 }
 
@@ -54,7 +54,7 @@ func TestLoadConfig_Defaults(t *testing.T) {
 	assert.False(t, cfg.TLS.Lego.Enabled)
 	assert.False(t, cfg.App.CookieSecure)
 	assert.True(t, cfg.SQLite.Enabled)
-	assert.Contains(t, cfg.SQLite.DSN, "./_storage/tmphost.db?")
+	assert.Contains(t, cfg.SQLite.DSN, "./_storage/permahost.db?")
 	assert.Equal(t, time.Hour, cfg.SQLite.MaxConnLifetime)
 	assert.False(t, cfg.Postgres.Enabled)
 	assert.Empty(t, cfg.Postgres.DSN)
@@ -76,7 +76,7 @@ func TestLoadConfig_Errors(t *testing.T) {
 
 	raw, _ := bundled.ReadFile("_config/base.yaml")
 	_, err = loadConfig(raw, func(k string) string {
-		if k == "TMPHOSTIO_PORT" {
+		if k == "PERMAHOSTIO_PORT" {
 			return "not-a-port"
 		}
 		return ""
@@ -108,7 +108,7 @@ func TestRun_ServesUntilCancelled(t *testing.T) {
 func TestRun_Errors(t *testing.T) {
 	t.Run("bad config", func(t *testing.T) {
 		assert.Error(t, run(context.Background(), func(k string) string {
-			if k == "TMPHOSTIO_PORT" {
+			if k == "PERMAHOSTIO_PORT" {
 				return "x"
 			}
 			return ""
@@ -154,7 +154,7 @@ func TestMain_StopsOnSignal(t *testing.T) {
 }
 
 func TestMain_Fatal(t *testing.T) {
-	t.Setenv("TMPHOSTIO_AUTH_JWT_SECRET", "")
+	t.Setenv("PERMAHOSTIO_AUTH_JWT_SECRET", "")
 	var fatalErr []any
 	fatal = func(v ...any) { fatalErr = v }
 	t.Cleanup(func() { fatal = log.Fatal })

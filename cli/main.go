@@ -1,8 +1,8 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
-// Command tmphost uploads files to temporary public folders on a tmphost
+// Command permahost uploads files to temporary public folders on a permahost
 // server.
 package main
 
@@ -10,8 +10,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/tmphost/tmphost/cli/internal/cmd"
-	"github.com/tmphost/tmphost/cli/internal/oauth"
+	"github.com/tmphost/permahost/cli/internal/cmd"
+	"github.com/tmphost/permahost/cli/internal/oauth"
 )
 
 // version is set at release time with -ldflags "-X main.version=v1.2.3".

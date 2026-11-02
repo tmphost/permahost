@@ -1,5 +1,5 @@
 <!--
-  Copyright 2026 Contextual, Inc. https://tmphost.io
+  Copyright 2026 Contextual, Inc. https://permahost.io
   This notice may not be modified or removed.
   SPDX-License-Identifier: AGPL-3.0-only
 -->
@@ -10,7 +10,7 @@ import { useRoute } from 'vue-router'
 import { BASE_PATH } from '../api'
 import { useClipboard } from '../composables/useClipboard'
 
-const INSTALL_BASE = 'https://raw.githubusercontent.com/tmphost/tmphost/main'
+const INSTALL_BASE = 'https://raw.githubusercontent.com/tmphost/permahost/main'
 
 // How long the check mark replaces the copy icon.
 const COPIED_MS = 1500
@@ -47,19 +47,19 @@ const MCP_SNIPPETS = [
   {
     id: 'mcp-json',
     label: 'JSON config',
-    text: JSON.stringify({ mcpServers: { tmphost: { type: 'http', url: mcpUrl } } }, null, 2),
+    text: JSON.stringify({ mcpServers: { permahost: { type: 'http', url: mcpUrl } } }, null, 2),
   },
-  { id: 'mcp-claude', label: 'Claude Code', text: `claude mcp add --transport http tmphost ${mcpUrl}` },
+  { id: 'mcp-claude', label: 'Claude Code', text: `claude mcp add --transport http permahost ${mcpUrl}` },
 ]
 
 const CLI_SNIPPETS = [
   { id: 'cli-install-unix', label: 'Install on macOS / Linux', text: `curl -fsSL ${INSTALL_BASE}/install.sh | sh` },
   { id: 'cli-install-windows', label: 'Install on Windows (PowerShell)', text: `irm ${INSTALL_BASE}/install.ps1 | iex` },
-  { id: 'cli-login', label: 'Sign in (opens the browser)', text: `tmphost login --server ${serverUrl}` },
+  { id: 'cli-login', label: 'Sign in (opens the browser)', text: `permahost login --server ${serverUrl}` },
   {
     id: 'cli-examples',
     label: 'Examples',
-    text: ['tmphost file upload ./index.html --ttl 1h', 'tmphost file get --id <id>', 'tmphost file url --id <id>'].join('\n'),
+    text: ['permahost file upload ./index.html --ttl 1h', 'permahost file get --id <id>', 'permahost file url --id <id>'].join('\n'),
   },
 ]
 
@@ -70,7 +70,7 @@ const SECTIONS = [
     title: 'MCP clients',
     // A plug.
     icon: 'M9 3v4m6-4v4M7 7h10v4a5 5 0 0 1-10 0V7zm5 9v5',
-    intro: 'Add tmphost to Claude, Cursor or any MCP client that speaks streamable HTTP.',
+    intro: 'Add permahost to Claude, Cursor or any MCP client that speaks streamable HTTP.',
     note: 'The client opens your browser to sign in and shows a consent screen. No secret or key is needed.',
     snippets: MCP_SNIPPETS,
   },
@@ -80,7 +80,7 @@ const SECTIONS = [
     title: 'CLI',
     // A terminal prompt.
     icon: 'm5 8 4 4-4 4m6 0h8',
-    intro: 'Install the tmphost command line tool, then sign in once.',
+    intro: 'Install the permahost command line tool, then sign in once.',
     note: 'Login opens your browser to sign in; the CLI keeps the session on this machine.',
     snippets: CLI_SNIPPETS,
   },
@@ -96,7 +96,7 @@ const active = computed(() => SECTIONS.find((section) => section.id === route.qu
     <header class="px-4 pb-4 border-b border-gray-100 dark:border-zinc-800">
       <h1 class="text-lg font-bold text-gray-900 dark:text-zinc-100 tracking-tight">Connect</h1>
       <p class="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">
-        Use tmphost from an MCP client or the <code class="font-mono">tmphost</code> CLI. Both sign in with your account
+        Use permahost from an MCP client or the <code class="font-mono">permahost</code> CLI. Both sign in with your account
         over OAuth.
       </p>
     </header>

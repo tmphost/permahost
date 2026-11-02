@@ -1,5 +1,5 @@
 <!--
-  Copyright 2026 Contextual, Inc. https://tmphost.io
+  Copyright 2026 Contextual, Inc. https://permahost.io
   This notice may not be modified or removed.
   SPDX-License-Identifier: AGPL-3.0-only
 -->
@@ -12,7 +12,7 @@ import { useToasts } from '../composables/useToasts'
 import { formatMinutes } from '../utils/files'
 import { providerSlug, svgDataUri } from '../utils/providers'
 
-const PG_DSN_EXAMPLE = 'postgres://user:password@host:5432/tmphost?sslmode=disable'
+const PG_DSN_EXAMPLE = 'postgres://user:password@host:5432/permahost?sslmode=disable'
 
 const INPUT =
   'w-full rounded-lg border border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-gray-900 dark:text-zinc-100 placeholder:text-gray-400 dark:placeholder:text-zinc-500 focus:border-gray-400 dark:focus:border-zinc-500 focus:outline-none'
@@ -153,7 +153,7 @@ onMounted(refresh)
         <div class="text-center mb-8">
           <BrandLogo tile class="w-12 h-12 mx-auto mb-5" />
           <h1 class="text-2xl font-black text-gray-900 dark:text-zinc-100 tracking-tight">Setup</h1>
-          <p class="mt-1.5 text-sm text-gray-500 dark:text-zinc-400">Enter the root access token to configure tmphost.io.</p>
+          <p class="mt-1.5 text-sm text-gray-500 dark:text-zinc-400">Enter the root access token to configure permahost.io.</p>
         </div>
         <label for="root-token" :class="LABEL">Root access token</label>
         <input
@@ -180,7 +180,7 @@ onMounted(refresh)
         <BrandLogo tile class="w-9 h-9" />
         <div class="grow min-w-0">
           <h1 class="text-lg font-bold text-gray-900 dark:text-zinc-100 tracking-tight">Setup</h1>
-          <p class="text-xs text-gray-500 dark:text-zinc-400">Server settings for tmphost.io. Only root can see this page.</p>
+          <p class="text-xs text-gray-500 dark:text-zinc-400">Server settings for permahost.io. Only root can see this page.</p>
         </div>
         <button type="button" :class="SECONDARY" data-test="setup-logout" @click="logout">Sign out</button>
         <button type="submit" :disabled="busy" :class="PRIMARY" data-test="setup-save">Save</button>
@@ -210,16 +210,16 @@ onMounted(refresh)
           <div class="space-y-3">
             <div>
               <label for="app-url" :class="LABEL">App URL</label>
-              <input id="app-url" v-model="form.domain.appUrl" placeholder="https://app.tmphost.io" :class="INPUT" />
+              <input id="app-url" v-model="form.domain.appUrl" placeholder="https://app.permahost.io" :class="INPUT" />
               <p class="mt-1 text-[11px] text-gray-400 dark:text-zinc-500">
                 Default http://localhost:2027. Its host (any domain or subdomain) is where the app is served; OAuth callbacks use it.
               </p>
             </div>
             <div>
               <label for="sites-domain" :class="LABEL">Sites domain</label>
-              <input id="sites-domain" v-model="form.domain.sitesDomain" placeholder="tmphost.io" :class="INPUT" />
+              <input id="sites-domain" v-model="form.domain.sitesDomain" placeholder="permahost.io" :class="INPUT" />
               <p class="mt-1 text-[11px] text-gray-400 dark:text-zinc-500">
-                Dynamic subdomains are served as f + 11 characters under it, e.g. f1a2b3c4d5e6.tmphost.io. Leave blank to disable.
+                Dynamic subdomains are served as f + 11 characters under it, e.g. f1a2b3c4d5e6.permahost.io. Leave blank to disable.
               </p>
             </div>
           </div>
@@ -248,7 +248,7 @@ onMounted(refresh)
               </div>
               <div>
                 <label for="tls-email" :class="LABEL">Let's Encrypt email</label>
-                <input id="tls-email" v-model="form.tls.email" type="email" placeholder="ops@tmphost.io" :class="INPUT" />
+                <input id="tls-email" v-model="form.tls.email" type="email" placeholder="ops@permahost.io" :class="INPUT" />
                 <p class="mt-1 text-[11px] text-gray-400 dark:text-zinc-500">Optional. Let's Encrypt sends expiry notices here.</p>
               </div>
             </div>
@@ -473,14 +473,14 @@ onMounted(refresh)
           <div v-if="form.files.subdomains" data-test="setup-subdomains">
             <p class="text-[11px] text-gray-400 dark:text-zinc-500 mb-3" data-test="setup-subdomains-help">
               Each folder is served at <code class="font-mono">f&lt;folderId&gt;.&lt;public domain&gt;</code>, where the
-              folder ID is 11 characters (e.g. f1a2b3c4d5e6.tmphost.io). Needs a wildcard DNS record and certificate for the
+              folder ID is 11 characters (e.g. f1a2b3c4d5e6.permahost.io). Needs a wildcard DNS record and certificate for the
               domain. Leave the public domain blank to use the sites domain.
             </p>
             <label for="public-domain" :class="LABEL">Public domain</label>
             <input
               id="public-domain"
               v-model.trim="form.files.publicDomain"
-              placeholder="tmphost.io"
+              placeholder="permahost.io"
               autocomplete="off"
               spellcheck="false"
               :class="INPUT"

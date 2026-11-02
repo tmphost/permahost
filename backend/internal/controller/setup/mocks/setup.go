@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	entity "github.com/tmphost/tmphost/backend/internal/data/entity"
+	entity "github.com/tmphost/permahost/backend/internal/data/entity"
 )
 
 // MockController is a mock of Controller interface.

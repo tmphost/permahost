@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -21,23 +21,23 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/recover"
 	"gorm.io/gorm"
 
-	authctrl "github.com/tmphost/tmphost/backend/internal/controller/auth"
-	"github.com/tmphost/tmphost/backend/internal/controller/credit"
-	folderctrl "github.com/tmphost/tmphost/backend/internal/controller/folder"
-	oauthctrl "github.com/tmphost/tmphost/backend/internal/controller/oauthserver"
-	setupctrl "github.com/tmphost/tmphost/backend/internal/controller/setup"
-	"github.com/tmphost/tmphost/backend/internal/data/entity"
-	"github.com/tmphost/tmphost/backend/internal/handler/api"
-	mcphandler "github.com/tmphost/tmphost/backend/internal/handler/mcp"
-	"github.com/tmphost/tmphost/backend/internal/repository"
-	"github.com/tmphost/tmphost/backend/internal/service/encryption"
-	"github.com/tmphost/tmphost/backend/internal/service/idgen"
-	"github.com/tmphost/tmphost/backend/internal/service/oauth"
-	"github.com/tmphost/tmphost/backend/internal/service/quota"
-	"github.com/tmphost/tmphost/backend/internal/service/scheduler"
-	"github.com/tmphost/tmphost/backend/internal/service/storage"
-	"github.com/tmphost/tmphost/backend/internal/service/tlscert"
-	"github.com/tmphost/tmphost/backend/internal/service/token"
+	authctrl "github.com/tmphost/permahost/backend/internal/controller/auth"
+	"github.com/tmphost/permahost/backend/internal/controller/credit"
+	folderctrl "github.com/tmphost/permahost/backend/internal/controller/folder"
+	oauthctrl "github.com/tmphost/permahost/backend/internal/controller/oauthserver"
+	setupctrl "github.com/tmphost/permahost/backend/internal/controller/setup"
+	"github.com/tmphost/permahost/backend/internal/data/entity"
+	"github.com/tmphost/permahost/backend/internal/handler/api"
+	mcphandler "github.com/tmphost/permahost/backend/internal/handler/mcp"
+	"github.com/tmphost/permahost/backend/internal/repository"
+	"github.com/tmphost/permahost/backend/internal/service/encryption"
+	"github.com/tmphost/permahost/backend/internal/service/idgen"
+	"github.com/tmphost/permahost/backend/internal/service/oauth"
+	"github.com/tmphost/permahost/backend/internal/service/quota"
+	"github.com/tmphost/permahost/backend/internal/service/scheduler"
+	"github.com/tmphost/permahost/backend/internal/service/storage"
+	"github.com/tmphost/permahost/backend/internal/service/tlscert"
+	"github.com/tmphost/permahost/backend/internal/service/token"
 )
 
 const (
@@ -54,7 +54,7 @@ type (
 	// Config is the server configuration, one field per config section.
 	Config struct {
 		// MasterKey encrypts the settings file. It comes only from the
-		// TMPHOSTIO_MASTER_KEY environment variable, never from YAML.
+		// PERMAHOSTIO_MASTER_KEY environment variable, never from YAML.
 		MasterKey string
 		App       AppConfig
 		TLS       TLSConfig

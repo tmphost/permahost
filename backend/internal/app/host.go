@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -12,8 +12,8 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	setupctrl "github.com/tmphost/tmphost/backend/internal/controller/setup"
-	mapper "github.com/tmphost/tmphost/backend/internal/mapper/api"
+	setupctrl "github.com/tmphost/permahost/backend/internal/controller/setup"
+	mapper "github.com/tmphost/permahost/backend/internal/mapper/api"
 )
 
 // LocalSiteID is the fiber.Ctx local a dynamic subdomain's site ID is

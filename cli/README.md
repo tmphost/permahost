@@ -1,7 +1,7 @@
-# tmphost CLI
+# permahost CLI
 
-Upload files to temporary public folders on a tmphost server from the
-terminal. The `tmphost file` commands mirror the `file` tool of the server's
+Upload files to temporary public folders on a permahost server from the
+terminal. The `permahost file` commands mirror the `file` tool of the server's
 MCP endpoint.
 
 ## Install
@@ -9,68 +9,68 @@ MCP endpoint.
 macOS and Linux (amd64, arm64):
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/tmphost/tmphost/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/tmphost/permahost/main/install.sh | sh
 ```
 
 Windows (PowerShell):
 
 ```powershell
-irm https://raw.githubusercontent.com/tmphost/tmphost/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/tmphost/permahost/main/install.ps1 | iex
 ```
 
 Both download the latest release, verify it against `checksums.txt` and
-install `tmphost` to `/usr/local/bin` when writable or `~/.local/bin`
-(Windows: `%LOCALAPPDATA%\tmphost\bin`, added to your user PATH). Set
-`TMPHOSTIO_VERSION=v1.2.3` for a specific release or `TMPHOSTIO_INSTALL_DIR` for
+install `permahost` to `/usr/local/bin` when writable or `~/.local/bin`
+(Windows: `%LOCALAPPDATA%\permahost\bin`, added to your user PATH). Set
+`PERMAHOSTIO_VERSION=v1.2.3` for a specific release or `PERMAHOSTIO_INSTALL_DIR` for
 another directory.
 
-From source: `cd cli && go build -o tmphost .` (or `make cli`, which writes
-`bin/tmphost-cli`).
+From source: `cd cli && go build -o permahost .` (or `make cli`, which writes
+`bin/permahost-cli`).
 
 ## Sign in
 
 ```sh
-tmphost login                              # https://tmphost.io
-tmphost login --server https://files.example.com
+permahost login                              # https://permahost.io
+permahost login --server https://files.example.com
 ```
 
 `login` opens the browser to approve the CLI (OAuth 2.1 with PKCE; the URL is
 also printed in case the browser does not open) and waits up to 5 minutes.
-The tokens are saved to `$TMPHOSTIO_CONFIG`, or `tmphost/config.json` under your
+The tokens are saved to `$PERMAHOSTIO_CONFIG`, or `permahost/config.json` under your
 user config directory, readable only by you, and refreshed automatically.
-`tmphost logout` forgets them. `--server` or `TMPHOSTIO_SERVER` picks the server;
+`permahost logout` forgets them. `--server` or `PERMAHOSTIO_SERVER` picks the server;
 tokens are only ever sent to the server that issued them.
 
 ## Usage
 
 ```sh
-tmphost file upload report.pdf                 # new folder, 30 minute TTL
-tmphost file upload site/ --ttl 2h             # a directory's contents, recursively
-tmphost file upload site --id rs               # site/index.html, ... into folder rs
-tmphost file upload notes.txt --id rs --path docs --name readme.txt
+permahost file upload report.pdf                 # new folder, 30 minute TTL
+permahost file upload site/ --ttl 2h             # a directory's contents, recursively
+permahost file upload site --id rs               # site/index.html, ... into folder rs
+permahost file upload notes.txt --id rs --path docs --name readme.txt
 
-tmphost file get --id rs                       # files: fileName, path, size, url
-tmphost file url --id rs --path docs readme.txt
-tmphost file download --id rs --path docs readme.txt -o readme.txt
-tmphost file download --id rs a.txt -o -       # to stdout
+permahost file get --id rs                       # files: fileName, path, size, url
+permahost file url --id rs --path docs readme.txt
+permahost file download --id rs --path docs readme.txt -o readme.txt
+permahost file download --id rs a.txt -o -       # to stdout
 
-tmphost file ls                                # your live folders
-tmphost file rm --id rs docs/readme.txt        # one file
-tmphost file rm --id rs                        # the whole folder
-tmphost whoami
+permahost file ls                                # your live folders
+permahost file rm --id rs docs/readme.txt        # one file
+permahost file rm --id rs                        # the whole folder
+permahost whoami
 ```
 
 | Command | Description |
 | --- | --- |
-| `tmphost login [--server URL]` | Sign in with the browser |
-| `tmphost logout` | Forget the saved tokens |
-| `tmphost whoami` | Show the user, credits and renewal time |
-| `tmphost file upload <local path>... [--id ID \| --ttl 30m] [--path DIR] [--name NAME]` | Upload files and print their URLs and the folder id |
-| `tmphost file download --id ID [--path DIR] <fileName> [-o OUT] [--force] [--format FORMAT]` | Download a file (`-o -` for stdout) |
-| `tmphost file get --id ID` | List a folder's files |
-| `tmphost file url --id ID [--path DIR] [fileName]` | Print a folder, directory or file URL |
-| `tmphost file ls` | List your live folders |
-| `tmphost file rm --id ID [path]` | Delete a folder, or one file |
+| `permahost login [--server URL]` | Sign in with the browser |
+| `permahost logout` | Forget the saved tokens |
+| `permahost whoami` | Show the user, credits and renewal time |
+| `permahost file upload <local path>... [--id ID \| --ttl 30m] [--path DIR] [--name NAME]` | Upload files and print their URLs and the folder id |
+| `permahost file download --id ID [--path DIR] <fileName> [-o OUT] [--force] [--format FORMAT]` | Download a file (`-o -` for stdout) |
+| `permahost file get --id ID` | List a folder's files |
+| `permahost file url --id ID [--path DIR] [fileName]` | Print a folder, directory or file URL |
+| `permahost file ls` | List your live folders |
+| `permahost file rm --id ID [path]` | Delete a folder, or one file |
 
 Global flags: `--json` prints JSON with the same fields as the MCP tool's
 output (`id`, `url`, `expiresAt`, `fileName`, `path`, `size`, `creditsSpent`,
@@ -96,9 +96,9 @@ and `url`) at `<server>/mcp`, for AI agents:
 ```json
 {
   "mcpServers": {
-    "tmphost": {
+    "permahost": {
       "type": "http",
-      "url": "https://tmphost.io/mcp"
+      "url": "https://permahost.io/mcp"
     }
   }
 }
@@ -120,5 +120,5 @@ make test-cli   # go test -race with coverage; CI requires 100%
 ```
 
 Pushing a `v*` tag runs `.github/workflows/release.yml`, which cross-builds
-the CLI and attaches `tmphost_<os>_<arch>.tar.gz` / `.zip` and
+the CLI and attaches `permahost_<os>_<arch>.tar.gz` / `.zip` and
 `checksums.txt` to the GitHub release.

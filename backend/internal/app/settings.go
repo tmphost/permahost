@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -11,10 +11,10 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/tmphost/tmphost/backend/internal/controller/credit"
-	"github.com/tmphost/tmphost/backend/internal/controller/folder"
-	setupctrl "github.com/tmphost/tmphost/backend/internal/controller/setup"
-	"github.com/tmphost/tmphost/backend/internal/data/entity"
+	"github.com/tmphost/permahost/backend/internal/controller/credit"
+	"github.com/tmphost/permahost/backend/internal/controller/folder"
+	setupctrl "github.com/tmphost/permahost/backend/internal/controller/setup"
+	"github.com/tmphost/permahost/backend/internal/data/entity"
 )
 
 const (
@@ -39,7 +39,7 @@ func rootAccessToken(cfg Config) string {
 	// crypto/rand.Read never returns an error.
 	_, _ = rand.Read(b)
 	tok := hex.EncodeToString(b)
-	log.Printf("setup: generated root access token %s (set TMPHOSTIO_AUTH_ROOT_ACCESS_TOKEN to keep one across restarts)", tok)
+	log.Printf("setup: generated root access token %s (set PERMAHOSTIO_AUTH_ROOT_ACCESS_TOKEN to keep one across restarts)", tok)
 	return tok
 }
 

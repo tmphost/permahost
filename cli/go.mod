@@ -1,4 +1,4 @@
-module github.com/tmphost/tmphost/cli
+module github.com/tmphost/permahost/cli
 
 go 1.27.2
 

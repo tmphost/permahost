@@ -1,5 +1,5 @@
 <!--
-  Copyright 2026 Contextual, Inc. https://tmphost.io
+  Copyright 2026 Contextual, Inc. https://permahost.io
   This notice may not be modified or removed.
   SPDX-License-Identifier: AGPL-3.0-only
 -->
@@ -48,7 +48,7 @@ onMounted(async () => {
     <div class="w-full max-w-sm bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl shadow-sm p-8">
       <div class="text-center mb-8">
         <BrandLogo tile class="w-12 h-12 mx-auto mb-5" />
-        <h1 class="text-2xl font-black text-gray-900 dark:text-zinc-100 tracking-tight">tmphost.io</h1>
+        <h1 class="text-2xl font-black text-gray-900 dark:text-zinc-100 tracking-tight">permahost.io</h1>
         <p class="mt-1.5 text-sm text-gray-500 dark:text-zinc-400">Sign in to continue.</p>
       </div>
 
@@ -110,7 +110,7 @@ onMounted(async () => {
       </p>
 
       <div class="mt-8 pt-5 border-t border-gray-100 dark:border-zinc-800 flex items-center justify-between text-[11px] font-bold text-gray-400 dark:text-zinc-500">
-        <span>&copy; {{ new Date().getFullYear() }} tmphost.io</span>
+        <span>&copy; {{ new Date().getFullYear() }} permahost.io</span>
         <router-link to="/setup" class="hover:text-gray-900 dark:hover:text-zinc-100 transition-colors" data-test="login-setup">Setup</router-link>
       </div>
     </div>

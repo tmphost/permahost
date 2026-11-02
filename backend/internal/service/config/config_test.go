@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -28,7 +28,7 @@ app:
   baseUrl: http://${HOST:localhost}:${PORT:3000}
   secure: ${SECURE:false}
   ratio: ${RATIO:0.5}
-  name: ${NAME:tmphost}
+  name: ${NAME:permahost}
   hosts:
     - ${HOST:localhost}
     - static
@@ -48,15 +48,15 @@ func TestNew_ExpandsPlaceholders(t *testing.T) {
 	assert.Equal(t, "http://localhost:8080", cfg.BaseURL)
 	assert.True(t, cfg.Secure)
 	assert.Equal(t, 0.5, cfg.Ratio)
-	assert.Equal(t, "tmphost", cfg.Name)
+	assert.Equal(t, "permahost", cfg.Name)
 	assert.Equal(t, []string{"localhost", "static"}, cfg.Hosts)
 	assert.Equal(t, "", cfg.Empty)
 	assert.Equal(t, "[unclosed", cfg.Bad)
 }
 
 func TestNew_DefaultsToOSGetenv(t *testing.T) {
-	t.Setenv("TMPHOSTIO_CONFIG_TEST", "fromenv")
-	svc, err := New([]byte("app:\n  name: ${TMPHOSTIO_CONFIG_TEST}\n"), nil)
+	t.Setenv("PERMAHOSTIO_CONFIG_TEST", "fromenv")
+	svc, err := New([]byte("app:\n  name: ${PERMAHOSTIO_CONFIG_TEST}\n"), nil)
 	require.NoError(t, err)
 	var cfg appCfg
 	require.NoError(t, svc.Populate("app", &cfg))

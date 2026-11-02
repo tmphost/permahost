@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -17,12 +17,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	mockauth "github.com/tmphost/tmphost/backend/internal/controller/auth/mocks"
-	folderctrl "github.com/tmphost/tmphost/backend/internal/controller/folder"
-	mockfolder "github.com/tmphost/tmphost/backend/internal/controller/folder/mocks"
-	mockoauth "github.com/tmphost/tmphost/backend/internal/controller/oauthserver/mocks"
-	mocksetup "github.com/tmphost/tmphost/backend/internal/controller/setup/mocks"
-	"github.com/tmphost/tmphost/backend/internal/data/entity"
+	mockauth "github.com/tmphost/permahost/backend/internal/controller/auth/mocks"
+	folderctrl "github.com/tmphost/permahost/backend/internal/controller/folder"
+	mockfolder "github.com/tmphost/permahost/backend/internal/controller/folder/mocks"
+	mockoauth "github.com/tmphost/permahost/backend/internal/controller/oauthserver/mocks"
+	mocksetup "github.com/tmphost/permahost/backend/internal/controller/setup/mocks"
+	"github.com/tmphost/permahost/backend/internal/data/entity"
 )
 
 const _bearer = "Bearer access"
@@ -82,13 +82,13 @@ func TestFolder_Limits(t *testing.T) {
 }
 
 // anonymous is a request without credentials from the web app at
-// https://tmphost.io, which the auth mock lets in as anonymous user 3.
+// https://permahost.io, which the auth mock lets in as anonymous user 3.
 func (e *filesEnv) anonymous(t *testing.T, method, target, body string) (*http.Response, string) {
 	t.Helper()
-	e.auth.EXPECT().AuthenticateAnonymous(gomock.Any(), &entity.AuthenticateAnonymousRequest{IP: "0.0.0.0", Origin: "https://tmphost.io"}).
+	e.auth.EXPECT().AuthenticateAnonymous(gomock.Any(), &entity.AuthenticateAnonymousRequest{IP: "0.0.0.0", Origin: "https://permahost.io"}).
 		Return(&entity.AuthenticateResponse{UserID: 3, Anonymous: true}, nil)
 	req := httptest.NewRequest(method, target, strings.NewReader(body))
-	req.Header.Set("Origin", "https://tmphost.io")
+	req.Header.Set("Origin", "https://permahost.io")
 	res, err := e.app.Test(req)
 	require.NoError(t, err)
 	b, err := io.ReadAll(res.Body)
@@ -123,7 +123,7 @@ func TestFolder_Anonymous(t *testing.T) {
 		{http.MethodGet, "/api/v1/users/me"},
 	} {
 		req := httptest.NewRequest(route.method, route.target, nil)
-		req.Header.Set("Origin", "https://tmphost.io")
+		req.Header.Set("Origin", "https://permahost.io")
 		res, err := e.app.Test(req)
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusUnauthorized, res.StatusCode, "%s %s needs a sign-in", route.method, route.target)
@@ -140,7 +140,7 @@ func TestFolder_AnonymousRejected(t *testing.T) {
 	e.auth.EXPECT().Authenticate(gomock.Any(), &entity.AuthenticateRequest{AccessToken: "bad"}).Return(nil, errBoom)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/folders", nil)
 	req.Header.Set("Authorization", "Bearer bad")
-	req.Header.Set("Origin", "https://tmphost.io")
+	req.Header.Set("Origin", "https://permahost.io")
 	res, err = e.app.Test(req)
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusUnauthorized, res.StatusCode, "a bad access token never falls back to anonymous")
@@ -149,12 +149,12 @@ func TestFolder_AnonymousRejected(t *testing.T) {
 func TestFolder_AnonymousWithExpiredSession(t *testing.T) {
 	e := newFilesApp(t)
 	e.auth.EXPECT().Authenticate(gomock.Any(), &entity.AuthenticateRequest{SessionToken: "expired"}).Return(nil, errBoom)
-	e.auth.EXPECT().AuthenticateAnonymous(gomock.Any(), &entity.AuthenticateAnonymousRequest{IP: "0.0.0.0", Origin: "https://tmphost.io"}).
+	e.auth.EXPECT().AuthenticateAnonymous(gomock.Any(), &entity.AuthenticateAnonymousRequest{IP: "0.0.0.0", Origin: "https://permahost.io"}).
 		Return(&entity.AuthenticateResponse{UserID: 3, Anonymous: true}, nil)
 	e.folders.EXPECT().GetLimits(gomock.Any(), &entity.GetLimitsRequest{Anonymous: true}).Return(&entity.GetLimitsResponse{Anonymous: true})
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/limits", nil)
-	req.AddCookie(&http.Cookie{Name: "tmphost_session", Value: "expired"})
-	req.Header.Set("Origin", "https://tmphost.io")
+	req.AddCookie(&http.Cookie{Name: "permahost_session", Value: "expired"})
+	req.Header.Set("Origin", "https://permahost.io")
 	res, err := e.app.Test(req)
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, res.StatusCode, "a browser whose session expired is anonymous")

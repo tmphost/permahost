@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -19,16 +19,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/tmphost/tmphost/backend/internal/data/entity"
-	"github.com/tmphost/tmphost/backend/internal/data/model"
-	"github.com/tmphost/tmphost/backend/internal/repository"
-	mockrepo "github.com/tmphost/tmphost/backend/internal/repository/mocks"
-	"github.com/tmphost/tmphost/backend/internal/service/token"
-	mocktoken "github.com/tmphost/tmphost/backend/internal/service/token/mocks"
+	"github.com/tmphost/permahost/backend/internal/data/entity"
+	"github.com/tmphost/permahost/backend/internal/data/model"
+	"github.com/tmphost/permahost/backend/internal/repository"
+	mockrepo "github.com/tmphost/permahost/backend/internal/repository/mocks"
+	"github.com/tmphost/permahost/backend/internal/service/token"
+	mocktoken "github.com/tmphost/permahost/backend/internal/service/token/mocks"
 )
 
 const (
-	_issuer       = "https://tmphost.io"
+	_issuer       = "https://permahost.io"
 	_userID       = int64(42)
 	_pkceVerifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
 	_redirect     = "http://127.0.0.1:8123/callback"
@@ -208,7 +208,7 @@ func TestAuthorizeAndConsent(t *testing.T) {
 	t.Run("deny", func(t *testing.T) {
 		out, err := e.ctrl.Consent(ctx, &entity.ConsentRequest{UserID: _userID, Token: rs.Consent.Token})
 		require.NoError(t, err)
-		assert.Equal(t, _redirect+"?error=access_denied&iss=https%3A%2F%2Ftmphost.io&state=xyz", out.RedirectURL)
+		assert.Equal(t, _redirect+"?error=access_denied&iss=https%3A%2F%2Fpermahost.io&state=xyz", out.RedirectURL)
 	})
 
 	t.Run("someone else's consent", func(t *testing.T) {
@@ -473,7 +473,7 @@ func TestCLIClient(t *testing.T) {
 	rq.RedirectURI = "http://localhost:54321/callback"
 	rs, err := e.ctrl.Authorize(ctx, rq)
 	require.NoError(t, err)
-	assert.Equal(t, "tmphost CLI", rs.Consent.ClientName)
+	assert.Equal(t, "permahost CLI", rs.Consent.ClientName)
 	assert.True(t, rs.Consent.Verified)
 
 	for _, uri := range []string{"https://evil.example/callback", "http://127.0.0.1:1/other", "cursor://callback"} {

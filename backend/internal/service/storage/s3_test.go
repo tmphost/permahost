@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -22,8 +22,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/tmphost/tmphost/backend/internal/service/storage"
-	"github.com/tmphost/tmphost/backend/internal/service/storage/mocks"
+	"github.com/tmphost/permahost/backend/internal/service/storage"
+	"github.com/tmphost/permahost/backend/internal/service/storage/mocks"
 )
 
 var errBoom = errors.New("boom")

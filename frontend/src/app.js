@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -78,11 +78,11 @@ export const clickOutside = {
   },
 }
 
-export function createtmphostApp({ history, platform = 'web' } = {}) {
+export function createpermahostApp({ history, platform = 'web' } = {}) {
   const router = createRouter({ history, routes })
   router.beforeEach(createAuthGuard())
   router.afterEach((to) => {
-    document.title = to.meta.title ? `${to.meta.title} · tmphost.io` : 'tmphost.io'
+    document.title = to.meta.title ? `${to.meta.title} · permahost.io` : 'permahost.io'
   })
 
   const pinia = createPinia()

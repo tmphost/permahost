@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -36,7 +36,7 @@ func TestPath(t *testing.T) {
 	p, err = Path(envOf(nil))
 	userConfigDir = orig
 	require.NoError(t, err)
-	assert.Equal(t, filepath.Join("/home/u/.config", "tmphost", "config.json"), p)
+	assert.Equal(t, filepath.Join("/home/u/.config", "permahost", "config.json"), p)
 
 	failConfigDir(t)
 	_, err = Path(envOf(nil))

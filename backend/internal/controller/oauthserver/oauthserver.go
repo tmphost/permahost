@@ -1,14 +1,14 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
-// Package oauthserver is tmphost's OAuth 2.1 authorization server, which
+// Package oauthserver is permahost's OAuth 2.1 authorization server, which
 // MCP clients and the CLI use to get an access token for a user.
 //
 // Clients register dynamically (RFC 7591) as public clients. Nothing is
 // stored: the client ID is a signed token carrying the client's name and
 // redirect URIs, and the consent, code and tokens are signed tokens too.
-// The tmphost CLI needs no registration: it uses the fixed CLIClientID.
+// The permahost CLI needs no registration: it uses the fixed CLIClientID.
 // Every authorization uses PKCE with S256, and the user approves each
 // client on a consent page.
 package oauthserver
@@ -32,9 +32,9 @@ import (
 
 	"github.com/mustafaturan/monoflake"
 
-	"github.com/tmphost/tmphost/backend/internal/data/entity"
-	"github.com/tmphost/tmphost/backend/internal/repository"
-	"github.com/tmphost/tmphost/backend/internal/service/token"
+	"github.com/tmphost/permahost/backend/internal/data/entity"
+	"github.com/tmphost/permahost/backend/internal/repository"
+	"github.com/tmphost/permahost/backend/internal/service/token"
 )
 
 // The server's endpoints, below the issuer URL.
@@ -53,15 +53,15 @@ const (
 	// AuthMethodNone is the only token endpoint auth method: every client
 	// is public and proves itself with PKCE.
 	AuthMethodNone = "none"
-	// CLIClientID is the tmphost CLI's own client ID. It is public, like
+	// CLIClientID is the permahost CLI's own client ID. It is public, like
 	// every client, and may only redirect to a loopback address.
 	CLIClientID = "00000000001"
 )
 
-// _cliClient is the tmphost CLI. Its loopback redirect URIs match on any
+// _cliClient is the permahost CLI. Its loopback redirect URIs match on any
 // port.
 var _cliClient = token.OAuthClient{
-	Name:         "tmphost CLI",
+	Name:         "permahost CLI",
 	RedirectURIs: []string{"http://127.0.0.1/callback", "http://localhost/callback", "http://[::1]/callback"},
 }
 

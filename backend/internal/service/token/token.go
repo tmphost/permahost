@@ -1,9 +1,9 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
 // Package token issues and validates the signed JWTs used for browser
-// sessions, for OAuth state, and for tmphost's own OAuth server: client
+// sessions, for OAuth state, and for permahost's own OAuth server: client
 // IDs, consents, authorization codes, access and refresh tokens. All of
 // them are stateless; each kind has its own audience, so one can never
 // pass for another.

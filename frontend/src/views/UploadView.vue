@@ -1,5 +1,5 @@
 <!--
-  Copyright 2026 Contextual, Inc. https://tmphost.io
+  Copyright 2026 Contextual, Inc. https://permahost.io
   This notice may not be modified or removed.
   SPDX-License-Identifier: AGPL-3.0-only
 -->
@@ -240,7 +240,7 @@ onMounted(async () => {
       </div>
 
       <div class="mt-8 pt-5 border-t border-gray-100 dark:border-zinc-800 flex items-center justify-between text-[11px] font-bold text-gray-400 dark:text-zinc-500">
-        <span>&copy; {{ new Date().getFullYear() }} tmphost.io</span>
+        <span>&copy; {{ new Date().getFullYear() }} permahost.io</span>
         <router-link to="/login" class="hover:text-gray-900 dark:hover:text-zinc-100 transition-colors" data-test="upload-sign-in">
           Sign in for more
         </router-link>

@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -12,8 +12,8 @@ import (
 )
 
 // folderJSON uses the subdomain URL style; the CLI must use it as given.
-const folderJSON = `{"folder":{"id":"rs","expiresAt":"2026-10-18T12:30:00Z","url":"https://rs-u1.tmphost.test/"},` +
-	`"files":[{"path":"site/css/app.css","size":2048,"url":"https://rs-u1.tmphost.test/site/css/app.css"},{"path":"a.txt","size":3,"url":"https://rs-u1.tmphost.test/a.txt"}]}`
+const folderJSON = `{"folder":{"id":"rs","expiresAt":"2026-10-18T12:30:00Z","url":"https://rs-u1.permahost.test/"},` +
+	`"files":[{"path":"site/css/app.css","size":2048,"url":"https://rs-u1.permahost.test/site/css/app.css"},{"path":"a.txt","size":3,"url":"https://rs-u1.permahost.test/a.txt"}]}`
 
 func TestValidPath(t *testing.T) {
 	for _, p := range []string{"a.txt", "site/index.html", "a/b/c/d/e/f.txt", "ünï cödé.txt", strings.Repeat("x", 255)} {
@@ -57,16 +57,16 @@ func TestFileGet(t *testing.T) {
 
 	assert.Equal(t, 0, h.run("file", "get", "--id", "rs"))
 	assert.Equal(t, "FILE NAME  PATH      SIZE     URL\n"+
-		"app.css    site/css  2.0 KiB  https://rs-u1.tmphost.test/site/css/app.css\n"+
-		"a.txt                3 B      https://rs-u1.tmphost.test/a.txt\n\n"+
-		"id:      rs\nurl:     https://rs-u1.tmphost.test/\nexpires: "+formatTime(now.Add(30*60e9))+" (in 30m)\n", h.stdout.String())
+		"app.css    site/css  2.0 KiB  https://rs-u1.permahost.test/site/css/app.css\n"+
+		"a.txt                3 B      https://rs-u1.permahost.test/a.txt\n\n"+
+		"id:      rs\nurl:     https://rs-u1.permahost.test/\nexpires: "+formatTime(now.Add(30*60e9))+" (in 30m)\n", h.stdout.String())
 
 	assert.Equal(t, 0, h.run("file", "get", "--id", "rs", "--json"))
 	assert.Equal(t, map[string]any{
-		"id": "rs", "url": "https://rs-u1.tmphost.test/", "expiresAt": "2026-10-18T12:30:00Z",
+		"id": "rs", "url": "https://rs-u1.permahost.test/", "expiresAt": "2026-10-18T12:30:00Z",
 		"files": []any{
-			map[string]any{"fileName": "app.css", "path": "site/css", "size": float64(2048), "url": "https://rs-u1.tmphost.test/site/css/app.css"},
-			map[string]any{"fileName": "a.txt", "path": "", "size": float64(3), "url": "https://rs-u1.tmphost.test/a.txt"},
+			map[string]any{"fileName": "app.css", "path": "site/css", "size": float64(2048), "url": "https://rs-u1.permahost.test/site/css/app.css"},
+			map[string]any{"fileName": "a.txt", "path": "", "size": float64(3), "url": "https://rs-u1.permahost.test/a.txt"},
 		},
 	}, h.decode())
 
@@ -90,10 +90,10 @@ func TestFileURL(t *testing.T) {
 		args []string
 		want string
 	}{
-		{[]string{"--id", "rs"}, "https://rs-u1.tmphost.test/"},
-		{[]string{"--id", "rs", "a.txt"}, "https://rs-u1.tmphost.test/a.txt"},
-		{[]string{"--id", "rs", "--path", "/site/css/"}, "https://rs-u1.tmphost.test/site/css/"},
-		{[]string{"--id", "rs", "--path", "my site", "a#b?.html"}, "https://rs-u1.tmphost.test/my%20site/a%23b%3F.html"},
+		{[]string{"--id", "rs"}, "https://rs-u1.permahost.test/"},
+		{[]string{"--id", "rs", "a.txt"}, "https://rs-u1.permahost.test/a.txt"},
+		{[]string{"--id", "rs", "--path", "/site/css/"}, "https://rs-u1.permahost.test/site/css/"},
+		{[]string{"--id", "rs", "--path", "my site", "a#b?.html"}, "https://rs-u1.permahost.test/my%20site/a%23b%3F.html"},
 		{[]string{"--id", "ab", "--path", "x", "y.txt"}, "https://h.test/files/u1/ab/x/y.txt"},
 	} {
 		assert.Equal(t, 0, h.run(append([]string{"file", "url"}, tc.args...)...), tc.args)
@@ -102,7 +102,7 @@ func TestFileURL(t *testing.T) {
 
 	assert.Equal(t, 0, h.run("file", "url", "--id", "rs", "--path", "site", "a.txt", "--json"))
 	assert.Equal(t, map[string]any{
-		"id": "rs", "url": "https://rs-u1.tmphost.test/site/a.txt", "expiresAt": "2026-10-18T12:30:00Z",
+		"id": "rs", "url": "https://rs-u1.permahost.test/site/a.txt", "expiresAt": "2026-10-18T12:30:00Z",
 		"fileName": "a.txt", "path": "site",
 	}, h.decode())
 
@@ -119,9 +119,9 @@ func TestFileURL(t *testing.T) {
 
 func TestFileLs(t *testing.T) {
 	h := newHarness(t)
-	h.reply("GET /api/v1/folders", 200, `{"folders":[{"id":"rs","expiresAt":"2026-10-18T14:00:00Z","url":"https://rs-u1.tmphost.test/"},{"id":"a1","expiresAt":"2026-10-18T12:10:00Z","url":"https://h.test/files/u1/a1/"}]}`)
+	h.reply("GET /api/v1/folders", 200, `{"folders":[{"id":"rs","expiresAt":"2026-10-18T14:00:00Z","url":"https://rs-u1.permahost.test/"},{"id":"a1","expiresAt":"2026-10-18T12:10:00Z","url":"https://h.test/files/u1/a1/"}]}`)
 	assert.Equal(t, 0, h.run("file", "ls"))
-	assert.Equal(t, "ID  EXPIRES IN  URL\nrs  2h0m        https://rs-u1.tmphost.test/\na1  10m         https://h.test/files/u1/a1/\n", h.stdout.String())
+	assert.Equal(t, "ID  EXPIRES IN  URL\nrs  2h0m        https://rs-u1.permahost.test/\na1  10m         https://h.test/files/u1/a1/\n", h.stdout.String())
 
 	assert.Equal(t, 0, h.run("file", "ls", "--json"))
 	assert.Len(t, h.decode()["folders"], 2)

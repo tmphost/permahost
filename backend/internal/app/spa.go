@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -13,7 +13,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	"github.com/tmphost/tmphost/backend/internal/handler/api"
+	"github.com/tmphost/permahost/backend/internal/handler/api"
 )
 
 // _servableExts are the only file types served from the built frontend.
@@ -83,6 +83,6 @@ func injectBasePath(index []byte, basePath string) []byte {
 	index = bytes.ReplaceAll(index, []byte(`href="./`), append([]byte(`href="`), prefix...))
 	// json.Marshal escapes <, > and &, so the value cannot close the tag.
 	js, _ := json.Marshal(basePath)
-	script := []byte("<head><script>window.__TMPHOST_BASE_PATH__=" + string(js) + ";</script>")
+	script := []byte("<head><script>window.__PERMAHOST_BASE_PATH__=" + string(js) + ";</script>")
 	return bytes.Replace(index, []byte("<head>"), script, 1)
 }

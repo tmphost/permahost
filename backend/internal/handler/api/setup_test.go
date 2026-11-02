@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -18,9 +18,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	setupctrl "github.com/tmphost/tmphost/backend/internal/controller/setup"
-	"github.com/tmphost/tmphost/backend/internal/data/entity"
-	mapper "github.com/tmphost/tmphost/backend/internal/mapper/api"
+	setupctrl "github.com/tmphost/permahost/backend/internal/controller/setup"
+	"github.com/tmphost/permahost/backend/internal/data/entity"
+	mapper "github.com/tmphost/permahost/backend/internal/mapper/api"
 )
 
 func send(t *testing.T, app *fiber.App, method, target, body string, cookies ...*http.Cookie) (*http.Response, string) {

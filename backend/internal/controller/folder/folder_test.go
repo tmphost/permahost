@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -16,14 +16,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/tmphost/tmphost/backend/internal/data/entity"
-	"github.com/tmphost/tmphost/backend/internal/data/model"
-	"github.com/tmphost/tmphost/backend/internal/repository"
-	mockrepo "github.com/tmphost/tmphost/backend/internal/repository/mocks"
-	"github.com/tmphost/tmphost/backend/internal/service/idgen"
-	"github.com/tmphost/tmphost/backend/internal/service/quota"
-	"github.com/tmphost/tmphost/backend/internal/service/storage"
-	mockstorage "github.com/tmphost/tmphost/backend/internal/service/storage/mocks"
+	"github.com/tmphost/permahost/backend/internal/data/entity"
+	"github.com/tmphost/permahost/backend/internal/data/model"
+	"github.com/tmphost/permahost/backend/internal/repository"
+	mockrepo "github.com/tmphost/permahost/backend/internal/repository/mocks"
+	"github.com/tmphost/permahost/backend/internal/service/idgen"
+	"github.com/tmphost/permahost/backend/internal/service/quota"
+	"github.com/tmphost/permahost/backend/internal/service/storage"
+	mockstorage "github.com/tmphost/permahost/backend/internal/service/storage/mocks"
 )
 
 var (
@@ -58,7 +58,7 @@ func newEnv(t *testing.T) *env {
 		Anonymous: quota.New(quota.Params{Limit: AnonymousOps, Window: AnonymousWindow, Now: func() time.Time { return _now }}),
 		NewID:     func() int64 { return e.nextID },
 		Limits:    func() entity.FileSettings { return e.limits },
-		BaseURL:   "https://tmphost.io/base/",
+		BaseURL:   "https://permahost.io/base/",
 		Now:       func() time.Time { return _now },
 	})
 	return e
@@ -86,8 +86,8 @@ func TestFolderURLs_PathMode(t *testing.T) {
 	e.storage.EXPECT().List(gomock.Any(), "u7/000000000rs/").Return([]storage.Object{{Key: "u7/000000000rs/site/a b.html", Size: 1, ModTime: _now}}, nil)
 	rs, err := e.ctrl.GetFolder(context.Background(), &entity.GetFolderRequest{UserID: f.UserID, FolderID: f.ID})
 	require.NoError(t, err)
-	assert.Equal(t, "https://tmphost.io/base/files/7/000000000rs/", rs.Folder.URL)
-	assert.Equal(t, "https://tmphost.io/base/files/7/000000000rs/site/a%20b.html", rs.Files[0].URL)
+	assert.Equal(t, "https://permahost.io/base/files/7/000000000rs/", rs.Folder.URL)
+	assert.Equal(t, "https://permahost.io/base/files/7/000000000rs/site/a%20b.html", rs.Files[0].URL)
 }
 
 func TestCost(t *testing.T) {

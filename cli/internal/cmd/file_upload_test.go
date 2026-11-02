@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -18,7 +18,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tmphost/tmphost/cli/internal/client"
+	"github.com/tmphost/permahost/cli/internal/client"
 )
 
 // writeTree creates files (slash paths relative to root) with their contents.
@@ -158,10 +158,10 @@ func newUploadHarness(t *testing.T) (*harness, *fakeUploads) {
 		f.ttl = in.TTLMinutes
 		exp := now.Add(time.Duration(in.TTLMinutes) * time.Minute).Format(time.RFC3339)
 		w.WriteHeader(201)
-		fmt.Fprintf(w, `{"folder":{"id":"rs","expiresAt":%q,"url":"https://rs-u1.tmphost.test/"}}`, exp)
+		fmt.Fprintf(w, `{"folder":{"id":"rs","expiresAt":%q,"url":"https://rs-u1.permahost.test/"}}`, exp)
 	})
-	h.reply("GET /api/v1/folders/ab", 200, `{"folder":{"id":"ab","expiresAt":"2026-10-18T12:45:00Z","url":"https://ab-u1.tmphost.test/"},"files":[]}`)
-	h.reply("GET /api/v1/folders/dd", 200, `{"folder":{"id":"dd","expiresAt":"2026-10-18T11:00:00Z","url":"https://dd-u1.tmphost.test/"},"files":[]}`)
+	h.reply("GET /api/v1/folders/ab", 200, `{"folder":{"id":"ab","expiresAt":"2026-10-18T12:45:00Z","url":"https://ab-u1.permahost.test/"},"files":[]}`)
+	h.reply("GET /api/v1/folders/dd", 200, `{"folder":{"id":"dd","expiresAt":"2026-10-18T11:00:00Z","url":"https://dd-u1.permahost.test/"},"files":[]}`)
 	h.reply("GET /api/v1/folders/nope", 404, `{"error":"folder not found"}`)
 	h.mux.HandleFunc("PUT /api/v1/folders/{id}/files/{path...}", func(w http.ResponseWriter, r *http.Request) {
 		p := r.PathValue("path")
@@ -172,7 +172,7 @@ func newUploadHarness(t *testing.T) (*harness, *fakeUploads) {
 		}
 		b, _ := io.ReadAll(r.Body)
 		f.puts[r.PathValue("id")+"/"+p] = string(b)
-		fmt.Fprintf(w, `{"file":{"path":%q,"size":%d,"url":"https://%s-u1.tmphost.test/%s"},"creditsSpent":1}`, p, len(b), r.PathValue("id"), p)
+		fmt.Fprintf(w, `{"file":{"path":%q,"size":%d,"url":"https://%s-u1.permahost.test/%s"},"creditsSpent":1}`, p, len(b), r.PathValue("id"), p)
 	})
 	return h, f
 }
@@ -187,15 +187,15 @@ func TestUpload_newFolder(t *testing.T) {
 	assert.Equal(t, map[string]string{"rs/site/index.html": "<h1>", "rs/site/my page.html": "x"}, f.puts)
 	exp := now.Add(30 * time.Minute)
 	assert.Equal(t, "Uploading 2 files (cost: 2 credits)\n"+
-		"https://rs-u1.tmphost.test/site/index.html\nhttps://rs-u1.tmphost.test/site/my page.html\n\n"+
-		"id:      rs\nurl:     https://rs-u1.tmphost.test/\nexpires: "+formatTime(exp)+" (in 30m)\n", h.stdout.String())
+		"https://rs-u1.permahost.test/site/index.html\nhttps://rs-u1.permahost.test/site/my page.html\n\n"+
+		"id:      rs\nurl:     https://rs-u1.permahost.test/\nexpires: "+formatTime(exp)+" (in 30m)\n", h.stdout.String())
 
 	assert.Equal(t, 0, h.run("file", "upload", filepath.Join(root, "site")+"/", "--path", "/www/", "--json"), h.stderr.String())
 	assert.Equal(t, map[string]any{
-		"id": "rs", "url": "https://rs-u1.tmphost.test/", "expiresAt": "2026-10-18T12:30:00Z", "creditsSpent": float64(2),
+		"id": "rs", "url": "https://rs-u1.permahost.test/", "expiresAt": "2026-10-18T12:30:00Z", "creditsSpent": float64(2),
 		"files": []any{
-			map[string]any{"fileName": "index.html", "path": "www", "size": float64(4), "url": "https://rs-u1.tmphost.test/www/index.html"},
-			map[string]any{"fileName": "my page.html", "path": "www", "size": float64(1), "url": "https://rs-u1.tmphost.test/www/my page.html"},
+			map[string]any{"fileName": "index.html", "path": "www", "size": float64(4), "url": "https://rs-u1.permahost.test/www/index.html"},
+			map[string]any{"fileName": "my page.html", "path": "www", "size": float64(1), "url": "https://rs-u1.permahost.test/www/my page.html"},
 		},
 	}, h.decode())
 }
@@ -210,7 +210,7 @@ func TestUpload_singleFileJSON(t *testing.T) {
 	assert.Equal(t, map[string]string{"rs/logs/x/today.txt": "abc"}, f.puts)
 	v := h.decode()
 	assert.Equal(t, "rs", v["id"])
-	assert.Equal(t, "https://rs-u1.tmphost.test/logs/x/today.txt", v["url"])
+	assert.Equal(t, "https://rs-u1.permahost.test/logs/x/today.txt", v["url"])
 	assert.Equal(t, "today.txt", v["fileName"])
 	assert.Equal(t, "logs/x", v["path"])
 	assert.Equal(t, float64(3), v["size"])
@@ -285,7 +285,7 @@ func TestUpload_apiErrors(t *testing.T) {
 	h.reply("GET /api/v1/limits", 200, limitsJSON)
 	h.reply("GET /api/v1/users/me", 401, `{"error":"invalid token"}`)
 	assert.Equal(t, 1, h.run("file", "upload", a))
-	assert.Contains(t, h.stderr.String(), "tmphost login")
+	assert.Contains(t, h.stderr.String(), "permahost login")
 
 	h = newHarness(t)
 	h.reply("GET /api/v1/limits", 200, limitsJSON)
@@ -302,7 +302,7 @@ func TestUpload_partialFailure(t *testing.T) {
 	writeTree(t, root, map[string]string{"site/a.txt": "a", "site/b.txt": "b", "site/c.txt": "c"})
 
 	assert.Equal(t, 1, h.run("file", "upload", filepath.Join(root, "site")))
-	assert.Equal(t, "Uploading 3 files (cost: 3 credits)\nhttps://rs-u1.tmphost.test/site/a.txt\n"+
+	assert.Equal(t, "Uploading 3 files (cost: 3 credits)\nhttps://rs-u1.permahost.test/site/a.txt\n"+
 		"Uploaded 1 of 3 files to folder rs before the error.\n", h.stdout.String())
 	assert.Equal(t, "error: upload site/b.txt: not enough credits\n", h.stderr.String())
 	assert.Equal(t, map[string]string{"rs/site/a.txt": "a"}, f.puts)

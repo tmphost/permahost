@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -13,18 +13,18 @@ import (
 )
 
 func TestMain_exitCode(t *testing.T) {
-	t.Setenv("TMPHOSTIO_CONFIG", filepath.Join(t.TempDir(), "config.json"))
+	t.Setenv("PERMAHOSTIO_CONFIG", filepath.Join(t.TempDir(), "config.json"))
 	origArgs, origExit := os.Args, exit
 	t.Cleanup(func() { os.Args, exit = origArgs, origExit })
 
 	var code int
 	exit = func(c int) { code = c }
 
-	os.Args = []string{"tmphost", "logout"}
+	os.Args = []string{"permahost", "logout"}
 	main()
 	assert.Equal(t, 0, code)
 
-	os.Args = []string{"tmphost", "no-such-command"}
+	os.Args = []string{"permahost", "no-such-command"}
 	main()
 	assert.Equal(t, 1, code)
 }

@@ -1,8 +1,8 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
-// Package client is a typed client for the tmphost REST API (/api/v1).
+// Package client is a typed client for the permahost REST API (/api/v1).
 package client
 
 import (
@@ -85,14 +85,14 @@ type TokenSource interface {
 	Refresh(ctx context.Context) (string, error)
 }
 
-// Client talks to one tmphost server as one signed-in user.
+// Client talks to one permahost server as one signed-in user.
 type Client struct {
 	baseURL string
 	tokens  TokenSource
 	http    *http.Client
 }
 
-// New returns a client for server (e.g. "https://tmphost.io").
+// New returns a client for server (e.g. "https://permahost.io").
 func New(server string, tokens TokenSource) *Client {
 	// No client timeout: large uploads on slow links legitimately take long,
 	// and callers bound requests with their context instead.

@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -13,12 +13,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/tmphost/tmphost/backend/internal/data/entity"
-	"github.com/tmphost/tmphost/backend/internal/data/model"
-	mappermodel "github.com/tmphost/tmphost/backend/internal/mapper/model"
-	"github.com/tmphost/tmphost/backend/internal/repository"
-	mockrepo "github.com/tmphost/tmphost/backend/internal/repository/mocks"
-	mocktoken "github.com/tmphost/tmphost/backend/internal/service/token/mocks"
+	"github.com/tmphost/permahost/backend/internal/data/entity"
+	"github.com/tmphost/permahost/backend/internal/data/model"
+	mappermodel "github.com/tmphost/permahost/backend/internal/mapper/model"
+	"github.com/tmphost/permahost/backend/internal/repository"
+	mockrepo "github.com/tmphost/permahost/backend/internal/repository/mocks"
+	mocktoken "github.com/tmphost/permahost/backend/internal/service/token/mocks"
 )
 
 var errBoom = errors.New("boom")
@@ -30,15 +30,15 @@ func defaults() entity.Settings {
 		Credits: entity.CreditSettings{MonthlyGrant: 250},
 		Database: entity.DatabaseSettings{
 			Driver:   DriverSQLite,
-			SQLite:   entity.SQLiteSettings{DSN: "./_storage/tmphost.db"},
-			Postgres: entity.PostgresSettings{DSN: "postgres://postgres:pgpass@localhost:5432/tmphost?sslmode=disable"},
+			SQLite:   entity.SQLiteSettings{DSN: "./_storage/permahost.db"},
+			Postgres: entity.PostgresSettings{DSN: "postgres://postgres:pgpass@localhost:5432/permahost?sslmode=disable"},
 		},
 		Storage: entity.StorageSettings{
 			Driver: StorageLocal,
 			Local:  entity.LocalStorageSettings{Path: "./_storage/files"},
 			S3:     entity.S3Settings{SecretAccessKey: "s3secret"},
 		},
-		Files: entity.FileSettings{MaxTTLMinutes: 432000, MaxUploadMB: 16, AnonymousMaxTTLMinutes: 10, PublicDomain: "tmphost.io"},
+		Files: entity.FileSettings{MaxTTLMinutes: 432000, MaxUploadMB: 16, AnonymousMaxTTLMinutes: 10, PublicDomain: "permahost.io"},
 		Auth: entity.AuthSettings{
 			Google: entity.OAuthClientSettings{ClientID: "g", ClientSecret: "gsecret"},
 		},
@@ -100,7 +100,7 @@ func TestNew(t *testing.T) {
 		ctrl, err := New(Params{Repository: repo, RootAccessToken: "x", Defaults: defaults()})
 		require.NoError(t, err)
 		assert.Equal(t, defaults(), ctrl.Current())
-		assert.Equal(t, entity.FileSettings{MaxTTLMinutes: 432000, MaxUploadMB: 16, AnonymousMaxTTLMinutes: 10, PublicDomain: "tmphost.io"}, ctrl.FileLimits())
+		assert.Equal(t, entity.FileSettings{MaxTTLMinutes: 432000, MaxUploadMB: 16, AnonymousMaxTTLMinutes: 10, PublicDomain: "permahost.io"}, ctrl.FileLimits())
 	})
 
 	t.Run("load error", func(t *testing.T) {
@@ -175,7 +175,7 @@ func TestUpdateSettings_CreditsApplyLive(t *testing.T) {
 
 	e.repo.EXPECT().SaveSettings(gomock.Any()).DoAndReturn(func(m model.Settings) error {
 		assert.Equal(t, 400, m.Credits.MonthlyGrant)
-		assert.Equal(t, "postgres://postgres:pgpass@localhost:5432/tmphost?sslmode=disable", m.Database.Postgres.DSN)
+		assert.Equal(t, "postgres://postgres:pgpass@localhost:5432/permahost?sslmode=disable", m.Database.Postgres.DSN)
 		assert.Equal(t, "s3secret", m.Storage.S3.SecretAccessKey)
 		assert.Equal(t, "gsecret", m.Auth.Google.ClientSecret)
 		return nil
@@ -256,9 +256,9 @@ func TestUpdateSettings_Validation(t *testing.T) {
 		"subdomains without domain": func(s *entity.Settings) {
 			s.Files.Subdomains, s.Files.PublicDomain = true, " "
 		},
-		"domain with scheme":       func(s *entity.Settings) { s.Files.PublicDomain = "https://tmphost.io" },
-		"domain with path":         func(s *entity.Settings) { s.Files.PublicDomain = "tmphost.io/x" },
-		"domain with bad label":    func(s *entity.Settings) { s.Files.PublicDomain = "-x.tmphost.io" },
+		"domain with scheme":       func(s *entity.Settings) { s.Files.PublicDomain = "https://permahost.io" },
+		"domain with path":         func(s *entity.Settings) { s.Files.PublicDomain = "permahost.io/x" },
+		"domain with bad label":    func(s *entity.Settings) { s.Files.PublicDomain = "-x.permahost.io" },
 		"github id without secret": func(s *entity.Settings) { s.Auth.GitHub = entity.OAuthClientSettings{ClientID: "h"} },
 	}
 	for name, mutate := range cases {

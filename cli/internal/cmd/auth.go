@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -10,16 +10,16 @@ import (
 	"io"
 
 	"github.com/spf13/cobra"
-	"github.com/tmphost/tmphost/cli/internal/client"
-	"github.com/tmphost/tmphost/cli/internal/config"
-	"github.com/tmphost/tmphost/cli/internal/oauth"
+	"github.com/tmphost/permahost/cli/internal/client"
+	"github.com/tmphost/permahost/cli/internal/config"
+	"github.com/tmphost/permahost/cli/internal/oauth"
 )
 
 func newLoginCmd(a *app) *cobra.Command {
 	return &cobra.Command{
 		Use:   "login [--server URL]",
 		Short: "Sign in with the browser",
-		Long: `Sign in to a tmphost server (default ` + config.DefaultServer + `) in the browser.
+		Long: `Sign in to a permahost server (default ` + config.DefaultServer + `) in the browser.
 
 The CLI opens the server's sign-in page and waits up to 5 minutes for you to
 approve it. The resulting tokens are saved in the config file, readable only

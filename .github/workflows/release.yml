@@ -1,4 +1,4 @@
-# Copyright 2026 Contextual, Inc. https://tmphost.io
+# Copyright 2026 Contextual, Inc. https://permahost.io
 # This notice may not be modified or removed.
 # SPDX-License-Identifier: AGPL-3.0-only
 
@@ -36,16 +36,16 @@ jobs:
 
       - name: Build
         # Asset names are what install.sh and install.ps1 download:
-        # tmphost_<os>_<arch>.tar.gz, or .zip on Windows, plus checksums.txt.
+        # permahost_<os>_<arch>.tar.gz, or .zip on Windows, plus checksums.txt.
         run: |
           set -eu
           mkdir -p ../dist
           for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64; do
             os=${target%/*}
             arch=${target#*/}
-            name="tmphost_${os}_${arch}"
-            bin=tmphost
-            [ "$os" = windows ] && bin=tmphost.exe
+            name="permahost_${os}_${arch}"
+            bin=permahost
+            [ "$os" = windows ] && bin=permahost.exe
             work="../dist/$name"
             mkdir -p "$work"
             CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -trimpath \

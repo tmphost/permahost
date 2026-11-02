@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -10,15 +10,15 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/tmphost/tmphost/backend/internal/data/entity"
-	"github.com/tmphost/tmphost/backend/internal/data/model"
+	"github.com/tmphost/permahost/backend/internal/data/entity"
+	"github.com/tmphost/permahost/backend/internal/data/model"
 )
 
 func TestSettingsRoundTrip(t *testing.T) {
 	e := entity.Settings{
-		Domain: entity.DomainSettings{AppURL: "https://app.tmphost.io", SitesDomain: "tmphost.io"},
+		Domain: entity.DomainSettings{AppURL: "https://app.permahost.io", SitesDomain: "permahost.io"},
 		TLS: entity.TLSSettings{
-			Enabled: true, Port: 443, Email: "ops@tmphost.io",
+			Enabled: true, Port: 443, Email: "ops@permahost.io",
 			Lego: entity.LegoSettings{Enabled: true, CloudflareAPIToken: "cf"},
 		},
 		Credits: entity.CreditSettings{MonthlyGrant: 300},

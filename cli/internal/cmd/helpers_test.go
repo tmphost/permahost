@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"github.com/tmphost/tmphost/cli/internal/config"
+	"github.com/tmphost/permahost/cli/internal/config"
 )
 
 // now is the fixed clock every command test runs at.
@@ -53,7 +53,7 @@ func newHarness(t *testing.T) *harness {
 		h.mux.ServeHTTP(w, r)
 	}))
 	t.Cleanup(h.srv.Close)
-	h.env = map[string]string{"TMPHOSTIO_CONFIG": filepath.Join(t.TempDir(), "config.json")}
+	h.env = map[string]string{"PERMAHOSTIO_CONFIG": filepath.Join(t.TempDir(), "config.json")}
 	h.saveConfig(config.Config{Server: h.srv.URL, AccessToken: "at", RefreshToken: "rt", Expiry: now.Add(time.Hour)})
 	return h
 }

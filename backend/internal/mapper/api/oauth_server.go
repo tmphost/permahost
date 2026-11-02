@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -9,9 +9,9 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	oauthctrl "github.com/tmphost/tmphost/backend/internal/controller/oauthserver"
-	"github.com/tmphost/tmphost/backend/internal/data/entity"
-	"github.com/tmphost/tmphost/backend/internal/data/view"
+	oauthctrl "github.com/tmphost/permahost/backend/internal/controller/oauthserver"
+	"github.com/tmphost/permahost/backend/internal/data/entity"
+	"github.com/tmphost/permahost/backend/internal/data/view"
 )
 
 // ConsentDecisionAllow is the consent form's decision to grant access.
@@ -42,7 +42,7 @@ func FromGetProtectedResourceMetadataResponseEntityToHTTPResponse(rs *entity.Get
 		Resource:               rs.Resource,
 		AuthorizationServers:   rs.AuthorizationServers,
 		BearerMethodsSupported: []string{"header"},
-		ResourceName:           "tmphost.io",
+		ResourceName:           "permahost.io",
 	})
 }
 

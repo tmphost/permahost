@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -11,8 +11,8 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	oauthctrl "github.com/tmphost/tmphost/backend/internal/controller/oauthserver"
-	mapper "github.com/tmphost/tmphost/backend/internal/mapper/api"
+	oauthctrl "github.com/tmphost/permahost/backend/internal/controller/oauthserver"
+	mapper "github.com/tmphost/permahost/backend/internal/mapper/api"
 )
 
 // The well-known metadata paths (RFC 8414, RFC 9728).
@@ -25,7 +25,7 @@ const (
 // frames around it, inline styles only.
 var _pageCSP = "default-src 'none'; script-src " + _themeScriptHash + "; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; frame-ancestors 'none'"
 
-// OAuth is tmphost's own OAuth server, for MCP clients and the CLI.
+// OAuth is permahost's own OAuth server, for MCP clients and the CLI.
 type OAuth struct {
 	controller oauthctrl.Controller
 	basePath   string
@@ -72,9 +72,9 @@ func (h *OAuth) Authorize(c fiber.Ctx) error {
 	case errors.Is(err, oauthctrl.ErrLoginRequired):
 		return h.login(c)
 	case errors.Is(err, oauthctrl.ErrInvalidClient):
-		return h.errorPage(c, fiber.StatusBadRequest, "This app is not registered with tmphost.io. Try connecting again from the app.")
+		return h.errorPage(c, fiber.StatusBadRequest, "This app is not registered with permahost.io. Try connecting again from the app.")
 	case errors.Is(err, oauthctrl.ErrInvalidRedirectURI):
-		return h.errorPage(c, fiber.StatusBadRequest, "This app asked to send you somewhere it did not register, so tmphost.io stopped here.")
+		return h.errorPage(c, fiber.StatusBadRequest, "This app asked to send you somewhere it did not register, so permahost.io stopped here.")
 	default:
 		return h.errorPage(c, fiber.StatusInternalServerError, "Something went wrong. Try again in a moment.")
 	}

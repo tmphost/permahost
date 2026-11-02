@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -12,15 +12,15 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/mustafaturan/monoflake"
 
-	"github.com/tmphost/tmphost/backend/internal/data/entity"
-	"github.com/tmphost/tmphost/backend/internal/data/view"
+	"github.com/tmphost/permahost/backend/internal/data/entity"
+	"github.com/tmphost/permahost/backend/internal/data/view"
 )
 
 const (
 	// SessionCookie holds the signed session token.
-	SessionCookie = "tmphost_session"
+	SessionCookie = "permahost_session"
 	// StateCookie pins the OAuth state to the browser that started login.
-	StateCookie = "tmphost_oauth_state"
+	StateCookie = "permahost_oauth_state"
 	// LocalUserID is the fiber.Ctx local the auth middleware stores the
 	// authenticated user ID under.
 	LocalUserID = "userID"

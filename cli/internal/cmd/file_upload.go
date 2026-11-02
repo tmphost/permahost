@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -18,7 +18,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/tmphost/tmphost/cli/internal/client"
+	"github.com/tmphost/permahost/cli/internal/client"
 )
 
 func newFileUploadCmd(a *app) *cobra.Command {
@@ -41,10 +41,10 @@ path is replaced and keeps its URL, so re-uploading updates it.
 
 Each file costs one credit per started MB of its size per started billing
 block of the folder's remaining lifetime; the total is checked against your credits up front.`,
-		Example: `  tmphost file upload report.pdf --ttl 2h
-  tmphost file upload site/                # index.html, css/app.css, ...
-  tmphost file upload site --id rs         # site/index.html, ... in folder rs
-  tmphost file upload out.txt --path logs --name today.txt`,
+		Example: `  permahost file upload report.pdf --ttl 2h
+  permahost file upload site/                # index.html, css/app.css, ...
+  permahost file upload site --id rs         # site/index.html, ... in folder rs
+  permahost file upload out.txt --path logs --name today.txt`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			o.ttlSet = cmd.Flags().Changed("ttl")

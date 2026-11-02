@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -36,7 +36,7 @@ describe('LoginView', () => {
   it('shows the brand and a spinner while loading', async () => {
     fetchAuthConfig.mockReturnValue(new Promise(() => {}))
     const wrapper = await mountAt('/login')
-    expect(wrapper.text()).toContain('tmphost.io')
+    expect(wrapper.text()).toContain('permahost.io')
     expect(wrapper.find('[data-test="brand-logo"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="login-loading"]').exists()).toBe(true)
   })

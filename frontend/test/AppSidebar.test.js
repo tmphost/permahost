@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -35,7 +35,7 @@ async function mountSidebar(props = {}) {
 describe('AppSidebar', () => {
   it('shows brand, nav, credits and the user', async () => {
     const wrapper = await mountSidebar()
-    expect(wrapper.find('[data-test="sidebar-brand"]').text()).toBe('tmphost.io')
+    expect(wrapper.find('[data-test="sidebar-brand"]').text()).toBe('permahost.io')
     expect(wrapper.text()).not.toContain('Home')
     expect(wrapper.findAll('a').find((a) => a.text() === 'Files').attributes('href')).toBe('/')
     expect(wrapper.find('a[href="/connect"]').text()).toBe('Connect')

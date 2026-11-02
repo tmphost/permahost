@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -27,9 +27,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	mappermodel "github.com/tmphost/tmphost/backend/internal/mapper/model"
-	"github.com/tmphost/tmphost/backend/internal/repository"
-	"github.com/tmphost/tmphost/backend/internal/service/encryption"
+	mappermodel "github.com/tmphost/permahost/backend/internal/mapper/model"
+	"github.com/tmphost/permahost/backend/internal/repository"
+	"github.com/tmphost/permahost/backend/internal/service/encryption"
 )
 
 func selfSigned(t *testing.T, name string) (certPEM, keyPEM string, pool *x509.CertPool) {
@@ -85,7 +85,7 @@ func tlsConfig(t *testing.T, certPEM, keyPEM string) Config {
 	require.NoError(t, os.MkdirAll(dir, 0o700))
 	plain, err := json.Marshal(map[string]string{"certificate": certPEM, "privateKey": keyPEM})
 	require.NoError(t, err)
-	sealed := enc.Encrypt(plain, []byte("tmphost.io/tls/v1/app.example.com"))
+	sealed := enc.Encrypt(plain, []byte("permahost.io/tls/v1/app.example.com"))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "app.example.com.cert"), sealed, 0o600))
 	return cfg
 }

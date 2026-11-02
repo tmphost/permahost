@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -19,12 +19,12 @@ import { useToasts } from '../src/composables/useToasts'
 function state(overrides = {}) {
   return {
     settings: {
-      domain: { appUrl: 'https://app.tmphost.io/', sitesDomain: 'tmphost.io' },
+      domain: { appUrl: 'https://app.permahost.io/', sitesDomain: 'permahost.io' },
       tls: { enabled: false, port: 443, email: '', lego: { enabled: false, cloudflareApiToken: '' } },
       credits: { monthlyGrant: 250 },
       database: {
         driver: 'sqlite',
-        sqlite: { dsn: './_storage/tmphost.db' },
+        sqlite: { dsn: './_storage/permahost.db' },
         postgres: { dsn: '' },
       },
       storage: {
@@ -210,7 +210,7 @@ describe('SetupView', () => {
     expect(help).not.toContain('<userId>')
     expect(wrapper.find('[data-test="setup-subdomains"]').text()).toContain('wildcard DNS')
     const domain = wrapper.find('[data-test="setup-public-domain"]')
-    expect(domain.attributes('placeholder')).toBe('tmphost.io')
+    expect(domain.attributes('placeholder')).toBe('permahost.io')
     expect(wrapper.find('label[for="public-domain"]').text()).toBe('Public domain')
     await domain.setValue(' files.example.com ')
     await wrapper.find('[data-test="setup-form"]').trigger('submit')
@@ -303,7 +303,7 @@ describe('SetupView', () => {
     expect(tls.find('.opacity-50').exists()).toBe(true)
     expect(wrapper.find('#tls-cert').exists()).toBe(false)
     expect(wrapper.find('#lego-token').attributes('placeholder')).toBe('Optional')
-    expect(tls.text()).toContain('*.tmphost.io')
+    expect(tls.text()).toContain('*.permahost.io')
 
     await wrapper.find('#app-url').setValue('https://example.org')
     await wrapper.find('#sites-domain').setValue('')
@@ -338,7 +338,7 @@ describe('SetupView', () => {
     const wrapper = await mountView()
 
     expect(wrapper.find('#cp-0-secret').attributes('placeholder')).toContain('saved')
-    expect(wrapper.find('[data-test="cp-0-callback"]').text()).toContain('https://app.tmphost.io/auth/my-okta/callback')
+    expect(wrapper.find('[data-test="cp-0-callback"]').text()).toContain('https://app.permahost.io/auth/my-okta/callback')
     expect(wrapper.find('[data-test="cp-0-preview"]').attributes('src')).toBe(`data:image/svg+xml;charset=utf-8,${encodeURIComponent('<svg></svg>')}`)
 
     await wrapper.find('[data-test="setup-add-provider"]').trigger('click')

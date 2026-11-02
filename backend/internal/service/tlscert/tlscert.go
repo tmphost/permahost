@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -41,7 +41,7 @@ import (
 	"github.com/go-acme/lego/v4/registration"
 	"golang.org/x/sync/singleflight"
 
-	"github.com/tmphost/tmphost/backend/internal/service/encryption"
+	"github.com/tmphost/permahost/backend/internal/service/encryption"
 )
 
 const (
@@ -418,7 +418,7 @@ func cacheFile(name string) string {
 // cacheAAD binds a cache file to its name, so one name's certificate cannot
 // be swapped in for another's.
 func cacheAAD(name string) []byte {
-	return []byte("tmphost.io/tls/v1/" + name)
+	return []byte("permahost.io/tls/v1/" + name)
 }
 
 // loadCache serves every cached certificate it can open; the others are

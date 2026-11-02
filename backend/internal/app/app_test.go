@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -26,12 +26,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/tmphost/tmphost/backend/internal/controller/credit"
-	"github.com/tmphost/tmphost/backend/internal/data/entity"
-	"github.com/tmphost/tmphost/backend/internal/data/model"
-	"github.com/tmphost/tmphost/backend/internal/service/encryption"
-	"github.com/tmphost/tmphost/backend/internal/service/idgen"
-	"github.com/tmphost/tmphost/backend/internal/service/token"
+	"github.com/tmphost/permahost/backend/internal/controller/credit"
+	"github.com/tmphost/permahost/backend/internal/data/entity"
+	"github.com/tmphost/permahost/backend/internal/data/model"
+	"github.com/tmphost/permahost/backend/internal/service/encryption"
+	"github.com/tmphost/permahost/backend/internal/service/idgen"
+	"github.com/tmphost/permahost/backend/internal/service/token"
 )
 
 func testConfig(t *testing.T) Config {
@@ -49,7 +49,7 @@ func testConfig(t *testing.T) Config {
 			GitHub:          OAuthAppConfig{ClientID: "h", ClientSecret: "hs"},
 		},
 		SQLite: SQLiteConfig{
-			Enabled: true, DSN: filepath.Join(t.TempDir(), "nested", "tmphost.db"),
+			Enabled: true, DSN: filepath.Join(t.TempDir(), "nested", "permahost.db"),
 			PoolConfig: PoolConfig{MaxIdleConns: 2, MaxOpenConns: 4, MaxConnLifetime: time.Hour},
 		},
 		Storage: StorageConfig{Driver: "local", LocalPath: filepath.Join(t.TempDir(), "files")},
@@ -249,7 +249,7 @@ func TestSettingsFromConfig(t *testing.T) {
 	cfg.S3 = S3Config{Endpoint: "e", Region: "r", Bucket: "b", AccessKeyID: "a", SecretAccessKey: "s", UsePathStyle: true}
 	cfg.Storage = StorageConfig{Driver: "s3", LocalPath: "/files"}
 	cfg.Files = FilesConfig{MaxTTLMinutes: 60, MaxUploadMB: 2, AnonymousMaxTTLMinutes: 15, Subdomains: true, PublicDomain: "tmp.site"}
-	cfg.App.SitesDomain = "tmphost.io"
+	cfg.App.SitesDomain = "permahost.io"
 	cfg.TLS = TLSConfig{Enabled: true, Email: "e@x.io", Lego: LegoConfig{Enabled: true, CloudflareAPIToken: "cf"}}
 	s := settingsFromConfig(cfg)
 	assert.Equal(t, 443, s.TLS.Port, "default TLS port")
@@ -260,9 +260,9 @@ func TestSettingsFromConfig(t *testing.T) {
 	assert.Equal(t, "local", defaults.Storage.Driver)
 	assert.Equal(t, "./_storage/files", defaults.Storage.Local.Path)
 	assert.Equal(t, entity.FileSettings{MaxTTLMinutes: 7200 * 60, MaxUploadMB: 16, AnonymousMaxTTLMinutes: 10}, defaults.Files)
-	withBase := settingsFromConfig(Config{App: AppConfig{BaseURL: "https://TmpHost.io:8443/x"}})
-	assert.Equal(t, "tmphost.io:8443", withBase.Files.PublicDomain, "defaults to the base URL host")
-	withSites := settingsFromConfig(Config{App: AppConfig{BaseURL: "https://app.tmphost.io", SitesDomain: "Sites.io"}})
+	withBase := settingsFromConfig(Config{App: AppConfig{BaseURL: "https://PermaHost.io:8443/x"}})
+	assert.Equal(t, "permahost.io:8443", withBase.Files.PublicDomain, "defaults to the base URL host")
+	withSites := settingsFromConfig(Config{App: AppConfig{BaseURL: "https://app.permahost.io", SitesDomain: "Sites.io"}})
 	assert.Equal(t, "sites.io", withSites.Files.PublicDomain, "defaults to the sites domain")
 
 	round := applySettings(Config{}, s)
@@ -275,7 +275,7 @@ func TestSettingsFromConfig(t *testing.T) {
 	assert.Equal(t, cfg.Auth.Google, round.Auth.Google)
 	assert.Equal(t, 42, round.Credits.MonthlyGrant)
 	assert.Equal(t, cfg.App.BaseURL, round.App.BaseURL)
-	assert.Equal(t, "tmphost.io", round.App.SitesDomain)
+	assert.Equal(t, "permahost.io", round.App.SitesDomain)
 	cfg.TLS.Port = 443
 	assert.Equal(t, cfg.TLS, round.TLS)
 
@@ -375,7 +375,7 @@ func accessToken(t *testing.T, a *App, clientID string) string {
 		"code_challenge": {base64.RawURLEncoding.EncodeToString(sum[:])}, "code_challenge_method": {"S256"},
 	}.Encode()
 	req := httptest.NewRequest(http.MethodGet, authorize, nil)
-	req.AddCookie(&http.Cookie{Name: "tmphost_session", Value: session})
+	req.AddCookie(&http.Cookie{Name: "permahost_session", Value: session})
 	res, err := a.Handler().Test(req)
 	require.NoError(t, err)
 	page, _ := io.ReadAll(res.Body)
@@ -386,7 +386,7 @@ func accessToken(t *testing.T, a *App, clientID string) string {
 
 	req = httptest.NewRequest(http.MethodPost, authorize, strings.NewReader(url.Values{"consent": {consent[1]}, "decision": {"allow"}}.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.AddCookie(&http.Cookie{Name: "tmphost_session", Value: session})
+	req.AddCookie(&http.Cookie{Name: "permahost_session", Value: session})
 	res, err = a.Handler().Test(req)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusSeeOther, res.StatusCode)

@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -47,7 +47,7 @@ func TestSPAHandler(t *testing.T) {
 			assert.Equal(t, http.StatusOK, res.StatusCode, target)
 			assert.Equal(t, "no-cache", res.Header.Get(fiber.HeaderCacheControl))
 			assert.Contains(t, res.Header.Get(fiber.HeaderContentType), "text/html")
-			assert.Contains(t, body, `<head><script>window.__TMPHOST_BASE_PATH__="/base";</script>`)
+			assert.Contains(t, body, `<head><script>window.__PERMAHOST_BASE_PATH__="/base";</script>`)
 			assert.Contains(t, body, `src="/base/assets/index-abc.js"`)
 			assert.Contains(t, body, `href="/base/favicon.svg"`)
 		}

@@ -1,8 +1,8 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
-// Package oauth signs the CLI in to a tmphost server with OAuth 2.1: the
+// Package oauth signs the CLI in to a permahost server with OAuth 2.1: the
 // authorization code flow with PKCE and a loopback redirect, plus refresh.
 package oauth
 
@@ -126,7 +126,7 @@ type LoginOptions struct {
 }
 
 // callbackPage is what the browser shows once the CLI has the code.
-const callbackPage = `<!doctype html><meta charset="utf-8"><title>tmphost</title>
+const callbackPage = `<!doctype html><meta charset="utf-8"><title>permahost</title>
 <body style="font-family:system-ui,sans-serif;text-align:center;margin-top:20vh">
 <h1>%s</h1><p>%s</p></body>`
 
@@ -214,7 +214,7 @@ func callbackHandler(state string, out chan<- result) http.Handler {
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintf(w, callbackPage, "Sign-in failed", "Return to the terminal for details.")
 		} else {
-			fmt.Fprintf(w, callbackPage, "Signed in to tmphost", "You can close this tab.")
+			fmt.Fprintf(w, callbackPage, "Signed in to permahost", "You can close this tab.")
 		}
 		select {
 		case out <- res:

@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -11,15 +11,15 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/tmphost/tmphost/cli/internal/config"
-	"github.com/tmphost/tmphost/cli/internal/oauth"
+	"github.com/tmphost/permahost/cli/internal/config"
+	"github.com/tmphost/permahost/cli/internal/oauth"
 )
 
 // refreshMargin refreshes tokens this long before they expire, so a request
 // never starts with a token that dies in flight.
 const refreshMargin = time.Minute
 
-var errSessionExpired = errors.New(`session expired: run "tmphost login"`)
+var errSessionExpired = errors.New(`session expired: run "permahost login"`)
 
 // session is the signed-in user's tokens. It implements client.TokenSource,
 // refreshing the access token when needed and saving the rotated tokens.

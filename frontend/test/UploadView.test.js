@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -26,7 +26,7 @@ const limits = {
   fileOps: 5,
   fileOpsWindowMinutes: 30,
 }
-const folder = { id: 'abc', url: 'https://tmphost.io/files/1/abc/' }
+const folder = { id: 'abc', url: 'https://permahost.io/files/1/abc/' }
 
 function file(name, size = 10, webkitRelativePath = '') {
   return { name, size, webkitRelativePath }
@@ -167,7 +167,7 @@ describe('UploadView', () => {
     expect(wrapper.find('[data-test="result-b.txt"]').text()).toContain('20 B')
 
     // Unticked, the next upload starts a new folder.
-    createFolder.mockResolvedValueOnce({ id: 'xyz', url: 'https://tmphost.io/files/1/xyz/' })
+    createFolder.mockResolvedValueOnce({ id: 'xyz', url: 'https://permahost.io/files/1/xyz/' })
     await pick(wrapper, '[data-test="pick-files"]', [file('a.txt')])
     await wrapper.find('[data-test="upload-into-result"]').setValue(false)
     expect(wrapper.find('[data-test="selected-replaces"]').exists()).toBe(false)

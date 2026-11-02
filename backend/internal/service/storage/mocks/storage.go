@@ -10,7 +10,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	storage "github.com/tmphost/tmphost/backend/internal/service/storage"
+	storage "github.com/tmphost/permahost/backend/internal/service/storage"
 )
 
 // MockService is a mock of Service interface.

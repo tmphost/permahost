@@ -10,7 +10,7 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
-	model "github.com/tmphost/tmphost/backend/internal/data/model"
+	model "github.com/tmphost/permahost/backend/internal/data/model"
 )
 
 // MockUserRepository is a mock of UserRepository interface.

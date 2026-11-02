@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -11,13 +11,13 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	folderctrl "github.com/tmphost/tmphost/backend/internal/controller/folder"
-	"github.com/tmphost/tmphost/backend/internal/data/entity"
-	mapper "github.com/tmphost/tmphost/backend/internal/mapper/api"
+	folderctrl "github.com/tmphost/permahost/backend/internal/controller/folder"
+	"github.com/tmphost/permahost/backend/internal/data/entity"
+	mapper "github.com/tmphost/permahost/backend/internal/mapper/api"
 )
 
 // _sandbox keeps uploaded pages working (scripts, forms, popups) but in an
-// opaque origin, so they can't read or set cookies of any tmphost origin,
+// opaque origin, so they can't read or set cookies of any permahost origin,
 // or call the API as the visitor, even when served on the app's origin.
 const _sandbox = "sandbox allow-scripts allow-forms allow-popups allow-modals allow-downloads"
 

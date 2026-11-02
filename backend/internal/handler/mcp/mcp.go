@@ -1,9 +1,9 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
 // Package mcp is the stateless MCP (streamable HTTP) transport. It offers
-// one tool, "file", whose actions mirror the `tmphost file` CLI commands.
+// one tool, "file", whose actions mirror the `permahost file` CLI commands.
 package mcp
 
 import (
@@ -23,10 +23,10 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/mustafaturan/monoflake"
 
-	authctrl "github.com/tmphost/tmphost/backend/internal/controller/auth"
-	folderctrl "github.com/tmphost/tmphost/backend/internal/controller/folder"
-	"github.com/tmphost/tmphost/backend/internal/data/entity"
-	"github.com/tmphost/tmphost/backend/internal/service/idgen"
+	authctrl "github.com/tmphost/permahost/backend/internal/controller/auth"
+	folderctrl "github.com/tmphost/permahost/backend/internal/controller/folder"
+	"github.com/tmphost/permahost/backend/internal/data/entity"
+	"github.com/tmphost/permahost/backend/internal/service/idgen"
 )
 
 // The file tool's actions.
@@ -43,7 +43,7 @@ const (
 	FormatText   = "textContent"
 )
 
-const _toolDescription = `Temporary file hosting on tmphost.io. Files live in folders that expire after a TTL; each file is served at a public URL until then.
+const _toolDescription = `Temporary file hosting on permahost.io. Files live in folders that expire after a TTL; each file is served at a public URL until then.
 Actions:
 - upload: store a file (fileName, its content in base64Content or textContent as format says, optional path inside the folder). Without id a new folder is created with ttl (default 30m); with id the file goes into that folder, and a file already at that path is replaced in place (an update; its url stays the same). Returns id and url. Costs 1 credit per started MB of the file per started 30 minutes of the folder's remaining lifetime.
 - download: read a file (id, fileName, optional path). Returns its content in base64Content or, for UTF-8 text, in textContent as format says.
@@ -111,7 +111,7 @@ type (
 // New returns the MCP endpoint. Every request needs an OAuth access token
 // as a Bearer token; without one, the 401 points to the resource metadata.
 func New(p Params) http.Handler {
-	server := mcp.NewServer(&mcp.Implementation{Name: "tmphost", Title: "tmphost.io"}, nil)
+	server := mcp.NewServer(&mcp.Implementation{Name: "permahost", Title: "permahost.io"}, nil)
 	t := &tool{folders: p.Folders}
 	mcp.AddTool(server, &mcp.Tool{Name: "file", Description: _toolDescription, InputSchema: inputSchema()}, t.handle)
 

@@ -1,4 +1,4 @@
-// Copyright 2026 Contextual, Inc. https://tmphost.io
+// Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
 // SPDX-License-Identifier: AGPL-3.0-only
 
@@ -13,9 +13,9 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	"github.com/tmphost/tmphost/backend/internal/data/entity"
-	"github.com/tmphost/tmphost/backend/internal/data/view"
-	"github.com/tmphost/tmphost/backend/internal/service/idgen"
+	"github.com/tmphost/permahost/backend/internal/data/entity"
+	"github.com/tmphost/permahost/backend/internal/data/view"
+	"github.com/tmphost/permahost/backend/internal/service/idgen"
 )
 
 // Folder IDs are 11 base36 characters, not base62 like other IDs: they
