@@ -15,7 +15,7 @@
 #                        testing (default: the GitHub release)
 set -eu
 
-REPO="permahost/permahost"
+REPO="tmphost/permahost"
 
 log() { printf '%s\n' "$*" >&2; }
 fail() { log "error: $*"; exit 1; }

@@ -17,7 +17,7 @@
     $ErrorActionPreference = 'Stop'
     $ProgressPreference = 'SilentlyContinue' # Invoke-WebRequest is far slower with the progress bar.
 
-    $repo = 'permahost/permahost'
+    $repo = 'tmphost/permahost'
 
     $arch = switch ($env:PROCESSOR_ARCHITECTURE) {
         'AMD64' { 'amd64' }
