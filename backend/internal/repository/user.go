@@ -10,6 +10,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -50,6 +51,19 @@ type (
 		// RefundStorageBlocks gives back n credits paid for blocks storage
 		// blocks.
 		RefundStorageBlocks(ctx context.Context, id int64, blocks, n int) error
+		// SearchUsers returns up to limit users, newest first, with IDs
+		// below before (0: from the newest) and, unless q is empty, an
+		// email or name containing q, ignoring case.
+		SearchUsers(ctx context.Context, q string, before int64, limit int) ([]model.User, error)
+		// AdjustCredits adds a.Amount (negative to deduct) to a user's
+		// balance and records a in the ledger with the balance after it,
+		// in one transaction. A deduction that would take the balance
+		// below zero returns ErrInsufficientCredits and changes nothing;
+		// an unknown user returns ErrNotFound.
+		AdjustCredits(ctx context.Context, a model.CreditAdjustment) (model.CreditAdjustment, error)
+		// ListCreditAdjustments returns up to limit of a user's ledger
+		// entries, newest first, with IDs below before (0: from the newest).
+		ListCreditAdjustments(ctx context.Context, userID, before int64, limit int) ([]model.CreditAdjustment, error)
 	}
 
 	userRepository struct {
@@ -153,6 +167,68 @@ func (r *userRepository) RefundStorageBlocks(ctx context.Context, id int64, bloc
 			"credits":             gorm.Expr("credits + ?", n),
 			"storage_blocks_paid": gorm.Expr("storage_blocks_paid - ?", blocks),
 		}).Error
+}
+
+func (r *userRepository) SearchUsers(ctx context.Context, q string, before int64, limit int) ([]model.User, error) {
+	db := r.db.WithContext(ctx)
+	if before > 0 {
+		db = db.Where("id < ?", before)
+	}
+	if q != "" {
+		like := "%" + _likeEscaper.Replace(strings.ToLower(q)) + "%"
+		db = db.Where(`(LOWER(email) LIKE ? ESCAPE '\' OR LOWER(name) LIKE ? ESCAPE '\')`, like, like)
+	}
+	var users []model.User
+	if err := db.Order("id DESC").Limit(limit).Find(&users).Error; err != nil {
+		return nil, err
+	}
+	return users, nil
+}
+
+// _likeEscaper makes LIKE wildcards in a search match themselves.
+var _likeEscaper = strings.NewReplacer(`\`, `\\`, "%", `\%`, "_", `\_`)
+
+func (r *userRepository) AdjustCredits(ctx context.Context, a model.CreditAdjustment) (model.CreditAdjustment, error) {
+	for {
+		u, err := r.FindUserByID(ctx, a.UserID)
+		if err != nil {
+			return model.CreditAdjustment{}, err
+		}
+		a.BalanceAfter = u.Credits + a.Amount
+		if a.Amount < 0 && a.BalanceAfter < 0 {
+			return model.CreditAdjustment{}, ErrInsufficientCredits
+		}
+		applied := false
+		err = r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			// The update only applies if no charge or refund changed the
+			// balance since the read; otherwise it is worked out again.
+			res := tx.Model(&model.User{}).Where("id = ? AND credits = ?", a.UserID, u.Credits).
+				Update("credits", a.BalanceAfter)
+			if res.Error != nil || res.RowsAffected == 0 {
+				return res.Error
+			}
+			applied = true
+			return tx.Create(&a).Error
+		})
+		if err != nil {
+			return model.CreditAdjustment{}, err
+		}
+		if applied {
+			return a, nil
+		}
+	}
+}
+
+func (r *userRepository) ListCreditAdjustments(ctx context.Context, userID, before int64, limit int) ([]model.CreditAdjustment, error) {
+	db := r.db.WithContext(ctx).Where("user_id = ?", userID)
+	if before > 0 {
+		db = db.Where("id < ?", before)
+	}
+	var as []model.CreditAdjustment
+	if err := db.Order("id DESC").Limit(limit).Find(&as).Error; err != nil {
+		return nil, err
+	}
+	return as, nil
 }
 
 func (r *userRepository) first(ctx context.Context, query string, arg any) (model.User, error) {

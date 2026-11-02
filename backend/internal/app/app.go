@@ -21,6 +21,7 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/recover"
 	"gorm.io/gorm"
 
+	adminctrl "github.com/tmphost/permahost/backend/internal/controller/admin"
 	authctrl "github.com/tmphost/permahost/backend/internal/controller/auth"
 	"github.com/tmphost/permahost/backend/internal/controller/credit"
 	domainctrl "github.com/tmphost/permahost/backend/internal/controller/domain"
@@ -319,6 +320,7 @@ func New(cfg Config, web fs.FS) (*App, error) {
 		Folders:      folders,
 		Domains:      domains,
 		Credits:      credits,
+		Admin:        adminctrl.New(adminctrl.Params{Users: users, Credits: credits, Grant: setup.MonthlyGrant, NewID: ids.NextID}),
 		OAuth:        oauthctrl.New(oauthctrl.Params{Token: tokens, Users: users, Issuer: baseURL, Resource: baseURL + MCPPath}),
 		FileSettings: setup.FileLimits,
 		BasePath:     basePath,

@@ -125,6 +125,36 @@ async function request(method, path, { body, raw, fallback } = {}) {
   return res.status === 204 ? null : res.json()
 }
 
+// pageQuery is the query string of a paged list request, or ''.
+function pageQuery(params) {
+  const query = new URLSearchParams(Object.entries(params).filter(([, v]) => v)).toString()
+  return query ? `?${query}` : ''
+}
+
+// listSetupUsers returns { users, next } as root: a page of users, newest
+// first, whose email or name contains q. Pass next as before for the next
+// page; it is '' on the last.
+export function listSetupUsers({ q = '', before = '' } = {}) {
+  return request('GET', `/setup/users${pageQuery({ q, before })}`, { fallback: 'Failed to load users' })
+}
+
+// adjustUserCredits grants (a positive amount) or deducts (a negative one) a
+// user's credits as root, and returns { user, adjustment }.
+export function adjustUserCredits(id, amount, note) {
+  return request('POST', `/setup/users/${encodeURIComponent(id)}/credits`, {
+    body: { amount, note },
+    fallback: 'Failed to adjust credits',
+  })
+}
+
+// listUserCreditAdjustments returns { adjustments, next } as root: a page of
+// one user's credit adjustments, newest first.
+export function listUserCreditAdjustments(id, before = '') {
+  return request('GET', `/setup/users/${encodeURIComponent(id)}/credits${pageQuery({ before })}`, {
+    fallback: 'Failed to load credit history',
+  })
+}
+
 // filePath encodes each segment of a folder-relative path, keeping the slashes.
 export function filePath(path) {
   return path.split('/').map(encodeURIComponent).join('/')

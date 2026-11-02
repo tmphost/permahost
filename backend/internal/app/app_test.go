@@ -512,6 +512,40 @@ func TestFileHosting(t *testing.T) {
 	assert.Equal(t, http.StatusPaymentRequired, res.StatusCode)
 	assert.Contains(t, body, "paused")
 
+	// A root grant tops up the same balance, so the site resumes at once,
+	// and the usual charges draw from it.
+	login := httptest.NewRequest(http.MethodPost, "/api/v1/setup/login", strings.NewReader(`{"token":"root-token"}`))
+	res, err = a.Handler().Test(login)
+	require.NoError(t, err)
+	root := res.Cookies()[0]
+	adjust := func(body string) (*http.Response, string) {
+		t.Helper()
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/setup/users/"+monoflake.ID(7).String()+"/credits", strings.NewReader(body))
+		req.AddCookie(root)
+		res, err := a.Handler().Test(req)
+		require.NoError(t, err)
+		b, _ := io.ReadAll(res.Body)
+		return res, string(b)
+	}
+	res, body = adjust(`{"amount":501,"note":"support"}`)
+	require.Equal(t, http.StatusCreated, res.StatusCode, body)
+	assert.Contains(t, body, `"balanceAfter":500`)
+	assert.Contains(t, body, `"paused":false`)
+	res, _ = call(http.MethodGet, "/files/7/"+id+"/site/index.html", "", "")
+	assert.Equal(t, http.StatusOK, res.StatusCode, "resumed")
+	res, body = adjust(`{"amount":-501,"note":"too much"}`)
+	assert.Equal(t, http.StatusConflict, res.StatusCode, body)
+	res, body = call(http.MethodPost, "/api/v1/folders", "", `{}`)
+	require.Equal(t, http.StatusCreated, res.StatusCode, body)
+	require.NoError(t, a.db.First(&u, 7).Error)
+	assert.Zero(t, u.Credits, "a new folder paid from the grant")
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/setup/users?q=a@x", nil)
+	req.AddCookie(root)
+	res, err = a.Handler().Test(req)
+	require.NoError(t, err)
+	b, _ = io.ReadAll(res.Body)
+	assert.Contains(t, string(b), `"folders":2`)
+
 	// Once expired (only anonymous folders do), the sweep removes the
 	// record and the files.
 	require.NoError(t, a.db.Model(&model.Folder{}).Where("1 = 1").Update("expires_at", time.Now().Add(-time.Second)).Error)

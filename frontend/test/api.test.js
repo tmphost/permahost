@@ -114,6 +114,40 @@ describe('setup api', () => {
     await expect(api.setupLogin('x')).rejects.toThrow('Sign-in failed (500)')
   })
 
+  it('lists users, adjusts credits and lists the history as root', async () => {
+    const api = await loadApi('')
+    fetch.mockResolvedValueOnce(json({ users: [], next: '' }))
+    expect(await api.listSetupUsers()).toEqual({ users: [], next: '' })
+    expect(fetch).toHaveBeenLastCalledWith('/api/v1/setup/users', { method: 'GET', credentials: 'same-origin' })
+
+    fetch.mockResolvedValueOnce(json({ users: [], next: '' }))
+    await api.listSetupUsers({ q: 'ada lovelace', before: 'u9' })
+    expect(fetch).toHaveBeenLastCalledWith('/api/v1/setup/users?q=ada+lovelace&before=u9', { method: 'GET', credentials: 'same-origin' })
+
+    fetch.mockResolvedValueOnce(json({ user: { id: 'u1' }, adjustment: { amount: -5 } }, 201))
+    expect(await api.adjustUserCredits('u 1', -5, 'refund')).toEqual({ user: { id: 'u1' }, adjustment: { amount: -5 } })
+    expect(fetch).toHaveBeenLastCalledWith('/api/v1/setup/users/u%201/credits', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{"amount":-5,"note":"refund"}',
+    })
+
+    fetch.mockResolvedValueOnce(json({ adjustments: [], next: '' }))
+    expect(await api.listUserCreditAdjustments('u1')).toEqual({ adjustments: [], next: '' })
+    expect(fetch).toHaveBeenLastCalledWith('/api/v1/setup/users/u1/credits', { method: 'GET', credentials: 'same-origin' })
+    fetch.mockResolvedValueOnce(json({ adjustments: [], next: '' }))
+    await api.listUserCreditAdjustments('u1', 'a7')
+    expect(fetch).toHaveBeenLastCalledWith('/api/v1/setup/users/u1/credits?before=a7', { method: 'GET', credentials: 'same-origin' })
+
+    fetch.mockResolvedValueOnce(json({}, 500))
+    await expect(api.listSetupUsers()).rejects.toThrow('Failed to load users (500)')
+    fetch.mockResolvedValueOnce(json({ error: 'the deduction would take the balance below zero' }, 409))
+    await expect(api.adjustUserCredits('u1', -9, 'x')).rejects.toMatchObject({ status: 409, message: 'the deduction would take the balance below zero' })
+    fetch.mockResolvedValueOnce(json({}, 404))
+    await expect(api.listUserCreditAdjustments('u1')).rejects.toThrow('Failed to load credit history (404)')
+  })
+
   it('setupLogout posts', async () => {
     const api = await loadApi('')
     fetch.mockResolvedValueOnce(json(null, 204))

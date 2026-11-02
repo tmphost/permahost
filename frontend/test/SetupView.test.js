@@ -10,9 +10,10 @@ vi.mock('../src/api', () => ({
   saveSettings: vi.fn(),
   setupLogin: vi.fn(),
   setupLogout: vi.fn(),
+  listSetupUsers: vi.fn(),
 }))
 
-import { fetchSettings, saveSettings, setupLogin, setupLogout } from '../src/api'
+import { fetchSettings, listSetupUsers, saveSettings, setupLogin, setupLogout } from '../src/api'
 import SetupView from '../src/views/SetupView.vue'
 import { useToasts } from '../src/composables/useToasts'
 
@@ -396,5 +397,30 @@ describe('SetupView', () => {
       expect(wrapper.find('[data-test="setup-login"]').exists()).toBe(true)
       wrapper.unmount()
     }
+  })
+
+  it('switches between settings and users, and signs in again when the session ends there', async () => {
+    fetchSettings.mockResolvedValue(state())
+    listSetupUsers.mockResolvedValueOnce({ users: [], next: '' })
+    const wrapper = await mountView()
+    expect(wrapper.find('[data-test="setup-tab-settings"]').attributes('aria-selected')).toBe('true')
+    expect(wrapper.find('[data-test="setup-users"]').exists()).toBe(false)
+
+    await wrapper.find('[data-test="setup-grant-users"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-test="setup-tab-users"]').attributes('aria-selected')).toBe('true')
+    expect(wrapper.find('[data-test="setup-users"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="setup-form"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="setup-save"]').exists()).toBe(false)
+
+    await wrapper.find('[data-test="setup-tab-settings"]').trigger('click')
+    expect(wrapper.find('[data-test="setup-form"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="setup-save"]').attributes('form')).toBe('setup-form')
+
+    listSetupUsers.mockRejectedValueOnce(Object.assign(new Error('unauthorized'), { status: 401 }))
+    await wrapper.find('[data-test="setup-tab-users"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-test="setup-login"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="setup-login-error"]').text()).toBe('Your setup session expired. Sign in again.')
   })
 })

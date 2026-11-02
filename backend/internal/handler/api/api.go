@@ -13,6 +13,7 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/cors"
 	"github.com/gofiber/fiber/v3/middleware/limiter"
 
+	adminctrl "github.com/tmphost/permahost/backend/internal/controller/admin"
 	authctrl "github.com/tmphost/permahost/backend/internal/controller/auth"
 	"github.com/tmphost/permahost/backend/internal/controller/credit"
 	domainctrl "github.com/tmphost/permahost/backend/internal/controller/domain"
@@ -50,6 +51,7 @@ type Params struct {
 	Domains domainctrl.Controller
 	Credits credit.Controller
 	OAuth   oauthctrl.Controller
+	Admin   adminctrl.Controller
 	// FileSettings returns the current file settings, which choose how
 	// folders are served.
 	FileSettings func() entity.FileSettings
@@ -73,6 +75,7 @@ func New(p Params) {
 	domain := &Domain{controller: p.Domains}
 	public := &Public{controller: p.Folders, settings: p.FileSettings}
 	oauth := &OAuth{controller: p.OAuth, basePath: basePath}
+	admin := &Admin{controller: p.Admin}
 
 	// Folder hosts are answered before any route, so no app route is ever
 	// reachable on a host that serves user content.
@@ -131,6 +134,9 @@ func New(p Params) {
 	r.Post("/setup/logout", setup.Logout)
 	r.Get("/setup/settings", AuthenticateRoot(p.Setup), setup.Get)
 	r.Put("/setup/settings", AuthenticateRoot(p.Setup), setup.Update)
+	r.Get("/setup/users", AuthenticateRoot(p.Setup), admin.ListUsers)
+	r.Get("/setup/users/:id/credits", AuthenticateRoot(p.Setup), admin.ListCreditAdjustments)
+	r.Post("/setup/users/:id/credits", AuthenticateRoot(p.Setup), admin.AdjustCredits)
 }
 
 func sendJSON(c fiber.Ctx, status int, payload []byte) error {
