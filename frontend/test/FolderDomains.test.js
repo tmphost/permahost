@@ -115,8 +115,32 @@ describe('FolderDomains', () => {
     await flushPromises()
     expect(wrapper.find('[data-test="domain-www.example.com"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="domain-input"]').element.value).toBe('')
-    expect(lastToast()).toMatchObject({ type: 'success', message: 'Added www.example.com. Point its CNAME at the target, then verify.' })
+    // The setup guide opens for the new domain.
+    expect(wrapper.find('[data-test="dns-modal"]').text()).toContain('Point www.example.com at this folder')
     expect(wrapper.emitted('changed')).toBeUndefined()
+    await wrapper.find('[data-test="dns-close"]').trigger('click')
+    expect(wrapper.find('[data-test="dns-modal"]').exists()).toBe(false)
+  })
+
+  it('verifies from the setup guide and closes it once active', async () => {
+    const wrapper = await mountPanel()
+    await wrapper.find('[data-test="domain-guide"]').trigger('click')
+    expect(wrapper.find('[data-test="dns-name"]').text()).toBe('www')
+
+    verifyDomain.mockRejectedValueOnce(new Error('the CNAME record is not set up yet'))
+    await wrapper.find('[data-test="dns-verify"]').trigger('click')
+    await flushPromises()
+    expect(lastToast()).toMatchObject({ type: 'error', message: 'the CNAME record is not set up yet' })
+    expect(wrapper.find('[data-test="dns-modal"]').exists()).toBe(true)
+
+    const slow = deferred()
+    verifyDomain.mockReturnValueOnce(slow.promise)
+    await wrapper.find('[data-test="dns-verify"]').trigger('click')
+    expect(wrapper.find('[data-test="dns-verify"]').text()).toBe('Checking…')
+    slow.resolve({ ...pending, status: 'active' })
+    await flushPromises()
+    expect(wrapper.find('[data-test="dns-modal"]').exists()).toBe(false)
+    expect(wrapper.emitted('changed')).toHaveLength(1)
   })
 
   it('toasts a domain that cannot be added', async () => {

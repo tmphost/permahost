@@ -18,7 +18,7 @@ import (
 
 // DefaultServer is used when neither a flag, the environment nor the config
 // file names a server.
-const DefaultServer = "https://permahost.io"
+const DefaultServer = "https://app.permahost.io"
 
 // Environment variables the CLI reads.
 const (

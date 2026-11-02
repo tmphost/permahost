@@ -40,7 +40,7 @@ func TestHumanSize(t *testing.T) {
 
 func TestServerURL(t *testing.T) {
 	a := &app{opts: Options{Getenv: func(string) string { return "" }}}
-	assert.Equal(t, "https://permahost.io", a.serverURL(config.Config{}))
+	assert.Equal(t, "https://app.permahost.io", a.serverURL(config.Config{}))
 	assert.Equal(t, "https://saved.example", a.serverURL(config.Config{Server: "https://saved.example"}))
 	a.opts.Getenv = func(string) string { return "https://env.example/" }
 	assert.Equal(t, "https://env.example", a.serverURL(config.Config{Server: "https://saved.example"}))

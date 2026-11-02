@@ -516,7 +516,7 @@ onMounted(() => {
         <p class="mt-1 text-xs text-gray-500 dark:text-zinc-400">Uploaded files show up here.</p>
       </div>
 
-      <ul v-else class="grid grid-cols-1 items-start gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <ul v-else class="grid grid-cols-1 items-start gap-2 sm:grid-cols-2 lg:grid-cols-3">
         <li
           v-for="folder in sortedFolders"
           :key="folder.id"

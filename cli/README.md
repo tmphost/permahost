@@ -30,7 +30,7 @@ From source: `cd cli && go build -o permahost .` (or `make cli`, which writes
 ## Sign in
 
 ```sh
-permahost login                              # https://permahost.io
+permahost login                              # https://app.permahost.io
 permahost login --server https://files.example.com
 ```
 
@@ -131,7 +131,7 @@ and `url`) at `<server>/mcp`, for AI agents:
   "mcpServers": {
     "permahost": {
       "type": "http",
-      "url": "https://permahost.io/mcp"
+      "url": "https://app.permahost.io/mcp"
     }
   }
 }

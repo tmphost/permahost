@@ -7,6 +7,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import DeleteModal from './DeleteModal.vue'
+import DnsSetupModal from './DnsSetupModal.vue'
 import { createDomain, deleteDomain, listDomains, verifyDomain } from '../api'
 import { useClipboard } from '../composables/useClipboard'
 import { useToasts } from '../composables/useToasts'
@@ -35,6 +36,8 @@ const adding = ref(false)
 const verifying = ref(null)
 const pendingDelete = ref(null)
 const deleting = ref(false)
+// The domain whose CNAME setup guide is open.
+const guide = ref(null)
 
 const priceHint = computed(() =>
   props.pricing
@@ -61,9 +64,10 @@ async function add() {
   if (!name) return
   adding.value = true
   try {
-    domains.value = [...domains.value, await createDomain(props.folder.id, name)]
+    const domain = await createDomain(props.folder.id, name)
+    domains.value = [...domains.value, domain]
     hostname.value = ''
-    notifySuccess(`Added ${name}. Point its CNAME at the target, then verify.`)
+    guide.value = domain
   } catch (err) {
     notifyError(err.message)
   } finally {
@@ -71,19 +75,26 @@ async function add() {
   }
 }
 
+// verify checks the domain's CNAME now and tells whether it is active.
 async function verify(domain) {
   verifying.value = domain.id
   try {
     replace(await verifyDomain(props.folder.id, domain.id))
     notifySuccess(`${domain.hostname} is active. Its certificate is issued within a minute.`)
     emit('changed')
+    return true
   } catch (err) {
     notifyError(err.message)
     // The check is recorded on the domain, with what went wrong.
     await load()
+    return false
   } finally {
     verifying.value = null
   }
+}
+
+async function verifyGuide() {
+  if (await verify(guide.value)) guide.value = null
 }
 
 async function confirmDelete() {
@@ -159,15 +170,18 @@ onMounted(load)
             </button>
           </div>
           <p v-if="domain.lastError" class="text-[11px] text-rose-600 dark:text-rose-400" data-test="domain-error">{{ domain.lastError }}</p>
-          <button
-            type="button"
-            :disabled="verifying === domain.id"
-            :class="BUTTON"
-            data-test="domain-verify"
-            @click="verify(domain)"
-          >
-            {{ verifying === domain.id ? 'Checking…' : 'Verify now' }}
-          </button>
+          <div class="flex flex-wrap gap-1.5">
+            <button
+              type="button"
+              :disabled="verifying === domain.id"
+              :class="BUTTON"
+              data-test="domain-verify"
+              @click="verify(domain)"
+            >
+              {{ verifying === domain.id ? 'Checking…' : 'Verify now' }}
+            </button>
+            <button type="button" :class="BUTTON" data-test="domain-guide" @click="guide = domain">Setup guide</button>
+          </div>
         </div>
       </li>
     </ul>
@@ -188,6 +202,14 @@ onMounted(load)
     <p class="mt-1 text-[11px] text-gray-400 dark:text-zinc-500" data-test="domain-pricing">
       Domains are checked every few minutes. {{ priceHint }}
     </p>
+
+    <DnsSetupModal
+      :domain="guide"
+      :pricing="pricing"
+      :verifying="Boolean(guide) && verifying === guide.id"
+      @verify="verifyGuide"
+      @close="guide = null"
+    />
 
     <DeleteModal
       :open="Boolean(pendingDelete)"
