@@ -35,13 +35,14 @@ export function clearUserCache() {
 }
 
 // fetchAuthConfig returns { providers, anonymousUploads }: the sign-in
-// providers the server has enabled, and whether visitors may upload without
-// signing in.
+// providers the server has enabled, whether visitors may upload without
+// signing in, and the MCP endpoint's URL when the server serves it on an MCP
+// domain of its own ('' when it lives below the app URL).
 export async function fetchAuthConfig() {
   const res = await fetch(`${BASE_PATH}/auth/config`)
   if (!res.ok) throw new Error(`Failed to load sign-in options (${res.status})`)
   const body = await res.json()
-  return { providers: body.providers, anonymousUploads: body.anonymousUploads }
+  return { providers: body.providers, anonymousUploads: body.anonymousUploads, mcpUrl: body.mcpUrl || '' }
 }
 
 // providerLoginUrl is the server route that starts an OAuth round trip.

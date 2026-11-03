@@ -48,12 +48,12 @@ func (e *filesEnv) signedIn() {
 
 func TestOAuth_Metadata(t *testing.T) {
 	e := newFilesApp(t)
-	e.oauth.EXPECT().GetServerMetadata(gomock.Any()).Return(&entity.GetOAuthServerMetadataResponse{Issuer: "https://t.io"})
+	e.oauth.EXPECT().GetServerMetadata(gomock.Any(), &entity.GetOAuthServerMetadataRequest{Host: "example.com"}).Return(&entity.GetOAuthServerMetadataResponse{Issuer: "https://t.io"})
 	res, body := e.send(t, http.MethodGet, ServerMetadataPath, "", "", "")
 	assert.Equal(t, http.StatusOK, res.StatusCode)
 	assert.Contains(t, body, `"issuer":"https://t.io"`)
 
-	e.oauth.EXPECT().GetProtectedResourceMetadata(gomock.Any()).Return(&entity.GetProtectedResourceMetadataResponse{Resource: "https://t.io/mcp"}).Times(2)
+	e.oauth.EXPECT().GetProtectedResourceMetadata(gomock.Any(), &entity.GetProtectedResourceMetadataRequest{Host: "example.com"}).Return(&entity.GetProtectedResourceMetadataResponse{Resource: "https://t.io/mcp"}).Times(2)
 	for _, path := range []string{ResourceMetadataPath, ResourceMetadataPath + "/mcp"} {
 		res, body = e.send(t, http.MethodGet, path, "", "", "")
 		assert.Equal(t, http.StatusOK, res.StatusCode)
@@ -191,6 +191,15 @@ func TestOAuth_Consent(t *testing.T) {
 		res, _ := e.send(t, http.MethodPost, target, form, "consent=ct&decision=allow", "s")
 		assert.Equal(t, http.StatusSeeOther, res.StatusCode)
 		assert.Equal(t, "http://127.0.0.1/cb?code=x", res.Header.Get("Location"))
+	})
+
+	t.Run("mcp issuer", func(t *testing.T) {
+		e := newFilesApp(t)
+		e.signedIn()
+		e.oauth.EXPECT().Consent(gomock.Any(), &entity.ConsentRequest{UserID: 7, Token: "ct", Allow: true, MCP: true}).
+			Return(&entity.ConsentResponse{RedirectURL: "http://127.0.0.1/cb?code=x"}, nil)
+		res, _ := e.send(t, http.MethodPost, oauthctrl.MCPAuthorizePath+"?client_id=c", form, "consent=ct&decision=allow", "s")
+		assert.Equal(t, http.StatusSeeOther, res.StatusCode)
 	})
 
 	t.Run("no token", func(t *testing.T) {

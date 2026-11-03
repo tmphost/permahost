@@ -29,6 +29,7 @@ type (
 	DomainSettings struct {
 		AppURL      string `json:"appUrl"`
 		SitesDomain string `json:"sitesDomain"`
+		MCPDomain   string `json:"mcpDomain"`
 	}
 
 	// TLSSettings is the tls section.

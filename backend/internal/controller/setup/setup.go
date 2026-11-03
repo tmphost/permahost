@@ -25,6 +25,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 
+	folderctrl "github.com/tmphost/permahost/backend/internal/controller/folder"
 	"github.com/tmphost/permahost/backend/internal/data/entity"
 	mappermodel "github.com/tmphost/permahost/backend/internal/mapper/model"
 	"github.com/tmphost/permahost/backend/internal/repository"
@@ -301,6 +302,7 @@ func normalize(s entity.Settings) entity.Settings {
 	s.Auth.GitHub.ClientID = t(s.Auth.GitHub.ClientID)
 	s.Domain.AppURL = normalizeAppURL(t(s.Domain.AppURL))
 	s.Domain.SitesDomain = strings.Trim(strings.TrimPrefix(strings.ToLower(t(s.Domain.SitesDomain)), "*."), ".")
+	s.Domain.MCPDomain = strings.Trim(strings.ToLower(t(s.Domain.MCPDomain)), ".")
 	// Folder hosts default to the sites domain, which subdomain
 	// certificates cover.
 	if s.Files.Subdomains && s.Files.PublicDomain == "" {
@@ -414,6 +416,25 @@ func validateDomain(d entity.DomainSettings) error {
 	}
 	if d.SitesDomain != "" && !_hostnameRE.MatchString(d.SitesDomain) {
 		return errors.New("sites domain must be a domain name, e.g. permahost.io")
+	}
+	return validateMCPDomain(d)
+}
+
+// validateMCPDomain checks the MCP domain is a host of its own: not the app
+// host, and not a host folders are served on.
+func validateMCPDomain(d entity.DomainSettings) error {
+	m := d.MCPDomain
+	if m == "" {
+		return nil
+	}
+	if !_hostnameRE.MatchString(m) || !strings.Contains(m, ".") {
+		return errors.New("MCP domain must be a domain name, e.g. mcp.permahost.io")
+	}
+	if m == strings.ToLower(AppHost(d.AppURL)) {
+		return errors.New("MCP domain must differ from the app URL's host; leave it empty to serve MCP at the app URL")
+	}
+	if d.SitesDomain != "" && strings.HasSuffix(m, "."+folderctrl.FolderDomain(d.SitesDomain)) {
+		return errors.New("MCP domain is under the folder hosts' domain; pick another name, e.g. mcp." + d.SitesDomain)
 	}
 	return nil
 }

@@ -101,8 +101,10 @@ func New(p Params) {
 	p.Router.Get(ResourceMetadataPath, oauth.ResourceMetadata)
 	p.Router.Get(ResourceMetadataPath+"/*", oauth.ResourceMetadata)
 	p.Router.Post(oauthctrl.RegisterPath, oauth.Register)
-	p.Router.Get(oauthctrl.AuthorizePath, OptionalAuthenticate(p.Auth), oauth.Authorize)
-	p.Router.Post(oauthctrl.AuthorizePath, OptionalAuthenticate(p.Auth), oauth.Consent)
+	for _, path := range []string{oauthctrl.AuthorizePath, oauthctrl.MCPAuthorizePath} {
+		p.Router.Get(path, OptionalAuthenticate(p.Auth), oauth.Authorize)
+		p.Router.Post(path, OptionalAuthenticate(p.Auth), oauth.Consent)
+	}
 	p.Router.Post(oauthctrl.TokenPath, oauth.Token)
 	p.Router.Post(oauthctrl.DeviceCodePath, oauth.DeviceCode)
 	p.Router.Get(oauthctrl.DevicePath, OptionalAuthenticate(p.Auth), oauth.Device)

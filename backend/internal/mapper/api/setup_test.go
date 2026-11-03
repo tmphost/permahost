@@ -53,7 +53,7 @@ func TestFromHTTPRequestToAuthenticateRootRequestEntity(t *testing.T) {
 }
 
 const _settingsJSON = `{
-	"domain": {"appUrl": "https://app.permahost.io", "sitesDomain": "permahost.io"},
+	"domain": {"appUrl": "https://app.permahost.io", "sitesDomain": "permahost.io", "mcpDomain": "mcp.permahost.io"},
 	"tls": {"enabled": true, "port": 8443, "email": "ops@permahost.io",
 		"lego": {"enabled": true, "cloudflareApiToken": "cf"}},
 	"credits": {"monthlyGrant": 300},
@@ -74,7 +74,7 @@ func TestSettingsMapping(t *testing.T) {
 	assert.Equal(t, "postgres://u:p@h/d", got.Settings.Database.Postgres.DSN)
 	assert.Equal(t, "hs", got.Settings.Auth.GitHub.ClientSecret)
 	assert.Equal(t, entity.FileSettings{MaxUploadMB: 2, AnonymousMaxTTLMinutes: 7, AnonymousUploadsDisabled: true, Subdomains: true, PublicDomain: "x.io"}, got.Settings.Files)
-	assert.Equal(t, entity.DomainSettings{AppURL: "https://app.permahost.io", SitesDomain: "permahost.io"}, got.Settings.Domain)
+	assert.Equal(t, entity.DomainSettings{AppURL: "https://app.permahost.io", SitesDomain: "permahost.io", MCPDomain: "mcp.permahost.io"}, got.Settings.Domain)
 	assert.Equal(t, entity.TLSSettings{
 		Enabled: true, Port: 8443, Email: "ops@permahost.io",
 		Lego: entity.LegoSettings{Enabled: true, CloudflareAPIToken: "cf"},

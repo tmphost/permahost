@@ -186,6 +186,14 @@ func TestGetCertificate_OnDemand(t *testing.T) {
 	assert.ElementsMatch(t, []string{"app.example.com", _site}, e.s.names())
 }
 
+func TestNames_Hosts(t *testing.T) {
+	s := New(Config{AppHost: "app.example.com", Hosts: []string{"MCP.example.com", "app.example.com"}}, newEnc(t)).(*service)
+	assert.Equal(t, []string{"app.example.com", "mcp.example.com"}, s.names(), "lower-cased, without duplicates")
+	s.cfg.AllowDomain = func(string) bool { return false }
+	assert.False(t, s.dropped("mcp.example.com"), "a fixed host is never dropped")
+	assert.True(t, s.dropped("www.custom.io"))
+}
+
 func TestGetCertificate_OnDemandBackoff(t *testing.T) {
 	e := newTestService(t, SitesConfig{Enabled: true, Domain: "example.com"})
 	now := time.Now()

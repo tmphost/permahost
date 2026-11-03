@@ -70,7 +70,9 @@ Go (Fiber v3, GORM) backend and Vue 3 (Vite, Tailwind) frontend.
 ## MCP, CLI and OAuth
 
 - `/mcp` is a stateless MCP server with one tool, `file` (actions `upload`,
-  `download`, `get`, `url`, `list`). The `permahost` CLI in [cli/](cli/) mirrors it.
+  `download`, `get`, `url`, `list`), on the app URL and, when set, on the MCP
+  domain (`https://<mcp domain>/mcp`, e.g. `https://mcp.permahost.io/mcp`).
+  The `permahost` CLI in [cli/](cli/) mirrors it.
   The tool description spells out the credits: only an upload without `id`
   creates (and pays for) a folder; `list` finds existing folders to add to.
   File content travels as `base64Content` (the default) or, when the
@@ -85,6 +87,10 @@ Go (Fiber v3, GORM) backend and Vue 3 (Vite, Tailwind) frontend.
   `/oauth2/device/code` hands out a code the user enters at `/auth/device`
   while the CLI polls `/oauth2/token`. Access tokens also
   work as Bearer tokens on `/api/v1`.
+- The MCP domain is an OAuth issuer of its own: its metadata names it as the
+  authorization server, with the register and token endpoints on it. Users
+  still sign in on the app host, at `/oauth2/mcp/authorize`, which answers with
+  the MCP domain's `iss` (RFC 9207).
 
 ## Development
 
@@ -114,7 +120,7 @@ make test    # 100% coverage is enforced on both sides
 
 [plugin/](plugin/) packages the MCP server for AI clients, each with
 instructions on when and how to use the `file` tool (Apache-2.0, unlike the
-AGPL server). Each package connects to `https://app.permahost.io/mcp`:
+AGPL server). Each package connects to `https://mcp.permahost.io/mcp`:
 
 | Client | Install |
 | --- | --- |
@@ -137,12 +143,15 @@ can change the monthly credit grant, the anonymous maximum TTL and the public UR
 - **Domains**: the app URL (default `http://localhost:2027`; e.g.
   `https://app.permahost.io`, any domain or subdomain) and the sites domain
   (e.g. `permahost.io`) whose dynamic subdomains `<folder ID>.file.<sites domain>`
-  the server answers. Other hosts get a 404; localhost always reaches the app.
+  the server answers, and an optional MCP domain (e.g. `mcp.permahost.io`,
+  `PERMAHOSTIO_MCP_DOMAIN`) that serves only `/mcp` and its OAuth metadata, so
+  MCP clients connect to `https://mcp.permahost.io/mcp`. Other hosts get a 404;
+  localhost always reaches the app.
 - **TLS**: serve HTTPS on its own port (default 443) and redirect the app port
   to it. Certificates come from Let's Encrypt automatically (lego, TLS-ALPN-01
   challenge, so Let's Encrypt must reach the server on port 443), are renewed
   when under 30 days and cached encrypted next to the settings file.
-  - App host: always gets its own certificate.
+  - App host and MCP domain: each always gets its own certificate.
   - Dynamic subdomains (switchable): each gets its own certificate on its first
     visit (Let's Encrypt allows about 50 new ones per week per registered
     domain), or, with an optional Cloudflare API token, one `*.file.<sites domain>`

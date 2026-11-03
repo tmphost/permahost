@@ -12,7 +12,7 @@ import (
 // FromSettingsModelToSettingsEntity maps stored settings to the domain.
 func FromSettingsModelToSettingsEntity(m model.Settings) entity.Settings {
 	return entity.Settings{
-		Domain: entity.DomainSettings{AppURL: m.Domain.AppURL, SitesDomain: m.Domain.SitesDomain},
+		Domain: entity.DomainSettings{AppURL: m.Domain.AppURL, SitesDomain: m.Domain.SitesDomain, MCPDomain: m.Domain.MCPDomain},
 		TLS: entity.TLSSettings{
 			Enabled: m.TLS.Enabled,
 			Port:    m.TLS.Port,
@@ -56,7 +56,7 @@ func FromSettingsModelToSettingsEntity(m model.Settings) entity.Settings {
 // FromSettingsEntityToSettingsModel maps domain settings to storage.
 func FromSettingsEntityToSettingsModel(e entity.Settings) model.Settings {
 	return model.Settings{
-		Domain: model.DomainSettings{AppURL: e.Domain.AppURL, SitesDomain: e.Domain.SitesDomain},
+		Domain: model.DomainSettings{AppURL: e.Domain.AppURL, SitesDomain: e.Domain.SitesDomain, MCPDomain: e.Domain.MCPDomain},
 		TLS: model.TLSSettings{
 			Enabled: e.TLS.Enabled,
 			Port:    e.TLS.Port,

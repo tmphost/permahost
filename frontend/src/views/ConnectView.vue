@@ -5,9 +5,9 @@
 -->
 
 <script setup>
-import { computed, onBeforeUnmount, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { BASE_PATH } from '../api'
+import { BASE_PATH, fetchAuthConfig } from '../api'
 import { useClipboard } from '../composables/useClipboard'
 
 const INSTALL_BASE = 'https://raw.githubusercontent.com/tmphost/permahost/main'
@@ -40,16 +40,25 @@ async function copySnippet(snippet) {
 onBeforeUnmount(() => clearTimeout(copiedTimer))
 
 const serverUrl = `${window.location.origin}${BASE_PATH}`
-const mcpUrl = `${serverUrl}/mcp`
+// The MCP endpoint is below the app URL unless the server names an MCP domain.
+const mcpUrl = ref(`${serverUrl}/mcp`)
 
-const MCP_SNIPPETS = [
-  { id: 'mcp-url', label: 'MCP server URL', text: mcpUrl },
+onMounted(async () => {
+  try {
+    mcpUrl.value = (await fetchAuthConfig()).mcpUrl || mcpUrl.value
+  } catch {
+    // Keep the app URL's endpoint, which always works.
+  }
+})
+
+const mcpSnippets = (url) => [
+  { id: 'mcp-url', label: 'MCP server URL', text: url },
   {
     id: 'mcp-json',
     label: 'JSON config',
-    text: JSON.stringify({ mcpServers: { permahost: { type: 'http', url: mcpUrl } } }, null, 2),
+    text: JSON.stringify({ mcpServers: { permahost: { type: 'http', url } } }, null, 2),
   },
-  { id: 'mcp-claude', label: 'Claude Code', text: `claude mcp add --transport http permahost ${mcpUrl}` },
+  { id: 'mcp-claude', label: 'Claude Code', text: `claude mcp add --transport http permahost ${url}` },
 ]
 
 const CLI_SNIPPETS = [
@@ -68,7 +77,7 @@ const CLI_SNIPPETS = [
   },
 ]
 
-const SECTIONS = [
+const SECTIONS = computed(() => [
   {
     id: 'mcp',
     label: 'MCP',
@@ -77,7 +86,7 @@ const SECTIONS = [
     icon: 'M9 3v4m6-4v4M7 7h10v4a5 5 0 0 1-10 0V7zm5 9v5',
     intro: 'Add permahost to Claude, Cursor or any MCP client that speaks streamable HTTP.',
     note: 'The client opens your browser to sign in and shows a consent screen. No secret or key is needed.',
-    snippets: MCP_SNIPPETS,
+    snippets: mcpSnippets(mcpUrl.value),
   },
   {
     id: 'cli',
@@ -89,11 +98,11 @@ const SECTIONS = [
     note: 'Login opens your browser to sign in; the CLI keeps the session on this machine.',
     snippets: CLI_SNIPPETS,
   },
-]
+])
 
 // The open tab lives in the route (?tab=cli) so a link can open it; MCP is the default.
 const route = useRoute()
-const active = computed(() => SECTIONS.find((section) => section.id === route.query.tab) || SECTIONS[0])
+const active = computed(() => SECTIONS.value.find((section) => section.id === route.query.tab) || SECTIONS.value[0])
 </script>
 
 <template>
@@ -138,7 +147,7 @@ const active = computed(() => SECTIONS.find((section) => section.id === route.qu
         :aria-labelledby="`connect-${active.id}-title`"
         :data-test="`connect-${active.id}`"
       >
-        <h2 :id="`connect-${active.id}-title`" class="text-sm font-bold text-gray-900">{{ active.title }}</h2>
+        <h2 :id="`connect-${active.id}-title`" class="text-sm font-bold text-gray-900 dark:text-zinc-100">{{ active.title }}</h2>
         <p class="mt-1 text-xs text-gray-500 dark:text-zinc-400">{{ active.intro }}</p>
         <p
           v-if="active.id === 'mcp'"

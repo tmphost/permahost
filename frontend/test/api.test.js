@@ -56,10 +56,12 @@ describe('api', () => {
     expect(await api.fetchUser()).toEqual({ id: 'u2' })
   })
 
-  it('fetchAuthConfig returns providers and whether anonymous uploads are on', async () => {
+  it('fetchAuthConfig returns providers, whether anonymous uploads are on and the MCP URL', async () => {
     const api = await loadApi('')
     fetch.mockResolvedValue(json({ providers: ['google'], anonymousUploads: true, extra: 1 }))
-    expect(await api.fetchAuthConfig()).toEqual({ providers: ['google'], anonymousUploads: true })
+    expect(await api.fetchAuthConfig()).toEqual({ providers: ['google'], anonymousUploads: true, mcpUrl: '' })
+    fetch.mockResolvedValue(json({ providers: [], anonymousUploads: false, mcpUrl: 'https://mcp.permahost.io/mcp' }))
+    expect((await api.fetchAuthConfig()).mcpUrl).toBe('https://mcp.permahost.io/mcp')
     fetch.mockResolvedValue(json({}, 503))
     await expect(api.fetchAuthConfig()).rejects.toThrow('Failed to load sign-in options (503)')
   })

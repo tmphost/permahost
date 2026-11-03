@@ -43,8 +43,12 @@ import (
 // The server's endpoints, below the issuer URL.
 const (
 	AuthorizePath = "/oauth2/authorize"
-	TokenPath     = "/oauth2/token"
-	RegisterPath  = "/oauth2/register"
+	// MCPAuthorizePath is the authorization endpoint of the MCP host's
+	// issuer. It is served on the app host, where the user signs in, and
+	// answers with the MCP host's iss.
+	MCPAuthorizePath = "/oauth2/mcp/authorize"
+	TokenPath        = "/oauth2/token"
+	RegisterPath     = "/oauth2/register"
 	// DeviceCodePath is the device authorization endpoint (RFC 8628).
 	DeviceCodePath = "/oauth2/device/code"
 	// DevicePath is where the user enters a device's user code.
@@ -137,8 +141,8 @@ var (
 type (
 	// Controller is the authorization server's business logic.
 	Controller interface {
-		GetServerMetadata(ctx context.Context) *entity.GetOAuthServerMetadataResponse
-		GetProtectedResourceMetadata(ctx context.Context) *entity.GetProtectedResourceMetadataResponse
+		GetServerMetadata(ctx context.Context, rq *entity.GetOAuthServerMetadataRequest) *entity.GetOAuthServerMetadataResponse
+		GetProtectedResourceMetadata(ctx context.Context, rq *entity.GetProtectedResourceMetadataRequest) *entity.GetProtectedResourceMetadataResponse
 		RegisterClient(ctx context.Context, rq *entity.RegisterClientRequest) (*entity.RegisterClientResponse, error)
 		// Authorize checks an authorization request and prepares the
 		// consent page. Errors are for the user's eyes: the client and
@@ -171,7 +175,11 @@ type (
 		Issuer string
 		// Resource is the protected resource's URL, the MCP endpoint.
 		Resource string
-		Now      func() time.Time
+		// MCPResource is the MCP endpoint's URL on the MCP host; requests
+		// to that host get it as the resource, and its origin as the
+		// issuer. Empty when there is none.
+		MCPResource string
+		Now         func() time.Time
 	}
 
 	controller struct {
@@ -181,6 +189,11 @@ type (
 		deviceQuota quota.Service
 		issuer      string
 		resource    string
+		// mcpHost is MCPResource's host, which gets mcpResource and
+		// mcpIssuer.
+		mcpHost     string
+		mcpResource string
+		mcpIssuer   string
 		now         func() time.Time
 	}
 )
@@ -196,13 +209,28 @@ func New(p Params) Controller {
 		resource:    p.Resource,
 		now:         p.Now,
 	}
+	if u, err := url.Parse(p.MCPResource); err == nil && u.Host != "" {
+		c.mcpHost, c.mcpResource = strings.ToLower(u.Host), p.MCPResource
+		c.mcpIssuer = u.Scheme + "://" + c.mcpHost
+	}
 	if c.now == nil {
 		c.now = time.Now
 	}
 	return c
 }
 
-func (c *controller) GetServerMetadata(_ context.Context) *entity.GetOAuthServerMetadataResponse {
+// GetServerMetadata describes the issuer of the host asked. The MCP host
+// is an issuer of its own, so MCP clients find the authorization server on
+// the host they connected to; its users still sign in on the app host.
+func (c *controller) GetServerMetadata(_ context.Context, rq *entity.GetOAuthServerMetadataRequest) *entity.GetOAuthServerMetadataResponse {
+	if c.onMCPHost(rq.Host) {
+		return &entity.GetOAuthServerMetadataResponse{
+			Issuer:                c.mcpIssuer,
+			AuthorizationEndpoint: c.issuer + MCPAuthorizePath,
+			TokenEndpoint:         c.mcpIssuer + TokenPath,
+			RegistrationEndpoint:  c.mcpIssuer + RegisterPath,
+		}
+	}
 	return &entity.GetOAuthServerMetadataResponse{
 		Issuer:                      c.issuer,
 		AuthorizationEndpoint:       c.issuer + AuthorizePath,
@@ -212,8 +240,17 @@ func (c *controller) GetServerMetadata(_ context.Context) *entity.GetOAuthServer
 	}
 }
 
-func (c *controller) GetProtectedResourceMetadata(_ context.Context) *entity.GetProtectedResourceMetadataResponse {
+// GetProtectedResourceMetadata names the MCP endpoint and the issuer on the
+// host asked, so both always match the URL a client connected to.
+func (c *controller) GetProtectedResourceMetadata(_ context.Context, rq *entity.GetProtectedResourceMetadataRequest) *entity.GetProtectedResourceMetadataResponse {
+	if c.onMCPHost(rq.Host) {
+		return &entity.GetProtectedResourceMetadataResponse{Resource: c.mcpResource, AuthorizationServers: []string{c.mcpIssuer}}
+	}
 	return &entity.GetProtectedResourceMetadataResponse{Resource: c.resource, AuthorizationServers: []string{c.issuer}}
+}
+
+func (c *controller) onMCPHost(host string) bool {
+	return c.mcpHost != "" && strings.EqualFold(host, c.mcpHost)
 }
 
 func (c *controller) RegisterClient(_ context.Context, rq *entity.RegisterClientRequest) (*entity.RegisterClientResponse, error) {
@@ -296,9 +333,13 @@ func (c *controller) Consent(_ context.Context, rq *entity.ConsentRequest) (*ent
 	if err != nil || rq.UserID == 0 || grant.UserID != monoflake.ID(rq.UserID).String() {
 		return nil, ErrInvalidConsent
 	}
+	iss := c.issuer
+	if rq.MCP && c.mcpIssuer != "" {
+		iss = c.mcpIssuer
+	}
 	if !rq.Allow {
 		return &entity.ConsentResponse{RedirectURL: withParams(grant.RedirectURI,
-			"error", "access_denied", "state", grant.State, "iss", c.issuer)}, nil
+			"error", "access_denied", "state", grant.State, "iss", iss)}, nil
 	}
 	code, err := c.token.CreateAuthorizationCode(grant)
 	if err != nil {
@@ -306,7 +347,7 @@ func (c *controller) Consent(_ context.Context, rq *entity.ConsentRequest) (*ent
 	}
 	// iss lets the client tell this server's answer from another's
 	// (RFC 9207).
-	return &entity.ConsentResponse{RedirectURL: withParams(grant.RedirectURI, "code", code, "state", grant.State, "iss", c.issuer)}, nil
+	return &entity.ConsentResponse{RedirectURL: withParams(grant.RedirectURI, "code", code, "state", grant.State, "iss", iss)}, nil
 }
 
 func (c *controller) Token(ctx context.Context, rq *entity.TokenRequest) (*entity.TokenResponse, error) {

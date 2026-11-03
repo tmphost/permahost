@@ -5,12 +5,16 @@
 package entity
 
 type (
-	// GetAuthConfigResponse lists the sign-in providers that are configured.
+	// GetAuthConfigResponse lists the sign-in providers that are
+	// configured, and where the MCP endpoint is.
 	GetAuthConfigResponse struct {
 		Providers []AuthProvider
 		// AnonymousUploads is whether visitors may upload without signing
 		// in.
 		AnonymousUploads bool
+		// MCPURL is the MCP endpoint on the MCP domain; empty when it is
+		// served only below the app URL.
+		MCPURL string
 	}
 
 	// AuthProvider is a sign-in button.

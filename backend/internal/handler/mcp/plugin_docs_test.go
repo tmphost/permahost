@@ -26,7 +26,7 @@ import (
 // they don't drift from what it registers.
 
 // _pluginMCPURL is where every plugin connects.
-const _pluginMCPURL = "https://app.permahost.io/mcp"
+const _pluginMCPURL = "https://mcp.permahost.io/mcp"
 
 // A leading table cell holding a backticked identifier.
 var _docRowRe = regexp.MustCompile("(?m)^\\| `([a-zA-Z]+)`")

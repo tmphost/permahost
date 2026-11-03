@@ -75,6 +75,9 @@ type (
 		// Limits returns the current file settings; anonymous requests are
 		// refused while they disable anonymous uploads.
 		Limits func() entity.FileSettings
+		// MCPURL is the MCP endpoint's URL on the MCP domain, which
+		// clients are shown; empty when there is none.
+		MCPURL string
 		Now    func() time.Time
 	}
 
@@ -88,6 +91,7 @@ type (
 		basePath  string
 		webOrigin string
 		limits    func() entity.FileSettings
+		mcpURL    string
 		now       func() time.Time
 	}
 )
@@ -103,6 +107,7 @@ func New(p Params) Controller {
 		basePath:  strings.TrimRight(p.BasePath, "/"),
 		webOrigin: origin(p.BaseURL),
 		limits:    p.Limits,
+		mcpURL:    p.MCPURL,
 		now:       p.Now,
 	}
 	if c.now == nil {
@@ -124,7 +129,7 @@ func (c *controller) GetAuthConfig(_ context.Context) *entity.GetAuthConfigRespo
 		p := c.providers[name]
 		providers[i] = entity.AuthProvider{ID: name, Name: p.Label(), Icon: p.Icon()}
 	}
-	return &entity.GetAuthConfigResponse{Providers: providers, AnonymousUploads: !c.limits().AnonymousUploadsDisabled}
+	return &entity.GetAuthConfigResponse{Providers: providers, AnonymousUploads: !c.limits().AnonymousUploadsDisabled, MCPURL: c.mcpURL}
 }
 
 func (c *controller) StartLogin(ctx context.Context, rq *entity.StartLoginRequest) (*entity.StartLoginResponse, error) {

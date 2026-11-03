@@ -140,7 +140,7 @@ The server offers the same `file` tool (actions `upload`, `download`, `get`,
   "mcpServers": {
     "permahost": {
       "type": "http",
-      "url": "https://app.permahost.io/mcp"
+      "url": "https://mcp.permahost.io/mcp"
     }
   }
 }

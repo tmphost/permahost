@@ -6,8 +6,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
-vi.mock('../src/api', () => ({ BASE_PATH: '/base' }))
+vi.mock('../src/api', () => ({ BASE_PATH: '/base', fetchAuthConfig: vi.fn() }))
 
+import { fetchAuthConfig } from '../src/api'
 import ConnectView from '../src/views/ConnectView.vue'
 import { useToasts } from '../src/composables/useToasts'
 
@@ -17,6 +18,7 @@ async function mountView(path = '/connect') {
   const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/connect', component: ConnectView }] })
   await router.push(path)
   const wrapper = mount(ConnectView, { global: { plugins: [router] } })
+  await flushPromises()
   return { wrapper, router }
 }
 
@@ -24,6 +26,7 @@ describe('ConnectView', () => {
   let writeText
   beforeEach(() => {
     useToasts().toasts.value = []
+    fetchAuthConfig.mockReset().mockResolvedValue({ providers: [], anonymousUploads: true, mcpUrl: '' })
     writeText = vi.fn().mockResolvedValue()
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
   })
@@ -50,6 +53,21 @@ describe('ConnectView', () => {
     expect(tool).toContain("don't pay for a new folder each time")
     expect(wrapper.find('[data-test="connect-mcp"]').attributes('aria-labelledby')).toBe('connect-mcp-title')
     expect(wrapper.find('#connect-mcp-title').text()).toBe('MCP clients')
+  })
+
+  it('shows the MCP domain URL the server names', async () => {
+    fetchAuthConfig.mockResolvedValue({ providers: [], anonymousUploads: true, mcpUrl: 'https://mcp.permahost.io/mcp' })
+    const { wrapper } = await mountView()
+    expect(wrapper.find('[data-test="snippet-mcp-url"]').text()).toBe('https://mcp.permahost.io/mcp')
+    expect(wrapper.find('[data-test="snippet-mcp-claude"]').text()).toBe(
+      'claude mcp add --transport http permahost https://mcp.permahost.io/mcp',
+    )
+  })
+
+  it('keeps the app URL endpoint when the server config fails to load', async () => {
+    fetchAuthConfig.mockRejectedValue(new Error('down'))
+    const { wrapper } = await mountView()
+    expect(wrapper.find('[data-test="snippet-mcp-url"]').text()).toBe(mcpUrl())
   })
 
   it('explains CLI install, login and usage', async () => {

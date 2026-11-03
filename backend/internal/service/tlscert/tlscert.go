@@ -3,7 +3,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 // Package tlscert serves Let's Encrypt certificates, obtained and renewed
-// with lego: one for the app host, for the dynamic subdomains either one
+// with lego: one for the app host and each other fixed host (the MCP
+// host), for the dynamic subdomains either one
 // per subdomain on its first visit, or a single wildcard when a Cloudflare
 // API token is set, and one per verified custom domain, on its first visit
 // or as soon as it is verified (Prepare).
@@ -74,6 +75,9 @@ type (
 	Config struct {
 		// AppHost is the app's host name; it always gets a certificate.
 		AppHost string
+		// Hosts are other host names that always get a certificate, such
+		// as the MCP host.
+		Hosts []string
 		// Email is the optional ACME account email.
 		Email string
 		Sites SitesConfig
@@ -164,6 +168,10 @@ func (u *legoUser) GetPrivateKey() crypto.PrivateKey        { return u.key }
 // New returns the certificate service. enc seals the cached certificates.
 func New(cfg Config, enc encryption.Service) Service {
 	cfg.AppHost = strings.ToLower(cfg.AppHost)
+	cfg.Hosts = slices.Clone(cfg.Hosts)
+	for i, h := range cfg.Hosts {
+		cfg.Hosts[i] = strings.ToLower(h)
+	}
 	cfg.Sites.Domain = strings.ToLower(cfg.Sites.Domain)
 	s := &service{
 		cfg:        cfg,
@@ -320,10 +328,15 @@ func checkInterval() time.Duration {
 	return _checkEvery + _checkJitterMin + mathrand.N(_checkJitterMax-_checkJitterMin+1)
 }
 
-// names are the certificates to keep: the app host, the wildcard when one is
-// used, and every subdomain that already has one.
+// names are the certificates to keep: the app host, the other fixed hosts,
+// the wildcard when one is used, and every subdomain that already has one.
 func (s *service) names() []string {
 	names := []string{s.cfg.AppHost}
+	for _, h := range s.cfg.Hosts {
+		if !slices.Contains(names, h) {
+			names = append(names, h)
+		}
+	}
 	if s.cfg.Sites.Enabled && !s.perSiteCertificates() {
 		names = append(names, "*."+s.cfg.Sites.Domain)
 	}
@@ -363,7 +376,7 @@ func (s *service) refresh() {
 // dropped reports whether name is a custom domain that is no longer
 // verified. Only custom domains are ever dropped.
 func (s *service) dropped(name string) bool {
-	if s.cfg.AllowDomain == nil || name == s.cfg.AppHost || strings.HasPrefix(name, "*.") {
+	if s.cfg.AllowDomain == nil || name == s.cfg.AppHost || slices.Contains(s.cfg.Hosts, name) || strings.HasPrefix(name, "*.") {
 		return false
 	}
 	if s.cfg.Sites.Allow != nil && s.cfg.Sites.Allow(name) {

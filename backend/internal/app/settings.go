@@ -82,7 +82,7 @@ func settingsFromConfig(cfg Config) entity.Settings {
 		}
 	}
 	return entity.Settings{
-		Domain: entity.DomainSettings{AppURL: cfg.App.BaseURL, SitesDomain: cfg.App.SitesDomain},
+		Domain: entity.DomainSettings{AppURL: cfg.App.BaseURL, SitesDomain: cfg.App.SitesDomain, MCPDomain: cfg.App.MCPDomain},
 		TLS: entity.TLSSettings{
 			Enabled: cfg.TLS.Enabled, Port: tlsPort, Email: cfg.TLS.Email,
 			Lego: entity.LegoSettings{Enabled: cfg.TLS.Lego.Enabled, CloudflareAPIToken: cfg.TLS.Lego.CloudflareAPIToken},
@@ -128,6 +128,7 @@ func applySettings(cfg Config, s entity.Settings) Config {
 	cfg.Auth.Providers = s.Auth.Providers
 	cfg.App.BaseURL = s.Domain.AppURL
 	cfg.App.SitesDomain = s.Domain.SitesDomain
+	cfg.App.MCPDomain = s.Domain.MCPDomain
 	cfg.TLS = TLSConfig{
 		Enabled: s.TLS.Enabled, Port: s.TLS.Port, Email: s.TLS.Email,
 		Lego: LegoConfig{Enabled: s.TLS.Lego.Enabled, CloudflareAPIToken: s.TLS.Lego.CloudflareAPIToken},

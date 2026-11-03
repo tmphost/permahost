@@ -10,6 +10,8 @@ type (
 	AuthConfig struct {
 		Providers        []AuthProvider `json:"providers"`
 		AnonymousUploads bool           `json:"anonymousUploads"`
+		// MCPURL is the MCP endpoint on the MCP domain, when there is one.
+		MCPURL string `json:"mcpUrl,omitempty"`
 	}
 
 	// AuthProvider is a sign-in button.

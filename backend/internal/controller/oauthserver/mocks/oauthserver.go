@@ -96,31 +96,31 @@ func (mr *MockControllerMockRecorder) ConsentDevice(ctx, rq interface{}) *gomock
 }
 
 // GetProtectedResourceMetadata mocks base method.
-func (m *MockController) GetProtectedResourceMetadata(ctx context.Context) *entity.GetProtectedResourceMetadataResponse {
+func (m *MockController) GetProtectedResourceMetadata(ctx context.Context, rq *entity.GetProtectedResourceMetadataRequest) *entity.GetProtectedResourceMetadataResponse {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetProtectedResourceMetadata", ctx)
+	ret := m.ctrl.Call(m, "GetProtectedResourceMetadata", ctx, rq)
 	ret0, _ := ret[0].(*entity.GetProtectedResourceMetadataResponse)
 	return ret0
 }
 
 // GetProtectedResourceMetadata indicates an expected call of GetProtectedResourceMetadata.
-func (mr *MockControllerMockRecorder) GetProtectedResourceMetadata(ctx interface{}) *gomock.Call {
+func (mr *MockControllerMockRecorder) GetProtectedResourceMetadata(ctx, rq interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProtectedResourceMetadata", reflect.TypeOf((*MockController)(nil).GetProtectedResourceMetadata), ctx)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProtectedResourceMetadata", reflect.TypeOf((*MockController)(nil).GetProtectedResourceMetadata), ctx, rq)
 }
 
 // GetServerMetadata mocks base method.
-func (m *MockController) GetServerMetadata(ctx context.Context) *entity.GetOAuthServerMetadataResponse {
+func (m *MockController) GetServerMetadata(ctx context.Context, rq *entity.GetOAuthServerMetadataRequest) *entity.GetOAuthServerMetadataResponse {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetServerMetadata", ctx)
+	ret := m.ctrl.Call(m, "GetServerMetadata", ctx, rq)
 	ret0, _ := ret[0].(*entity.GetOAuthServerMetadataResponse)
 	return ret0
 }
 
 // GetServerMetadata indicates an expected call of GetServerMetadata.
-func (mr *MockControllerMockRecorder) GetServerMetadata(ctx interface{}) *gomock.Call {
+func (mr *MockControllerMockRecorder) GetServerMetadata(ctx, rq interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetServerMetadata", reflect.TypeOf((*MockController)(nil).GetServerMetadata), ctx)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetServerMetadata", reflect.TypeOf((*MockController)(nil).GetServerMetadata), ctx, rq)
 }
 
 // RegisterClient mocks base method.

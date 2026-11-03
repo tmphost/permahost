@@ -86,7 +86,7 @@ func FromGetAuthConfigResponseEntityToHTTPResponse(rs *entity.GetAuthConfigRespo
 	for i, p := range rs.Providers {
 		providers[i] = view.AuthProvider{ID: p.ID, Name: p.Name, Icon: p.Icon}
 	}
-	return marshal(view.AuthConfig{Providers: providers, AnonymousUploads: rs.AnonymousUploads})
+	return marshal(view.AuthConfig{Providers: providers, AnonymousUploads: rs.AnonymousUploads, MCPURL: rs.MCPURL})
 }
 
 // FromErrorToHTTPResponse renders an API error body.

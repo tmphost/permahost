@@ -14,7 +14,7 @@
   "mcpServers": {
     "permahost": {
       "type": "http",
-      "url": "https://app.permahost.io/mcp"
+      "url": "https://mcp.permahost.io/mcp"
     }
   }
 }
