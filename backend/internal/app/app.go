@@ -350,6 +350,7 @@ func New(cfg Config, web fs.FS) (*App, error) {
 			Auth:                auth,
 			MaxBodyBytes:        int64(bodyLimit),
 			ResourceMetadataURL: origin + api.ResourceMetadataPath + MCPPath,
+			EndpointURL:         origin + MCPPath,
 		}))
 	}
 	f.All(MCPPath, mcpRouter(h, newMCP(baseURL), newMCP(strings.TrimSuffix(mcpURL, MCPPath))))

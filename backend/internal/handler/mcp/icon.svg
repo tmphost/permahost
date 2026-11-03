@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Solid black background -->
+  <rect width="512" height="512" fill="#000000" />
+
+  <!-- The 24px mark at 4/5 of the tile, centred -->
+  <g transform="translate(51.2 51.2) scale(17.066667)" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <!-- A disk drive... -->
+    <rect x="2" y="7" width="20" height="10" rx="3" />
+    <path d="M6 12h.01M9 12h.01" />
+    <!-- ...with its status light green: online, and staying online -->
+    <circle cx="17" cy="12" r="1.8" fill="#22c55e" stroke="none" />
+  </g>
+</svg>

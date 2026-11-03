@@ -216,3 +216,25 @@ func TestMCPEndpointURL(t *testing.T) {
 	assert.Equal(t, "https://mcp.example.com/mcp", mcpEndpointURL("https://app.example.com", "MCP.example.com"))
 	assert.Equal(t, "http://mcp.example.com:2027/mcp", mcpEndpointURL("http://app.example.com:2027", "mcp.example.com"))
 }
+
+// TestMCPSetupPage checks that a browser opening the endpoint gets the setup
+// page for the host it asked.
+func TestMCPSetupPage(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.App.BaseURL = "https://app.example.com"
+	cfg.App.SitesDomain = "example.com"
+	cfg.App.MCPDomain = "mcp.example.com"
+	a, err := New(cfg, fstest.MapFS{})
+	require.NoError(t, err)
+
+	for _, host := range []string{"app.example.com", "mcp.example.com"} {
+		req := httptest.NewRequest(http.MethodGet, MCPPath, nil)
+		req.Host = host
+		req.Header.Set(fiber.HeaderAccept, "text/html")
+		res, err := a.Handler().Test(req)
+		require.NoError(t, err)
+		body, _ := io.ReadAll(res.Body)
+		assert.Equal(t, http.StatusOK, res.StatusCode, host)
+		assert.Contains(t, string(body), "claude mcp add --transport http permahost https://"+host+"/mcp")
+	}
+}
