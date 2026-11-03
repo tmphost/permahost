@@ -48,7 +48,7 @@ func TestSetupLogin(t *testing.T) {
 		ck := cookieNamed(res, mapper.RootCookie)
 		require.NotNil(t, ck)
 		assert.Equal(t, "root-session", ck.Value)
-		assert.Equal(t, "/base/api/v1/setup", ck.Path)
+		assert.Equal(t, "/", ck.Path)
 		assert.Equal(t, http.SameSiteStrictMode, ck.SameSite)
 		assert.True(t, ck.HttpOnly)
 		assert.True(t, ck.Secure)

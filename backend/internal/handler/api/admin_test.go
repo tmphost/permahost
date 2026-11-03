@@ -29,7 +29,7 @@ func newAdminApp(t *testing.T) (*fiber.App, *mockadmin.MockController) {
 	setup.EXPECT().Authenticate(gomock.Any(), &entity.AuthenticateRootRequest{SessionToken: "root-session"}).Return(nil).AnyTimes()
 	admin := mockadmin.NewMockController(mc)
 	app := fiber.New()
-	New(Params{Router: app, Setup: setup, Admin: admin, FileSettings: func() entity.FileSettings { return entity.FileSettings{} }})
+	New(Params{Router: app, Setup: setup, Admin: admin, FileSettings: func() entity.FileSettings { return entity.FileSettings{} }, CookieSecure: true})
 	return app, admin
 }
 

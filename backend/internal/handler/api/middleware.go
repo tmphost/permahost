@@ -5,6 +5,9 @@
 package api
 
 import (
+	"net/url"
+	"strings"
+
 	"github.com/gofiber/fiber/v3"
 
 	authctrl "github.com/tmphost/permahost/backend/internal/controller/auth"
@@ -66,4 +69,35 @@ func AuthenticateOrAnonymous(controller authctrl.Controller) fiber.Handler {
 		c.Locals(mapper.LocalAnonymous, rs.Anonymous)
 		return c.Next()
 	}
+}
+
+// SameOrigin refuses a state-changing request that carries cookies unless
+// the browser sent it from the app's own origin. Folder hosts are on
+// sibling subdomains, so they are the same site as the app and SameSite
+// cookies alone do not stop their pages from posting to it. Requests
+// without cookies (CLI, MCP and other access token clients) pass.
+func SameOrigin(c fiber.Ctx) error {
+	switch c.Method() {
+	case fiber.MethodGet, fiber.MethodHead, fiber.MethodOptions:
+		return c.Next()
+	}
+	if c.Get(fiber.HeaderCookie) == "" {
+		return c.Next()
+	}
+	switch c.Get(fiber.HeaderSecFetchSite) {
+	case "same-origin", "none":
+		return c.Next()
+	case "":
+		// Browsers without Fetch Metadata still send Origin.
+	default:
+		return sendError(c, fiber.StatusForbidden, "cross-origin request refused")
+	}
+	origin := c.Get(fiber.HeaderOrigin)
+	if origin == "" {
+		return c.Next()
+	}
+	if u, err := url.Parse(origin); err == nil && u.Host != "" && strings.EqualFold(u.Host, c.Host()) {
+		return c.Next()
+	}
+	return sendError(c, fiber.StatusForbidden, "cross-origin request refused")
 }

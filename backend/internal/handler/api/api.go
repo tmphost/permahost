@@ -77,6 +77,12 @@ func New(p Params) {
 	oauth := &OAuth{controller: p.OAuth, basePath: basePath}
 	admin := &Admin{controller: p.Admin}
 
+	if !p.CookieSecure {
+		p.Router.Use(func(c fiber.Ctx) error {
+			c.Locals(mapper.LocalInsecureCookies, true)
+			return c.Next()
+		})
+	}
 	// Folder hosts are answered before any route, so no app route is ever
 	// reachable on a host that serves user content.
 	p.Router.Use(public.Serve)
@@ -84,6 +90,7 @@ func New(p Params) {
 		p.Router.Use(p.Hosts)
 	}
 	p.Router.All(folderctrl.PublicPathPrefix+":user/:folder/*", public.ServePath)
+	p.Router.Use(SameOrigin)
 
 	// MCP clients may run in a browser; these need no cookies.
 	allowAny := cors.New()

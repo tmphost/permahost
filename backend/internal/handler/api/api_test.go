@@ -64,6 +64,83 @@ func cookieNamed(res *http.Response, name string) *http.Cookie {
 	return nil
 }
 
+func TestInsecureCookies(t *testing.T) {
+	mc := gomock.NewController(t)
+	ctrl := mockauth.NewMockController(mc)
+	setup := mocksetup.NewMockController(mc)
+	app := fiber.New()
+	New(Params{Router: app, Auth: ctrl, Setup: setup, FileSettings: func() entity.FileSettings { return entity.FileSettings{} }, BasePath: "/base/"})
+
+	ctrl.EXPECT().StartLogin(gomock.Any(), gomock.Any()).Return(&entity.StartLoginResponse{AuthURL: "https://idp/o", State: "st"}, nil)
+	res, _ := do(t, app, http.MethodGet, "/auth/google/login")
+	ck := cookieNamed(res, "permahost_oauth_state")
+	require.NotNil(t, ck)
+	assert.Equal(t, "/base/auth", ck.Path)
+	assert.False(t, ck.Secure)
+
+	setup.EXPECT().Login(gomock.Any(), gomock.Any()).Return(&entity.RootLoginResponse{SessionToken: "root-session"}, nil)
+	res, _ = send(t, app, http.MethodPost, "/api/v1/setup/login", `{"token":"tok"}`)
+	ck = cookieNamed(res, "permahost_root")
+	require.NotNil(t, ck)
+	assert.Equal(t, "/base/api/v1/setup", ck.Path)
+
+	ctrl.EXPECT().Authenticate(gomock.Any(), &entity.AuthenticateRequest{SessionToken: "tok"}).Return(nil, authctrl.ErrUnauthorized)
+	res, _ = do(t, app, http.MethodGet, "/api/v1/users/me", &http.Cookie{Name: "permahost_session", Value: "tok"})
+	assert.Equal(t, http.StatusUnauthorized, res.StatusCode)
+}
+
+func TestSameOrigin(t *testing.T) {
+	session := &http.Cookie{Name: mapper.SessionCookie, Value: "tok"}
+	cases := map[string]struct {
+		method  string
+		headers map[string]string
+		cookie  bool
+		refused bool
+	}{
+		"same origin":            {method: http.MethodPost, cookie: true, headers: map[string]string{"Sec-Fetch-Site": "same-origin"}},
+		"user initiated":         {method: http.MethodPost, cookie: true, headers: map[string]string{"Sec-Fetch-Site": "none"}},
+		"same site folder host":  {method: http.MethodPost, cookie: true, headers: map[string]string{"Sec-Fetch-Site": "same-site"}, refused: true},
+		"cross site":             {method: http.MethodDelete, cookie: true, headers: map[string]string{"Sec-Fetch-Site": "cross-site"}, refused: true},
+		"origin matches host":    {method: http.MethodPost, cookie: true, headers: map[string]string{"Origin": "https://example.com"}},
+		"origin of another host": {method: http.MethodPost, cookie: true, headers: map[string]string{"Origin": "https://f1.file.example.com"}, refused: true},
+		"opaque origin":          {method: http.MethodPost, cookie: true, headers: map[string]string{"Origin": "null"}, refused: true},
+		"no browser headers":     {method: http.MethodPost, cookie: true},
+		"no cookie":              {method: http.MethodPost, headers: map[string]string{"Sec-Fetch-Site": "cross-site"}},
+		"safe method":            {method: http.MethodGet, cookie: true, headers: map[string]string{"Sec-Fetch-Site": "cross-site"}},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			app := fiber.New()
+			app.Use(SameOrigin)
+			app.All("/", func(c fiber.Ctx) error { return c.SendStatus(fiber.StatusNoContent) })
+			req := httptest.NewRequest(tc.method, "/", nil)
+			for k, v := range tc.headers {
+				req.Header.Set(k, v)
+			}
+			if tc.cookie {
+				req.AddCookie(session)
+			}
+			res, err := app.Test(req)
+			require.NoError(t, err)
+			if tc.refused {
+				assert.Equal(t, http.StatusForbidden, res.StatusCode)
+				return
+			}
+			assert.Equal(t, http.StatusNoContent, res.StatusCode)
+		})
+	}
+}
+
+func TestSameOrigin_GuardsTheAPI(t *testing.T) {
+	app, _ := newApp(t)
+	req := httptest.NewRequest(http.MethodPost, "/auth/logout", nil)
+	req.Header.Set("Sec-Fetch-Site", "same-site")
+	req.AddCookie(&http.Cookie{Name: mapper.SessionCookie, Value: "tok"})
+	res, err := app.Test(req)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusForbidden, res.StatusCode)
+}
+
 func TestConfig(t *testing.T) {
 	app, ctrl := newApp(t)
 	ctrl.EXPECT().GetAuthConfig(gomock.Any()).Return(&entity.GetAuthConfigResponse{Providers: []entity.AuthProvider{{ID: "google", Name: "Google"}}, AnonymousUploads: true})
@@ -84,7 +161,7 @@ func TestLogin(t *testing.T) {
 		ck := cookieNamed(res, mapper.StateCookie)
 		require.NotNil(t, ck)
 		assert.Equal(t, "st", ck.Value)
-		assert.Equal(t, "/base/auth", ck.Path)
+		assert.Equal(t, "/", ck.Path)
 		assert.True(t, ck.HttpOnly)
 		assert.True(t, ck.Secure)
 		assert.Equal(t, http.SameSiteLaxMode, ck.SameSite)
@@ -137,7 +214,7 @@ func TestCallback_Success(t *testing.T) {
 	session := cookieNamed(res, mapper.SessionCookie)
 	require.NotNil(t, session)
 	assert.Equal(t, "session", session.Value)
-	assert.Equal(t, "/base/", session.Path)
+	assert.Equal(t, "/", session.Path)
 	assert.True(t, session.HttpOnly)
 	assert.Equal(t, int((7 * 24 * time.Hour).Seconds()), session.MaxAge)
 
@@ -182,7 +259,7 @@ func TestLogout(t *testing.T) {
 	ck := cookieNamed(res, mapper.SessionCookie)
 	require.NotNil(t, ck)
 	assert.Empty(t, ck.Value)
-	assert.Equal(t, "/base/", ck.Path)
+	assert.Equal(t, "/", ck.Path)
 	assert.True(t, ck.Expires.Before(time.Now()))
 }
 
