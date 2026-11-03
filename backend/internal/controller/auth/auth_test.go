@@ -87,6 +87,8 @@ func TestGetAuthConfig(t *testing.T) {
 
 	off := New(Params{Limits: func() entity.FileSettings { return entity.FileSettings{AnonymousUploadsDisabled: true} }})
 	assert.False(t, off.GetAuthConfig(context.Background()).AnonymousUploads)
+	assert.Empty(t, rs.MCPURL)
+	assert.Equal(t, "https://mcp.t.io/mcp", New(Params{MCPURL: "https://mcp.t.io/mcp"}).GetAuthConfig(context.Background()).MCPURL)
 }
 
 func TestStartLogin(t *testing.T) {

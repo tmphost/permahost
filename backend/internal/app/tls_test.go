@@ -90,6 +90,11 @@ func tlsConfig(t *testing.T, certPEM, keyPEM string) Config {
 	return cfg
 }
 
+func TestMCPHosts(t *testing.T) {
+	assert.Nil(t, mcpHosts(newHosts("https://app.example.com", "", "", isCustom)))
+	assert.Equal(t, []string{"mcp.example.com"}, mcpHosts(newHosts("https://app.example.com", "", "MCP.example.com", isCustom)))
+}
+
 func TestListenTLS(t *testing.T) {
 	certPEM, keyPEM, pool := selfSigned(t, "app.example.com")
 	a, err := New(tlsConfig(t, certPEM, keyPEM), fstest.MapFS{})

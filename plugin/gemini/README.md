@@ -9,7 +9,7 @@ while your account has credits.
 gemini extensions install https://github.com/tmphost/permahost
 ```
 
-The server is `https://app.permahost.io/mcp`. It answers an unauthenticated
+The server is `https://mcp.permahost.io/mcp`. It answers an unauthenticated
 request with a 401, Gemini CLI discovers its OAuth endpoints from that, and you
 sign in with your permahost account; `/mcp auth permahost` starts the sign-in
 by hand. To use a self-hosted permahost, define a server named `permahost` in

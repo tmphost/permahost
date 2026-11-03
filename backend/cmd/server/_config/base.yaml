@@ -15,6 +15,10 @@ app:
   # Parent domain of the dynamic subdomains <folder ID>.file.<sitesDomain>,
   # e.g. permahost.io. Empty disables them.
   sitesDomain: ${PERMAHOSTIO_SITES_DOMAIN:}
+  # Host the MCP server is also served on, at https://<mcpDomain>/mcp, e.g.
+  # mcp.permahost.io. It serves only the MCP endpoint and its OAuth metadata,
+  # and gets its own certificate with TLS on. Empty: <baseUrl>/mcp only.
+  mcpDomain: ${PERMAHOSTIO_MCP_DOMAIN:}
   basePath: ${PERMAHOSTIO_BASE_PATH:}
   cookieSecure: ${PERMAHOSTIO_COOKIE_SECURE:false}
   settingsFile: ${PERMAHOSTIO_SETTINGS_FILE:./_storage/settings.json}

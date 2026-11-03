@@ -16,7 +16,7 @@ import (
 
 func TestSettingsRoundTrip(t *testing.T) {
 	e := entity.Settings{
-		Domain: entity.DomainSettings{AppURL: "https://app.permahost.io", SitesDomain: "permahost.io"},
+		Domain: entity.DomainSettings{AppURL: "https://app.permahost.io", SitesDomain: "permahost.io", MCPDomain: "mcp.permahost.io"},
 		TLS: entity.TLSSettings{
 			Enabled: true, Port: 443, Email: "ops@permahost.io",
 			Lego: entity.LegoSettings{Enabled: true, CloudflareAPIToken: "cf"},

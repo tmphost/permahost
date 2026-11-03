@@ -25,6 +25,10 @@ type (
 		// SitesDomain is the parent domain of the dynamic subdomains, e.g.
 		// permahost.io for <folder ID>.file.permahost.io. Empty disables them.
 		SitesDomain string
+		// MCPDomain is a host that serves only the MCP endpoint, e.g.
+		// mcp.permahost.io for https://mcp.permahost.io/mcp. Empty serves
+		// it only below the app URL.
+		MCPDomain string
 	}
 
 	// TLSSettings make the server terminate HTTPS itself, with Let's

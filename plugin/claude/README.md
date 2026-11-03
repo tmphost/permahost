@@ -10,7 +10,7 @@ files in folders that stay up while your account has credits. It also adds a
 /plugin install permahost@permahost
 ```
 
-It connects to `https://app.permahost.io/mcp` and signs in through the browser
+It connects to `https://mcp.permahost.io/mcp` and signs in through the browser
 on the first tool call. To use a self-hosted permahost, add your own MCP server
 pointing at its app URL instead:
 `claude mcp add --transport http permahost https://files.example.com/mcp`.

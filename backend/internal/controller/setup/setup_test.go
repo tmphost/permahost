@@ -230,8 +230,28 @@ func TestUpdateSettings_SaveFails(t *testing.T) {
 	assert.Equal(t, 250, e.ctrl.MonthlyGrant(), "unchanged on failure")
 }
 
+func TestUpdateSettings_MCPDomain(t *testing.T) {
+	ctx := context.Background()
+	e := newEnv(t)
+	next := e.ctrl.GetSettings(ctx).Settings
+	next.Domain.MCPDomain = " MCP.permahost.io. "
+	e.repo.EXPECT().SaveSettings(gomock.Any()).Return(nil)
+	_, err := e.ctrl.UpdateSettings(ctx, &entity.UpdateSettingsRequest{Settings: next})
+	require.NoError(t, err)
+	assert.Equal(t, "mcp.permahost.io", e.ctrl.Current().Domain.MCPDomain)
+}
+
 func TestUpdateSettings_Validation(t *testing.T) {
 	cases := map[string]func(*entity.Settings){
+		"mcp domain without dot": func(s *entity.Settings) { s.Domain.MCPDomain = "mcp" },
+		"mcp domain with scheme": func(s *entity.Settings) { s.Domain.MCPDomain = "https://mcp.permahost.io" },
+		"mcp domain with path":   func(s *entity.Settings) { s.Domain.MCPDomain = "mcp.permahost.io/mcp" },
+		"mcp domain is the app host": func(s *entity.Settings) {
+			s.Domain.AppURL, s.Domain.MCPDomain = "https://app.permahost.io", "App.permahost.io"
+		},
+		"mcp domain is a folder host": func(s *entity.Settings) {
+			s.Domain.SitesDomain, s.Domain.MCPDomain = "permahost.io", "mcp.file.permahost.io"
+		},
 		"negative credits":   func(s *entity.Settings) { s.Credits.MonthlyGrant = -1 },
 		"huge credits":       func(s *entity.Settings) { s.Credits.MonthlyGrant = _maxMonthlyGrant + 1 },
 		"unknown driver":     func(s *entity.Settings) { s.Database.Driver = "mysql" },

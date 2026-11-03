@@ -18,6 +18,7 @@ import (
 func (a *App) setupTLS(cfg Config, enc encryption.Service, h hosts) {
 	certs := tlscert.New(tlscert.Config{
 		AppHost: h.app,
+		Hosts:   mcpHosts(h),
 		Email:   cfg.TLS.Email,
 		Sites: tlscert.SitesConfig{
 			Enabled:            cfg.TLS.Lego.Enabled,
@@ -32,6 +33,14 @@ func (a *App) setupTLS(cfg Config, enc encryption.Service, h hosts) {
 	a.tlsPort = cfg.TLS.Port
 	a.tlsAddr = net.JoinHostPort("", strconv.Itoa(cfg.TLS.Port))
 	a.redirect = httpsRedirect(h, cfg.TLS.Port)
+}
+
+// mcpHosts lists the MCP host, when there is one, for a certificate.
+func mcpHosts(h hosts) []string {
+	if h.mcp == "" {
+		return nil
+	}
+	return []string{h.mcp}
 }
 
 // listenTLS serves HTTPS on the TLS port and the redirect on the app port.
