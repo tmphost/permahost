@@ -6,7 +6,6 @@ package mcp
 
 import (
 	"context"
-	"encoding/json"
 	"html/template"
 	"io"
 	"net/http"
@@ -61,8 +60,8 @@ func TestSetupPage(t *testing.T) {
 			assert.Contains(t, page, "gemini mcp add --transport http permahost "+_endpoint)
 			assert.Contains(t, page, `<img src="data:image/svg&#43;xml;base64,`)
 			assert.NotContains(t, page, "<script")
-			for _, action := range _actionSummaries {
-				assert.Contains(t, page, "<code>"+action.Name+"</code>: "+template.HTMLEscapeString(action.Summary))
+			for _, tool := range _toolSummaries {
+				assert.Contains(t, page, "<code>"+tool.Name+"</code>: "+template.HTMLEscapeString(tool.Summary))
 			}
 		})
 	}
@@ -108,28 +107,20 @@ func TestSetupPage_MCPClients(t *testing.T) {
 	}
 }
 
-// TestSetupPage_ListsEveryAction keeps the page's action list in step with
-// the file tool's.
-func TestSetupPage_ListsEveryAction(t *testing.T) {
+// TestSetupPage_ListsEveryTool keeps the page's tool list in step with the
+// registered tools.
+func TestSetupPage_ListsEveryTool(t *testing.T) {
 	e := newEnv(t)
 	rs, err := e.session.ListTools(context.Background(), nil)
 	require.NoError(t, err)
-	require.Len(t, rs.Tools, 1)
-	raw, err := json.Marshal(rs.Tools[0].InputSchema)
-	require.NoError(t, err)
-	var schema struct {
-		Properties struct {
-			Action struct {
-				Enum []string `json:"enum"`
-			} `json:"action"`
-		} `json:"properties"`
+	var registered, listed []string
+	for _, tool := range rs.Tools {
+		registered = append(registered, tool.Name)
 	}
-	require.NoError(t, json.Unmarshal(raw, &schema))
-	var listed []string
-	for _, action := range _actionSummaries {
-		listed = append(listed, action.Name)
+	for _, tool := range _toolSummaries {
+		listed = append(listed, tool.Name)
 	}
-	assert.Equal(t, schema.Properties.Action.Enum, listed)
+	assert.ElementsMatch(t, registered, listed)
 }
 
 // TestSetupPage_Icon keeps the page's icon equal to the app's favicon.

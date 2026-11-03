@@ -566,7 +566,7 @@ func TestFileHosting(t *testing.T) {
 	assert.Equal(t, "application/octet-stream", res.Header.Get("Content-Type"), "never rendered on the app origin")
 	assert.Equal(t, "<h1>hi</h1>", body)
 
-	mcpCall := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"file","arguments":{"action":"get","id":"` + id + `"}}}`
+	mcpCall := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"listFiles","arguments":{"folderId":"` + id + `"}}}`
 	req := httptest.NewRequest(http.MethodPost, MCPPath, strings.NewReader(mcpCall))
 	req.Header.Set("Authorization", "Bearer "+key)
 	req.Header.Set("Content-Type", "application/json")

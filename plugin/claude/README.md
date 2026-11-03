@@ -15,8 +15,8 @@ on the first tool call. To use a self-hosted permahost, add your own MCP server
 pointing at its app URL instead:
 `claude mcp add --transport http permahost https://files.example.com/mcp`.
 
-The server's `file` tool has the actions `upload`, `download`, `get`, `url`
-and `list`. A new folder costs 500 credits a month; uploading into an existing
+The server's tools are `uploadFile`, `downloadFile`, `listFiles`, `getUrl`
+and `listFolders`. A new folder costs 500 credits a month; uploading into an existing
 folder never costs folder credits again.
 
 ## License

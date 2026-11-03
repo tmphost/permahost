@@ -80,7 +80,7 @@ Hosting is paid for with a monthly credit grant: each folder, each started
 ("permahost whoami" shows your usage and prices).
 
 Sign in with "permahost login", which opens the browser. The "file" commands
-mirror the "file" tool of the server's MCP endpoint; the "domain" commands
+mirror the tools of the server's MCP endpoint; the "domain" commands
 point your own domains at folders.`,
 		Version:       a.opts.Version,
 		SilenceUsage:  true,

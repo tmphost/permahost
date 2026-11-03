@@ -38,7 +38,7 @@ don't add a folder with one of those names there.
 
 ## Permissions
 
-Gemini CLI asks before each tool call. To allow the permahost tool without
+Gemini CLI asks before each tool call. To allow the permahost tools without
 asking, add a policy file such as `~/.gemini/policies/permahost.toml`:
 
 ```toml
@@ -51,24 +51,22 @@ priority = 100
 Uploads spend credits, so allow them only if you are happy for Gemini to spend
 them unprompted.
 
-## Actions
+## Tools
 
-The server has one tool, `file`; its `action` argument picks what it does:
-
-| Action | What it does |
+| Tool | What it does |
 | --- | --- |
-| `upload` | Uploads a file into a new folder, or with `id` into an existing one (same path replaces the file, keeping its URL); text as `textContent`, anything else as `base64Content` |
-| `download` | Reads a file back from a folder |
-| `get` | Lists a folder's files and their URLs |
-| `url` | Builds the public URL of a folder, directory or file |
-| `list` | Lists your folders, newest first, to find one to add to |
+| `uploadFile` | Uploads a file into a new folder, or with `folderId` into an existing one (same path replaces the file, keeping its URL); text as `textContent`, anything else as `base64Content` |
+| `downloadFile` | Reads a file back from a folder |
+| `listFiles` | Lists a folder's files and their URLs |
+| `getUrl` | Builds the public URL of a folder, directory or file |
+| `listFolders` | Lists your folders, newest first, to find one to add to |
 
 A new folder costs 500 credits a month; uploading into an existing folder never
 costs folder credits again. Storage costs 500 credits a month per started 25 MB
 the account stores.
 
 This table is checked against the server in CI (see
-`backend/internal/handler/mcp/plugin_docs_test.go`): an action added to the
+`backend/internal/handler/mcp/plugin_docs_test.go`): a tool added to the
 server without being documented here fails the build.
 
 ## License

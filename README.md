@@ -69,12 +69,14 @@ Go (Fiber v3, GORM) backend and Vue 3 (Vite, Tailwind) frontend.
 
 ## MCP, CLI and OAuth
 
-- `/mcp` is a stateless MCP server with one tool, `file` (actions `upload`,
-  `download`, `get`, `url`, `list`), on the app URL and, when set, on the MCP
+- `/mcp` is a stateless MCP server with one tool per operation
+  (`uploadFile`, `downloadFile`, `listFiles`, `getUrl`, `listFolders`), each
+  taking only the arguments it needs, on the app URL and, when set, on the MCP
   domain (`https://<mcp domain>/mcp`, e.g. `https://mcp.permahost.io/mcp`).
   The `permahost` CLI in [cli/](cli/) mirrors it.
-  The tool description spells out the credits: only an upload without `id`
-  creates (and pays for) a folder; `list` finds existing folders to add to.
+  The server instructions and the `uploadFile` description spell out the
+  credits: only an upload without `folderId` creates (and pays for) a folder;
+  `listFolders` finds existing folders to add to.
   File content travels as `base64Content` (the default) or, when the
   `format` argument asks for it, as UTF-8 `textContent`.
   A browser that opens `/mcp` without a token gets a setup page (the URL,
@@ -122,7 +124,7 @@ make test    # 100% coverage is enforced on both sides
 ## Agent plugins
 
 [plugin/](plugin/) packages the MCP server for AI clients, each with
-instructions on when and how to use the `file` tool (Apache-2.0, unlike the
+instructions on when and how to use its tools (Apache-2.0, unlike the
 AGPL server). Each package connects to `https://mcp.permahost.io/mcp`:
 
 | Client | Install |
@@ -133,7 +135,7 @@ AGPL server). Each package connects to `https://mcp.permahost.io/mcp`:
 | Gemini CLI | `gemini extensions install https://github.com/tmphost/permahost` |
 
 `backend/internal/handler/mcp/plugin_docs_test.go` fails the build when a
-plugin's docs miss an action, quote other prices than the server charges, or
+plugin's docs miss a tool, quote other prices than the server charges, or
 point at another MCP URL.
 
 ## Setup page
