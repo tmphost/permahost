@@ -22,7 +22,7 @@ import (
 	"github.com/tmphost/permahost/backend/internal/controller/credit"
 )
 
-// The plugins under plugin/ describe this server's tool to the agent; check
+// The plugins under plugin/ describe this server's tools to the agent; check
 // they don't drift from what it registers.
 
 // _pluginMCPURL is where every plugin connects.
@@ -31,7 +31,7 @@ const _pluginMCPURL = "https://mcp.permahost.io/mcp"
 // A leading table cell holding a backticked identifier.
 var _docRowRe = regexp.MustCompile("(?m)^\\| `([a-zA-Z]+)`")
 
-// _pluginDocs are the files that teach an agent the tool.
+// _pluginDocs are the files that teach an agent the tools.
 var _pluginDocs = []string{
 	"plugin/claude/skills/permahost/SKILL.md",
 	"plugin/codex/skills/permahost/SKILL.md",
@@ -43,26 +43,16 @@ var _pluginDocs = []string{
 	"plugin/gemini/README.md",
 }
 
-// registered names the tools the server lists and the actions of its file
-// tool.
-func registered(t *testing.T) (tools, actions []string) {
+// registeredTools names the tools the server lists.
+func registeredTools(t *testing.T) []string {
 	t.Helper()
 	rs, err := newEnv(t).session.ListTools(context.Background(), nil)
 	require.NoError(t, err)
-	for _, tool := range rs.Tools {
-		tools = append(tools, tool.Name)
+	names := make([]string, len(rs.Tools))
+	for i, tool := range rs.Tools {
+		names[i] = tool.Name
 	}
-	var schema struct {
-		Properties struct {
-			Action struct {
-				Enum []string `json:"enum"`
-			} `json:"action"`
-		} `json:"properties"`
-	}
-	b, err := json.Marshal(rs.Tools[0].InputSchema)
-	require.NoError(t, err)
-	require.NoError(t, json.Unmarshal(b, &schema))
-	return tools, schema.Properties.Action.Enum
+	return names
 }
 
 // repoRoot walks up from the test's directory to the one holding the
@@ -88,24 +78,24 @@ func readFile(t *testing.T, path string) string {
 	return string(body)
 }
 
-func TestPluginDocsListExactlyTheRegisteredActions(t *testing.T) {
-	_, actions := registered(t)
+func TestPluginDocsListExactlyTheRegisteredTools(t *testing.T) {
 	var documented []string
 	for _, m := range _docRowRe.FindAllStringSubmatch(readFile(t, filepath.Join(repoRoot(t), "plugin", "gemini", "README.md")), -1) {
 		documented = append(documented, m[1])
 	}
-	assert.ElementsMatch(t, actions, documented)
+	assert.ElementsMatch(t, registeredTools(t), documented)
 }
 
-func TestPluginDocsNameTheToolAndEveryAction(t *testing.T) {
+func TestPluginDocsNameEveryTool(t *testing.T) {
 	root := repoRoot(t)
-	tools, actions := registered(t)
+	registered := registeredTools(t)
 	for _, doc := range _pluginDocs {
 		t.Run(doc, func(t *testing.T) {
 			text := readFile(t, filepath.Join(root, doc))
-			for _, name := range append(tools, actions...) {
-				assert.Contains(t, text, "`"+name+"`", "%s doesn't document %q", doc, name)
+			for _, tool := range registered {
+				assert.Contains(t, text, "`"+tool+"`", "%s doesn't document the %q tool", doc, tool)
 			}
+			assert.NotContains(t, text, "`file` tool", "%s still names the old file tool", doc)
 		})
 	}
 }
@@ -171,7 +161,7 @@ func TestCodexReviewCasesNameRegisteredTools(t *testing.T) {
 	}
 	require.NoError(t, json.Unmarshal([]byte(readFile(t, filepath.Join(repoRoot(t), "plugin", "codex", "plugin.json"))), &manifest))
 
-	tools, _ := registered(t)
+	tools := registeredTools(t)
 	cases := manifest.Extensions.OpenAI.Review.TestCases.Positive
 	require.NotEmpty(t, cases)
 	for i, c := range cases {

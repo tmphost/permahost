@@ -43,32 +43,32 @@
             {
               "description": "Publish a generated HTML report",
               "prompt": "Write a one-page HTML report of this week's tasks and host it so I can send a link to a colleague.",
-              "tools_triggered": "file",
-              "expected_behavior": "Calls file with action upload, format textContent and no id, creating a new folder. Replies with the file URL and the credits spent."
+              "tools_triggered": "uploadFile",
+              "expected_behavior": "Calls uploadFile with format textContent and no folderId, creating a new folder. Replies with the file URL and the credits spent."
             },
             {
               "description": "Publish a small static site with several files",
               "prompt": "Create a small website with index.html and css/site.css and publish it.",
-              "tools_triggered": "file",
-              "expected_behavior": "Calls file with action upload for index.html without an id, then for site.css with the returned id and path css. Replies with the folder URL, which serves index.html."
+              "tools_triggered": "uploadFile",
+              "expected_behavior": "Calls uploadFile for index.html without a folderId, then for site.css with the returned folderId and path css. Replies with the folder URL, which serves index.html."
             },
             {
               "description": "Update a site published earlier",
               "prompt": "Change the title on my permahost site to 'Release notes'.",
-              "tools_triggered": "file",
-              "expected_behavior": "Calls file with action list to find the folder, then action upload with that id to replace index.html in place. Does not create a new folder. Replies with the unchanged URL."
+              "tools_triggered": "listFolders, uploadFile",
+              "expected_behavior": "Calls listFolders to find the folder, then uploadFile with its folderId to replace index.html in place. Does not create a new folder. Replies with the unchanged URL."
             },
             {
               "description": "List the files in a folder",
               "prompt": "Which files are in the permahost folder you just created?",
-              "tools_triggered": "file",
-              "expected_behavior": "Calls file with action get and the folder id. Lists each file with its path and public URL."
+              "tools_triggered": "listFiles",
+              "expected_behavior": "Calls listFiles with the folderId. Lists each file with its path and public URL."
             },
             {
               "description": "Fetch a file back from a folder",
               "prompt": "Download index.html from that permahost folder and show me its contents.",
-              "tools_triggered": "file",
-              "expected_behavior": "Calls file with action download, the folder id and fileName index.html. Shows the file's contents."
+              "tools_triggered": "downloadFile",
+              "expected_behavior": "Calls downloadFile with the folderId and fileName index.html. Shows the file's contents."
             }
           ],
           "negative": [
@@ -90,7 +90,7 @@
         "commerce_description": "This plugin does not sell products or process payments."
       },
       "publication": {
-        "release_notes": "First release for permahost: permanent hosting with the file tool's upload, download, get, url and list actions."
+        "release_notes": "First release for permahost: permanent hosting with the uploadFile, downloadFile, listFiles, getUrl and listFolders tools."
       }
     }
   }

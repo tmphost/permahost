@@ -23,8 +23,8 @@ const _setupPageCSP = "default-src 'none'; style-src 'unsafe-inline'; img-src da
 var _icon []byte
 
 type (
-	// actionSummary is a file tool action as the setup page lists it.
-	actionSummary struct {
+	// toolSummary is a tool as the setup page lists it.
+	toolSummary struct {
 		Name    string
 		Summary string
 	}
@@ -32,17 +32,17 @@ type (
 	setupPageData struct {
 		Endpoint string
 		Icon     template.URL
-		Actions  []actionSummary
+		Tools    []toolSummary
 	}
 )
 
-// _actionSummaries are the file tool's actions the setup page lists.
-var _actionSummaries = []actionSummary{
-	{ActionUpload, "Store a file in a new or existing folder and get its public URL."},
-	{ActionDownload, "Read a file back from a folder."},
-	{ActionGet, "List a folder's files and URLs."},
-	{ActionURL, "Build the public URL of a folder, directory or file."},
-	{ActionList, "List your folders, newest first."},
+// _toolSummaries are the tools the setup page lists, in registration order.
+var _toolSummaries = []toolSummary{
+	{ToolUploadFile, "Store a file in a new or existing folder and get its public URL."},
+	{ToolDownloadFile, "Read a file back from a folder."},
+	{ToolListFiles, "List a folder's files and URLs."},
+	{ToolGetURL, "Build the public URL of a folder, directory or file."},
+	{ToolListFolders, "List your folders, newest first."},
 }
 
 // wantsSetupPage reports whether r is a person or a plain HTTP client
@@ -85,7 +85,7 @@ func renderSetupPage(endpoint string) []byte {
 	_ = _setupTemplate.Execute(&buf, setupPageData{
 		Endpoint: endpoint,
 		Icon:     template.URL("data:image/svg+xml;base64," + base64.StdEncoding.EncodeToString(_icon)),
-		Actions:  _actionSummaries,
+		Tools:    _toolSummaries,
 	})
 	return buf.Bytes()
 }
@@ -164,9 +164,8 @@ a { color: inherit; }
 }</pre>
 
   <h2>Tools</h2>
-  <p>One tool, <code>file</code>, with these actions:</p>
   <ul>
-  {{- range .Actions}}
+  {{- range .Tools}}
     <li><code>{{.Name}}</code>: {{.Summary}}</li>
   {{- end}}
   </ul>

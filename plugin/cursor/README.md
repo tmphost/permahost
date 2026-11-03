@@ -7,8 +7,8 @@ folders that stay up while your account has credits.
 | Component | What it adds |
 | --- | --- |
 | `mcp.json` | The `permahost` MCP server, `https://mcp.permahost.io/mcp`, signed in with OAuth |
-| `skills/permahost/SKILL.md` | When and how to use the `file` tool's `upload`, `download`, `get`, `url` and `list` actions |
-| `rules/prefer-permahost-mcp.mdc` | Routes "publish this" requests to the right action, reuses folders and keeps secrets out of public links |
+| `skills/permahost/SKILL.md` | When and how to use the `uploadFile`, `downloadFile`, `listFiles`, `getUrl` and `listFolders` tools |
+| `rules/prefer-permahost-mcp.mdc` | Routes "publish this" requests to the right tool, reuses folders and keeps secrets out of public links |
 | `commands/share-file.md` | `/share-file`: upload one file and reply with its link |
 | `commands/share-site.md` | `/share-site`: publish or update a static HTML site and reply with its URL |
 

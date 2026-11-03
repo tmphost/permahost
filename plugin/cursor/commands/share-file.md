@@ -10,10 +10,9 @@ description: Upload a file to permahost and reply with its permanent public link
 2. Refuse secrets, credentials, `.env` files and private keys: anyone with the
    link can open the file.
 3. If the user names a permahost folder or wants it added to an earlier one,
-   find its `id` with the `file` tool's `list` action. Otherwise a new folder
-   is created.
-4. Call `file` with action `upload` (with that `id`, or without one for a new
-   folder). Text files (HTML, CSS, JS, JSON, Markdown, CSV, SVG) go as
+   find its `folderId` with the `listFolders` tool. Otherwise a new folder is
+   created.
+4. Call `uploadFile` (with that `folderId`, or without one for a new folder). Text files (HTML, CSS, JS, JSON, Markdown, CSV, SVG) go as
    `format: "textContent"`; anything else as `base64Content`, encoded with
    `base64 -w0 <file>`.
 5. Reply with the `url` and the credits spent.
