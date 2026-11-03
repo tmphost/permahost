@@ -77,6 +77,9 @@ Go (Fiber v3, GORM) backend and Vue 3 (Vite, Tailwind) frontend.
   creates (and pays for) a folder; `list` finds existing folders to add to.
   File content travels as `base64Content` (the default) or, when the
   `format` argument asks for it, as UTF-8 `textContent`.
+  A browser that opens `/mcp` without a token gets a setup page (the URL,
+  sign-in and the commands for Claude, Codex, Gemini and VS Code); MCP
+  clients still get the 401 that starts their OAuth sign-in.
 - Both sign in with permahost's own OAuth 2.1 server: dynamic client
   registration (`/oauth2/register`), PKCE S256, a consent page
   (`/oauth2/authorize`) and refresh tokens (`/oauth2/token`), discovered via

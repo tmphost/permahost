@@ -74,6 +74,9 @@ type (
 		// ResourceMetadataURL is where clients without a token learn how
 		// to get one (RFC 9728).
 		ResourceMetadataURL string
+		// EndpointURL is the endpoint's public URL, which the setup page
+		// shows people who open it in a browser.
+		EndpointURL string
 	}
 
 	// FileInput is the file tool's arguments.
@@ -143,10 +146,10 @@ func New(p Params) http.Handler {
 		JSONResponse:        true,
 		MaxRequestBodyBytes: p.MaxBodyBytes,
 	})
-	return auth.RequireBearerToken(verifier(p.Auth), &auth.RequireBearerTokenOptions{
+	return setupPage(renderSetupPage(p.EndpointURL), auth.RequireBearerToken(verifier(p.Auth), &auth.RequireBearerTokenOptions{
 		ResourceMetadataURL:    p.ResourceMetadataURL,
 		AllowMissingExpiration: true,
-	})(handler)
+	})(handler))
 }
 
 // verifier accepts access tokens; the user ID travels in the token info.
