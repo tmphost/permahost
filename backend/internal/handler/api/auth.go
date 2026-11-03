@@ -108,9 +108,9 @@ func (h *Auth) stateCookiePath() string { return h.basePath + AuthPrefix }
 // negative ttl expires the cookie.
 func (h *Auth) cookie(name, value string, ttl time.Duration, path string) *fiber.Cookie {
 	ck := &fiber.Cookie{
-		Name:     name,
+		Name:     mapper.CookieName(name, h.cookieSecure),
 		Value:    value,
-		Path:     path,
+		Path:     cookiePath(path, h.cookieSecure),
 		HTTPOnly: true,
 		Secure:   h.cookieSecure,
 		SameSite: fiber.CookieSameSiteLaxMode,
@@ -123,4 +123,13 @@ func (h *Auth) cookie(name, value string, ttl time.Duration, path string) *fiber
 	ck.Expires = time.Now().Add(ttl)
 	ck.MaxAge = int(ttl / time.Second)
 	return ck
+}
+
+// cookiePath is path, or / when cookies are Secure: those carry
+// mapper.HostCookiePrefix, which browsers accept only with Path=/.
+func cookiePath(path string, secure bool) string {
+	if secure {
+		return "/"
+	}
+	return path
 }

@@ -69,6 +69,29 @@ func TestFromHTTPRequestToAuthenticateRequestEntity(t *testing.T) {
 	assert.Nil(t, got)
 }
 
+func TestCookieName(t *testing.T) {
+	assert.Equal(t, "__Host-permahost_session", CookieName(SessionCookie, true))
+	assert.Equal(t, "permahost_session", CookieName(SessionCookie, false))
+}
+
+func TestFromHTTPRequestToAuthenticateRequestEntity_InsecureCookies(t *testing.T) {
+	var got *entity.AuthenticateRequest
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.AddCookie(&http.Cookie{Name: "permahost_session", Value: "plain"})
+	req.AddCookie(&http.Cookie{Name: SessionCookie, Value: "host"})
+	run(t, "/", req, func(c fiber.Ctx) {
+		c.Locals(LocalInsecureCookies, true)
+		got = FromHTTPRequestToAuthenticateRequestEntity(c)
+	})
+	assert.Equal(t, &entity.AuthenticateRequest{SessionToken: "plain"}, got)
+
+	// With Secure cookies a planted plain one is ignored.
+	req = httptest.NewRequest(http.MethodGet, "/", nil)
+	req.AddCookie(&http.Cookie{Name: "permahost_session", Value: "planted"})
+	run(t, "/", req, func(c fiber.Ctx) { got = FromHTTPRequestToAuthenticateRequestEntity(c) })
+	assert.Nil(t, got)
+}
+
 func TestFromHTTPRequestToGetCurrentUserRequestEntity(t *testing.T) {
 	cases := map[string]struct {
 		local any

@@ -14,7 +14,7 @@ import (
 )
 
 // RootCookie holds the root (setup) session token.
-const RootCookie = "permahost_root"
+const RootCookie = HostCookiePrefix + "permahost_root"
 
 // FromHTTPRequestToRootLoginRequestEntity reads POST /setup/login.
 func FromHTTPRequestToRootLoginRequestEntity(c fiber.Ctx) *entity.RootLoginRequest {
@@ -27,7 +27,7 @@ func FromHTTPRequestToRootLoginRequestEntity(c fiber.Ctx) *entity.RootLoginReque
 
 // FromHTTPRequestToAuthenticateRootRequestEntity reads the root cookie.
 func FromHTTPRequestToAuthenticateRootRequestEntity(c fiber.Ctx) *entity.AuthenticateRootRequest {
-	tok := c.Cookies(RootCookie)
+	tok := cookie(c, RootCookie)
 	if tok == "" {
 		return nil
 	}

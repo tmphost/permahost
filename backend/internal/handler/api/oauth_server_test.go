@@ -33,7 +33,7 @@ func (e *filesEnv) send(t *testing.T, method, target, contentType, body, session
 		req.Header.Set("Content-Type", contentType)
 	}
 	if session != "" {
-		req.AddCookie(&http.Cookie{Name: mapper.SessionCookie, Value: session})
+		req.AddCookie(&http.Cookie{Name: mapper.CookieName(mapper.SessionCookie, false), Value: session})
 	}
 	res, err := e.app.Test(req)
 	require.NoError(t, err)

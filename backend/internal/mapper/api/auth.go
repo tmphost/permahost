@@ -17,10 +17,17 @@ import (
 )
 
 const (
+	// HostCookiePrefix makes browsers accept a cookie only from the host
+	// that set it, Secure, with Path=/ and no Domain. A site on a sibling
+	// subdomain (a folder host) can then not plant one for the app.
+	HostCookiePrefix = "__Host-"
 	// SessionCookie holds the signed session token.
-	SessionCookie = "permahost_session"
+	SessionCookie = HostCookiePrefix + "permahost_session"
 	// StateCookie pins the OAuth state to the browser that started login.
-	StateCookie = "permahost_oauth_state"
+	StateCookie = HostCookiePrefix + "permahost_oauth_state"
+	// LocalInsecureCookies is the fiber.Ctx local set to true when cookies
+	// are not Secure (plain HTTP), so they go without HostCookiePrefix.
+	LocalInsecureCookies = "insecureCookies"
 	// LocalUserID is the fiber.Ctx local the auth middleware stores the
 	// authenticated user ID under.
 	LocalUserID = "userID"
@@ -49,7 +56,7 @@ func FromHTTPRequestToCompleteLoginRequestEntity(c fiber.Ctx) *entity.CompleteLo
 		Provider:    provider,
 		Code:        code,
 		State:       c.Query("state"),
-		StateCookie: c.Cookies(StateCookie),
+		StateCookie: cookie(c, StateCookie),
 	}
 }
 
@@ -59,7 +66,7 @@ func FromHTTPRequestToAuthenticateRequestEntity(c fiber.Ctx) *entity.Authenticat
 	if scheme, key, ok := strings.Cut(c.Get(fiber.HeaderAuthorization), " "); ok && strings.EqualFold(scheme, "Bearer") && key != "" {
 		return &entity.AuthenticateRequest{AccessToken: key}
 	}
-	tok := c.Cookies(SessionCookie)
+	tok := cookie(c, SessionCookie)
 	if tok == "" {
 		return nil
 	}
@@ -96,4 +103,20 @@ func FromIDToBase62(id int64) string {
 func marshal(v any) []byte {
 	b, _ := json.Marshal(v)
 	return b
+}
+
+// CookieName is the name a cookie is sent under: name itself when cookies
+// are Secure, else name without HostCookiePrefix, as browsers refuse
+// __Host- cookies that are not Secure.
+func CookieName(name string, secure bool) string {
+	if secure {
+		return name
+	}
+	return strings.TrimPrefix(name, HostCookiePrefix)
+}
+
+// cookie reads the cookie name is sent under for this request.
+func cookie(c fiber.Ctx, name string) string {
+	insecure, _ := c.Locals(LocalInsecureCookies).(bool)
+	return c.Cookies(CookieName(name, !insecure))
 }
