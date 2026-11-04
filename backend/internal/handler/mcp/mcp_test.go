@@ -23,6 +23,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/tmphost/permahost/backend/internal/brand"
 	authctrl "github.com/tmphost/permahost/backend/internal/controller/auth"
 	mockauth "github.com/tmphost/permahost/backend/internal/controller/auth/mocks"
 	folderctrl "github.com/tmphost/permahost/backend/internal/controller/folder"
@@ -113,6 +114,7 @@ func TestListTools(t *testing.T) {
 	byName := map[string]*mcp.Tool{}
 	for _, tool := range rs.Tools {
 		byName[tool.Name] = tool
+		assertIcons(t, tool.Icons)
 		require.NotNil(t, tool.Annotations)
 		assert.Equal(t, tool.Title, tool.Annotations.Title)
 		assert.NotEmpty(t, tool.Description)
@@ -228,11 +230,150 @@ func assertSingleTypes(t *testing.T, where string, v any) {
 	}
 }
 
-func TestInstructions(t *testing.T) {
-	init := newEnv(t).session.InitializeResult()
-	require.NotNil(t, init)
-	assert.Contains(t, init.Instructions, "find its folder with listFolders and upload with its folderId")
-	assert.Contains(t, init.Instructions, "never costs folder credits again")
+func TestInitialize(t *testing.T) {
+	e := newEnv(t)
+	rs := e.session.InitializeResult()
+	assert.Equal(t, "permahost", rs.ServerInfo.Name)
+	assert.Equal(t, "permahost.io", rs.ServerInfo.Title)
+	assert.NotEmpty(t, rs.ServerInfo.Version)
+	assert.Equal(t, brand.Version, rs.ServerInfo.Version)
+	assert.Equal(t, "https://permahost.io", rs.ServerInfo.WebsiteURL)
+	assert.NotEmpty(t, rs.ServerInfo.Description)
+	assertIcons(t, rs.ServerInfo.Icons)
+	assert.Equal(t, _instructions, rs.Instructions)
+	assert.Contains(t, rs.Instructions, "find its folder with listFolders and upload with its folderId")
+	assert.Contains(t, rs.Instructions, "never costs folder credits again")
+	assert.Contains(t, rs.Instructions, _skillURI)
+	assert.Equal(t, "2026-07-28", rs.ProtocolVersion, "a client that speaks the newest protocol gets it")
+	assert.Equal(t, &mcp.ServerCapabilities{Tools: &mcp.ToolCapabilities{}, Resources: &mcp.ResourceCapabilities{}, Extensions: map[string]any{ExtensionSkills: map[string]any{"directoryRead": true}}}, rs.Capabilities)
+}
+
+// _maxDescription is the most text some clients, such as Claude, keep of the
+// server instructions and of a tool's or parameter's description.
+const _maxDescription = 2000
+
+// TestDescriptionLengths keeps the instructions and every tool, input and
+// output description within what clients show in full.
+func TestDescriptionLengths(t *testing.T) {
+	e := newEnv(t)
+	assert.LessOrEqual(t, len(e.session.InitializeResult().Instructions), _maxDescription, "instructions")
+	rs, err := e.session.ListTools(context.Background(), nil)
+	require.NoError(t, err)
+	for _, tool := range rs.Tools {
+		assert.LessOrEqual(t, len(tool.Description), _maxDescription, tool.Name)
+		for kind, schema := range map[string]any{"input": tool.InputSchema, "output": tool.OutputSchema} {
+			b, _ := json.Marshal(schema)
+			var v any
+			require.NoError(t, json.Unmarshal(b, &v))
+			assertDescriptionLengths(t, tool.Name+" "+kind, v)
+		}
+	}
+}
+
+// assertDescriptionLengths fails when any description in schema v is too
+// long.
+func assertDescriptionLengths(t *testing.T, where string, v any) {
+	t.Helper()
+	switch v := v.(type) {
+	case map[string]any:
+		if d, ok := v["description"].(string); ok {
+			assert.LessOrEqual(t, len(d), _maxDescription, where)
+		}
+		for key, child := range v {
+			assertDescriptionLengths(t, where+"."+key, child)
+		}
+	case []any:
+		for _, child := range v {
+			assertDescriptionLengths(t, where, child)
+		}
+	}
+}
+
+// rpc posts one JSON-RPC request as a client speaking version would,
+// returning the result object.
+func rpc(t *testing.T, version, method, params string) map[string]any {
+	t.Helper()
+	result, rpcErr := rpcCall(t, version, method, params)
+	require.Nil(t, rpcErr)
+	return result
+}
+
+// rpcCall is rpc that returns the error object too.
+func rpcCall(t *testing.T, version, method, params string) (map[string]any, map[string]any) {
+	t.Helper()
+	mc := gomock.NewController(t)
+	authn := mockauth.NewMockController(mc)
+	authn.EXPECT().Authenticate(gomock.Any(), gomock.Any()).Return(&entity.AuthenticateResponse{UserID: 7}, nil)
+	srv := httptest.NewServer(New(Params{Folders: mockfolder.NewMockController(mc), Auth: authn}))
+	defer srv.Close()
+
+	req, _ := http.NewRequest(http.MethodPost, srv.URL, strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"`+method+`","params":`+params+`}`))
+	req.Header.Set("Authorization", "Bearer "+_key)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json, text/event-stream")
+	if version != "" {
+		req.Header.Set("Mcp-Protocol-Version", version)
+		req.Header.Set("Mcp-Method", method)
+	}
+	res, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer func() { _ = res.Body.Close() }()
+	assert.Empty(t, res.Header.Get("Mcp-Session-Id"), "stateless: no session")
+	var rs struct {
+		Result map[string]any `json:"result"`
+		Error  map[string]any `json:"error"`
+	}
+	require.NoError(t, json.NewDecoder(res.Body).Decode(&rs))
+	return rs.Result, rs.Error
+}
+
+// _wantCapabilities is what every handshake advertises.
+var _wantCapabilities = map[string]any{
+	"tools":      map[string]any{},
+	"resources":  map[string]any{},
+	"extensions": map[string]any{"io.modelcontextprotocol/skills": map[string]any{"directoryRead": true}},
+}
+
+// The stateless 2026-07-28 protocol has no handshake: server/discover
+// advertises the versions, newest first, and the capabilities.
+func TestDiscover(t *testing.T) {
+	meta := `{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/clientInfo":{"name":"test","version":"1"}}}`
+	rs := rpc(t, "2026-07-28", "server/discover", meta)
+	assert.Equal(t, []any{"2026-07-28", "2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"}, rs["supportedVersions"])
+	assert.Equal(t, _wantCapabilities, rs["capabilities"], "tools and skills, no list_changed or logging notifications")
+	assert.Equal(t, _instructions, rs["instructions"])
+	serverInfo := rs["_meta"].(map[string]any)["io.modelcontextprotocol/serverInfo"].(map[string]any)
+	assert.Equal(t, "permahost", serverInfo["name"])
+	assert.Equal(t, brand.Version, serverInfo["version"], "the release, in every 2026-07-28 result")
+
+	rs = rpc(t, "2026-07-28", "tools/list", meta)
+	assert.Len(t, rs["tools"], 5, "served without initialize")
+}
+
+// The legacy handshake answers with the client's version when it is
+// known, else the newest that handshake can negotiate.
+func TestInitialize_Negotiation(t *testing.T) {
+	for asked, want := range map[string]string{
+		"2025-06-18": "2025-06-18",
+		"2025-11-25": "2025-11-25",
+		"2099-01-01": "2025-11-25",
+	} {
+		rs := rpc(t, "", "initialize", `{"protocolVersion":"`+asked+`","capabilities":{},"clientInfo":{"name":"test","version":"1"}}`)
+		assert.Equal(t, want, rs["protocolVersion"], asked)
+		assert.Equal(t, _wantCapabilities, rs["capabilities"], asked)
+		assert.Equal(t, brand.Version, rs["serverInfo"].(map[string]any)["version"], asked)
+	}
+}
+
+func assertIcons(t *testing.T, icons []mcp.Icon) {
+	t.Helper()
+	require.Len(t, icons, 2)
+	assert.Equal(t, "image/svg+xml", icons[0].MIMEType)
+	assert.True(t, strings.HasPrefix(icons[0].Source, "data:image/svg+xml;base64,"))
+	assert.Equal(t, []string{"any"}, icons[0].Sizes)
+	assert.Equal(t, "image/png", icons[1].MIMEType)
+	assert.True(t, strings.HasPrefix(icons[1].Source, "data:image/png;base64,"))
+	assert.Equal(t, []string{"128x128"}, icons[1].Sizes)
 }
 
 func TestUnknownTool(t *testing.T) {

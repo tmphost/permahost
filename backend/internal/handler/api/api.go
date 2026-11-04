@@ -90,6 +90,7 @@ func New(p Params) {
 		p.Router.Use(p.Hosts)
 	}
 	p.Router.All(folderctrl.PublicPathPrefix+":user/:folder/*", public.ServePath)
+	p.Router.Get(FaviconPath, Favicon)
 	p.Router.Use(SameOrigin)
 
 	// MCP clients may run in a browser; these need no cookies.

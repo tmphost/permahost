@@ -16,6 +16,7 @@ import (
 	oauthctrl "github.com/tmphost/permahost/backend/internal/controller/oauthserver"
 	setupctrl "github.com/tmphost/permahost/backend/internal/controller/setup"
 	"github.com/tmphost/permahost/backend/internal/handler/api"
+	mcphandler "github.com/tmphost/permahost/backend/internal/handler/mcp"
 	mapper "github.com/tmphost/permahost/backend/internal/mapper/api"
 	"github.com/tmphost/permahost/backend/internal/service/idgen"
 )
@@ -53,17 +54,19 @@ const (
 )
 
 // _mcpHostPaths are the paths the MCP host answers: the endpoint, the
-// OAuth metadata that MCP clients discover on the endpoint's host, and the
-// MCP host issuer's registration and token endpoints. Its authorization
-// endpoint is on the app host, where users sign in.
-var _mcpHostPaths = []string{
+// OAuth metadata that MCP clients discover on the endpoint's host, the
+// MCP host issuer's registration and token endpoints, the server's
+// manifest and the favicon. Its authorization endpoint is on the app host,
+// where users sign in.
+var _mcpHostPaths = append([]string{
 	MCPPath,
 	api.ResourceMetadataPath,
 	api.ResourceMetadataPath + MCPPath,
 	api.ServerMetadataPath,
 	oauthctrl.RegisterPath,
 	oauthctrl.TokenPath,
-}
+	api.FaviconPath,
+}, mcphandler.ManifestPaths...)
 
 func newHosts(appURL, sitesDomain, mcpDomain string, domain func(host string) bool) hosts {
 	app := strings.ToLower(setupctrl.AppHost(appURL))
@@ -146,6 +149,9 @@ func hostRouter(h hosts, domain fiber.Handler) fiber.Handler {
 			return sendJSONError(c, fiber.StatusNotFound, "not found")
 		case hostSite:
 			c.Locals(LocalSiteID, siteID)
+			if c.Path() == api.FaviconPath {
+				return c.Next()
+			}
 			// Live folders were answered before this check, when
 			// subdomains are on and the public domain is the sites
 			// domain; anything left names no folder.

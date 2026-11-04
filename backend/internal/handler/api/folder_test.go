@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/tmphost/permahost/backend/internal/brand"
 	mockauth "github.com/tmphost/permahost/backend/internal/controller/auth/mocks"
 	"github.com/tmphost/permahost/backend/internal/controller/credit"
 	mockcredit "github.com/tmphost/permahost/backend/internal/controller/credit/mocks"
@@ -340,6 +341,17 @@ func TestPublic(t *testing.T) {
 	assert.Equal(t, "Not found.", body)
 	assert.Contains(t, res.Header.Get("Content-Type"), "text/plain")
 
+	// A folder without its own favicon.ico shows ours; one with it, its own.
+	e.folders.EXPECT().OpenPublicFile(gomock.Any(), &entity.OpenPublicFileRequest{FolderID: 1000, Path: "favicon.ico"}).Return(nil, folderctrl.ErrNotFound)
+	res, body = get(http.MethodGet, "000000rs.file.tmp.host", "/favicon.ico")
+	assert.Equal(t, http.StatusOK, res.StatusCode)
+	assert.Equal(t, brand.FaviconType, res.Header.Get("Content-Type"))
+	assert.Equal(t, string(brand.Favicon), body)
+	e.folders.EXPECT().OpenPublicFile(gomock.Any(), &entity.OpenPublicFileRequest{FolderID: 1000, Path: "favicon.ico"}).
+		Return(&entity.OpenFileResponse{Body: io.NopCloser(strings.NewReader("own")), Size: 3, ContentType: "image/x-icon", ModTime: _at}, nil)
+	_, body = get(http.MethodGet, "000000rs.file.tmp.host", "/favicon.ico")
+	assert.Equal(t, "own", body)
+
 	e.folders.EXPECT().OpenPublicFile(gomock.Any(), gomock.Any()).Return(nil, errBoom)
 	res, _ = get(http.MethodGet, "000000rs.file.tmp.host", "/")
 	assert.Equal(t, http.StatusInternalServerError, res.StatusCode)
@@ -361,6 +373,29 @@ func TestPublic(t *testing.T) {
 	e.settings.Subdomains = false
 	res, _ = get(http.MethodGet, "000000rs.file.tmp.host", "/api/v1/folders")
 	assert.Equal(t, http.StatusMisdirectedRequest, res.StatusCode)
+}
+
+func TestFavicon(t *testing.T) {
+	e := newFilesApp(t)
+	req := httptest.NewRequest(http.MethodGet, "/favicon.ico", nil)
+	req.Host = "tmp.host"
+	res, err := e.app.Test(req)
+	require.NoError(t, err)
+	body, _ := io.ReadAll(res.Body)
+	assert.Equal(t, http.StatusOK, res.StatusCode)
+	assert.Equal(t, brand.Favicon, body)
+	tag := res.Header.Get("ETag")
+	assert.Equal(t, ContentETag(brand.Favicon), tag)
+
+	req.Header.Set("If-None-Match", tag)
+	res, err = e.app.Test(req)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusNotModified, res.StatusCode)
+	assert.Equal(t, "public, max-age=86400", res.Header.Get("Cache-Control"))
+}
+
+func TestContentETag(t *testing.T) {
+	assert.Equal(t, `W/"2cf24dba5fb0a30e"`, ContentETag([]byte("hello")))
 }
 
 func TestPublic_Path(t *testing.T) {

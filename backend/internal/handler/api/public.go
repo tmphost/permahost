@@ -45,7 +45,7 @@ func (h *Public) Serve(c fiber.Ctx) error {
 	if rq == nil {
 		return c.Next()
 	}
-	return h.send(c, rq)
+	return h.send(c, rq, orFavicon(rq))
 }
 
 // ServePath answers /files/<userID>/<folderID>/<path> when subdomains are
@@ -62,7 +62,7 @@ func (h *Public) ServePath(c fiber.Ctx) error {
 	if rq.Path == "" && !strings.HasSuffix(c.Path(), "/") {
 		return c.Redirect().Status(fiber.StatusMovedPermanently).To(c.Params("folder") + "/")
 	}
-	return h.send(c, rq)
+	return h.send(c, rq, notFound)
 }
 
 // NewCustomDomainHandler returns the handler of hosts that are neither the
@@ -87,17 +87,28 @@ func (h *Public) ServeDomain(c fiber.Ctx) error {
 	if rq == nil {
 		return notFound(c)
 	}
-	return h.send(c, rq)
+	return h.send(c, rq, orFavicon(rq))
 }
 
-func (h *Public) send(c fiber.Ctx, rq *entity.OpenPublicFileRequest) error {
+// orFavicon is what a folder host answers when rq names no file: our icon
+// for a folder without its own favicon.ico, else not found.
+func orFavicon(rq *entity.OpenPublicFileRequest) fiber.Handler {
+	if "/"+rq.Path == FaviconPath {
+		return Favicon
+	}
+	return notFound
+}
+
+// send answers with the requested file, or with missing when there is no
+// such file.
+func (h *Public) send(c fiber.Ctx, rq *entity.OpenPublicFileRequest, missing fiber.Handler) error {
 	if c.Method() != fiber.MethodGet && c.Method() != fiber.MethodHead {
 		return c.SendStatus(fiber.StatusMethodNotAllowed)
 	}
 	rs, err := h.controller.OpenPublicFile(c.Context(), rq)
 	// Visitors get plain text, not the API's JSON errors.
 	if errors.Is(err, folderctrl.ErrNotFound) {
-		return notFound(c)
+		return missing(c)
 	}
 	if errors.Is(err, folderctrl.ErrSuspended) {
 		return c.Status(fiber.StatusPaymentRequired).SendString("This site is paused: its owner's account is out of credits.")
