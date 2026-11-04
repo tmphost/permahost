@@ -13,17 +13,24 @@ on:
       - 'Makefile'
       - 'plugin/**'
       - 'gemini-extension.json'
+      - 'server.json'
+      - 'frontend/package.json'
+      - 'frontend/public/favicon.svg'
       - '.github/workflows/backend.yml'
   # The Makefile is in scope because mock generation lives there: a change to
   # it can break the build without touching backend/. plugin/ and
   # gemini-extension.json are too: plugin_docs_test.go checks them against
-  # the MCP tool.
+  # the MCP tool. So are server.json, frontend/package.json and the favicon:
+  # the brand and MCP tests check the version, manifest and icon against them.
   pull_request:
     paths:
       - 'backend/**'
       - 'Makefile'
       - 'plugin/**'
       - 'gemini-extension.json'
+      - 'server.json'
+      - 'frontend/package.json'
+      - 'frontend/public/favicon.svg'
       - '.github/workflows/backend.yml'
   workflow_dispatch:
 

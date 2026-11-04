@@ -6,23 +6,53 @@ package mcp
 
 import (
 	"bytes"
-	_ "embed"
-	"encoding/base64"
+	"encoding/json"
 	"html/template"
 	"net/http"
 	"strings"
+
+	"github.com/tmphost/permahost/backend/internal/brand"
 )
+
+// ManifestPaths are where the server's manifest is published: the
+// well-known path MCP discovery probes, and the site root.
+var ManifestPaths = []string{"/.well-known/mcp.json", "/mcp.json"}
 
 // _setupPageCSP locks the setup page down: no scripts, frames or requests,
 // inline styles and the data URI icon only.
 const _setupPageCSP = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 
-// _icon is the brand mark, a copy of frontend/public/favicon.svg.
-//
-//go:embed icon.svg
-var _icon []byte
-
 type (
+	// manifest is the MCP Registry server.json, as at the repository root,
+	// with the remote this server answers on.
+	manifest struct {
+		Schema      string           `json:"$schema"`
+		Name        string           `json:"name"`
+		Title       string           `json:"title"`
+		Description string           `json:"description"`
+		WebsiteURL  string           `json:"websiteUrl"`
+		Repository  manifestRepo     `json:"repository"`
+		Icons       []manifestIcon   `json:"icons"`
+		Version     string           `json:"version"`
+		Remotes     []manifestRemote `json:"remotes"`
+	}
+
+	manifestRepo struct {
+		URL    string `json:"url"`
+		Source string `json:"source"`
+	}
+
+	manifestIcon struct {
+		Src      string   `json:"src"`
+		MIMEType string   `json:"mimeType"`
+		Sizes    []string `json:"sizes"`
+	}
+
+	manifestRemote struct {
+		Type string `json:"type"`
+		URL  string `json:"url"`
+	}
+
 	// toolSummary is a tool as the setup page lists it.
 	toolSummary struct {
 		Name    string
@@ -43,6 +73,24 @@ var _toolSummaries = []toolSummary{
 	{ToolListFiles, "List a folder's files and URLs."},
 	{ToolGetURL, "Build the public URL of a folder, directory or file."},
 	{ToolListFolders, "List your folders, newest first."},
+}
+
+// Manifest is the server's MCP Registry manifest (server.json) naming
+// endpoint as its streamable HTTP remote.
+func Manifest(endpoint string) []byte {
+	b, _ := json.MarshalIndent(manifest{
+		Schema:      "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+		Name:        "io.github.tmphost/permahost",
+		Title:       "permahost",
+		Description: "Host files at permanent public URLs: upload, list and link files in folders that stay online.",
+		WebsiteURL:  "https://permahost.io",
+		Repository:  manifestRepo{URL: "https://github.com/tmphost/permahost", Source: "github"},
+		Icons:       []manifestIcon{{Src: "https://permahost.io/favicon.svg", MIMEType: brand.IconSVGType, Sizes: []string{"any"}}},
+		Version:     brand.Version,
+		Remotes:     []manifestRemote{{Type: "streamable-http", URL: endpoint}},
+	}, "", "  ")
+	// Plain strings only, so it cannot fail.
+	return append(b, '\n')
 }
 
 // wantsSetupPage reports whether r is a person or a plain HTTP client
@@ -84,7 +132,7 @@ func renderSetupPage(endpoint string) []byte {
 	// The template is fixed and the data plain strings, so it cannot fail.
 	_ = _setupTemplate.Execute(&buf, setupPageData{
 		Endpoint: endpoint,
-		Icon:     template.URL("data:image/svg+xml;base64," + base64.StdEncoding.EncodeToString(_icon)),
+		Icon:     template.URL(brand.DataURI(brand.IconSVGType, brand.IconSVG)),
 		Tools:    _toolSummaries,
 	})
 	return buf.Bytes()

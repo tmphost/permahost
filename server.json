@@ -1,0 +1,25 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.tmphost/permahost",
+  "title": "permahost",
+  "description": "Host files at permanent public URLs: upload, list and link files in folders that stay online.",
+  "websiteUrl": "https://permahost.io",
+  "repository": {
+    "url": "https://github.com/tmphost/permahost",
+    "source": "github"
+  },
+  "icons": [
+    {
+      "src": "https://permahost.io/favicon.svg",
+      "mimeType": "image/svg+xml",
+      "sizes": ["any"]
+    }
+  ],
+  "version": "0.1.1",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://mcp.permahost.io/mcp"
+    }
+  ]
+}

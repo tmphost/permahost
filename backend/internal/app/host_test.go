@@ -14,6 +14,10 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/tmphost/permahost/backend/internal/brand"
+	"github.com/tmphost/permahost/backend/internal/handler/api"
+	mcphandler "github.com/tmphost/permahost/backend/internal/handler/mcp"
 )
 
 // isCustom reports the verified custom domain the tests know.
@@ -237,4 +241,72 @@ func TestMCPSetupPage(t *testing.T) {
 		assert.Equal(t, http.StatusOK, res.StatusCode, host)
 		assert.Contains(t, string(body), "claude mcp add --transport http permahost https://"+host+"/mcp")
 	}
+}
+
+func TestFavicon(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.App.BaseURL = "https://app.example.com"
+	cfg.App.SitesDomain = "example.com"
+	cfg.App.MCPDomain = "mcp.example.com"
+	a, err := New(cfg, fstest.MapFS{})
+	require.NoError(t, err)
+
+	// Every host of ours shows the icon: the app, the MCP host and folder
+	// subdomains, even one with no live folder.
+	for _, host := range []string{"app.example.com", "mcp.example.com", "01234567.file.example.com"} {
+		req := httptest.NewRequest(http.MethodGet, api.FaviconPath, nil)
+		req.Host = host
+		res, err := a.Handler().Test(req)
+		require.NoError(t, err)
+		body, _ := io.ReadAll(res.Body)
+		assert.Equal(t, http.StatusOK, res.StatusCode, host)
+		assert.Equal(t, brand.FaviconType, res.Header.Get(fiber.HeaderContentType), host)
+		assert.Equal(t, brand.Favicon, body, host)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, api.FaviconPath, nil)
+	req.Host = "evil.com"
+	res, err := a.Handler().Test(req)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusNotFound, res.StatusCode)
+}
+
+// TestMCPManifest checks that the app and MCP hosts publish the server's
+// manifest, which names the MCP host's endpoint.
+func TestMCPManifest(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.App.BaseURL = "https://app.example.com"
+	cfg.App.SitesDomain = "example.com"
+	cfg.App.MCPDomain = "mcp.example.com"
+	a, err := New(cfg, fstest.MapFS{})
+	require.NoError(t, err)
+
+	for _, host := range []string{"app.example.com", "mcp.example.com"} {
+		for _, path := range mcphandler.ManifestPaths {
+			req := httptest.NewRequest(http.MethodGet, path, nil)
+			req.Host = host
+			res, err := a.Handler().Test(req)
+			require.NoError(t, err)
+			body, _ := io.ReadAll(res.Body)
+			require.Equal(t, http.StatusOK, res.StatusCode, host+path)
+			assert.Equal(t, fiber.MIMEApplicationJSONCharsetUTF8, res.Header.Get(fiber.HeaderContentType))
+			assert.Equal(t, "*", res.Header.Get(fiber.HeaderAccessControlAllowOrigin))
+			assert.Equal(t, string(mcphandler.Manifest("https://mcp.example.com/mcp")), string(body), host+path)
+
+			// A client that holds it gets 304.
+			req = httptest.NewRequest(http.MethodGet, path, nil)
+			req.Host = host
+			req.Header.Set(fiber.HeaderIfNoneMatch, res.Header.Get(fiber.HeaderETag))
+			res, err = a.Handler().Test(req)
+			require.NoError(t, err)
+			assert.Equal(t, http.StatusNotModified, res.StatusCode, host+path)
+		}
+	}
+
+	// Without an MCP domain, the manifest names the app host's endpoint.
+	cfg = testConfig(t)
+	a, err = New(cfg, fstest.MapFS{})
+	require.NoError(t, err)
+	_, body := get(t, a, mcphandler.ManifestPaths[0])
+	assert.Contains(t, body, `"url": "http://localhost:3000/mcp"`)
 }

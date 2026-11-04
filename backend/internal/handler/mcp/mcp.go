@@ -5,7 +5,8 @@
 // Package mcp is the stateless MCP (streamable HTTP) transport. It offers
 // one tool per operation (uploadFile, downloadFile, listFiles, getUrl,
 // listFolders), mirroring the `permahost file` CLI commands; each takes only
-// the arguments its operation needs.
+// the arguments its operation needs. It also serves the permahost Agent Skill
+// through the MCP Skills extension (skills.go).
 package mcp
 
 import (
@@ -25,6 +26,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/mustafaturan/monoflake"
 
+	"github.com/tmphost/permahost/backend/internal/brand"
 	authctrl "github.com/tmphost/permahost/backend/internal/controller/auth"
 	"github.com/tmphost/permahost/backend/internal/controller/credit"
 	folderctrl "github.com/tmphost/permahost/backend/internal/controller/folder"
@@ -68,7 +70,8 @@ var _instructions = `permahost.io hosts files permanently: use it to publish a f
 - Uploading to a path that already holds a file replaces it in place, and its URL stays the same.
 - ` + _credits + `
 - Anything uploaded is public to whoever has the URL: never upload secrets or private data unless the user asks to.
-- Give the user the url from the result; use listFiles to list a folder, downloadFile to read a file back, and getUrl to build links without uploading.`
+- Give the user the url from the result; use listFiles to list a folder, downloadFile to read a file back, and getUrl to build links without uploading.
+- The skill at skill://permahost/SKILL.md (skills/list, resources/read) has the full best practices: load it before a multi-file site or an update to shared files.`
 
 type (
 	// Params are the transport's dependencies.
@@ -190,13 +193,21 @@ type (
 // New returns the MCP endpoint. Every request needs an OAuth access token
 // as a Bearer token; without one, the 401 points to the resource metadata.
 func New(p Params) http.Handler {
-	server := mcp.NewServer(&mcp.Implementation{Name: "permahost", Title: "permahost.io"}, &mcp.ServerOptions{Instructions: _instructions})
+	server := mcp.NewServer(&mcp.Implementation{
+		Name:        "permahost",
+		Title:       "permahost.io",
+		Version:     brand.Version,
+		Description: "Permanent file hosting: upload files and static sites to public URLs that stay online.",
+		WebsiteURL:  "https://permahost.io",
+		Icons:       icons(),
+	}, &mcp.ServerOptions{Instructions: _instructions, Capabilities: capabilities()})
 	t := &tools{folders: p.Folders}
-	mcp.AddTool(server, &mcp.Tool{Name: ToolUploadFile, Title: "Upload a file", Description: _uploadFileDescription, InputSchema: schemaFor[UploadFileInput](), OutputSchema: schemaFor[UploadFileOutput](), Annotations: writeAnnotations("Upload a file")}, handle(t.uploadFile))
-	mcp.AddTool(server, &mcp.Tool{Name: ToolDownloadFile, Title: "Download a file", Description: _downloadFileDescription, InputSchema: schemaFor[DownloadFileInput](), OutputSchema: schemaFor[DownloadFileOutput](), Annotations: readAnnotations("Download a file")}, handle(t.downloadFile))
-	mcp.AddTool(server, &mcp.Tool{Name: ToolListFiles, Title: "List a folder's files", Description: _listFilesDescription, InputSchema: schemaFor[FolderInput](), OutputSchema: listFilesSchema(), Annotations: readAnnotations("List a folder's files")}, handle(t.listFiles))
-	mcp.AddTool(server, &mcp.Tool{Name: ToolGetURL, Title: "Get a public URL", Description: _getURLDescription, InputSchema: schemaFor[GetURLInput](), OutputSchema: schemaFor[GetURLOutput](), Annotations: readAnnotations("Get a public URL")}, handle(t.getURL))
-	mcp.AddTool(server, &mcp.Tool{Name: ToolListFolders, Title: "List your folders", Description: _listFoldersDescription, InputSchema: schemaFor[ListFoldersInput](), OutputSchema: listFoldersSchema(), Annotations: readAnnotations("List your folders")}, handle(t.listFolders))
+	mcp.AddTool(server, &mcp.Tool{Name: ToolUploadFile, Title: "Upload a file", Description: _uploadFileDescription, InputSchema: schemaFor[UploadFileInput](), OutputSchema: schemaFor[UploadFileOutput](), Annotations: writeAnnotations("Upload a file"), Icons: icons()}, handle(t.uploadFile))
+	mcp.AddTool(server, &mcp.Tool{Name: ToolDownloadFile, Title: "Download a file", Description: _downloadFileDescription, InputSchema: schemaFor[DownloadFileInput](), OutputSchema: schemaFor[DownloadFileOutput](), Annotations: readAnnotations("Download a file"), Icons: icons()}, handle(t.downloadFile))
+	mcp.AddTool(server, &mcp.Tool{Name: ToolListFiles, Title: "List a folder's files", Description: _listFilesDescription, InputSchema: schemaFor[FolderInput](), OutputSchema: listFilesSchema(), Annotations: readAnnotations("List a folder's files"), Icons: icons()}, handle(t.listFiles))
+	mcp.AddTool(server, &mcp.Tool{Name: ToolGetURL, Title: "Get a public URL", Description: _getURLDescription, InputSchema: schemaFor[GetURLInput](), OutputSchema: schemaFor[GetURLOutput](), Annotations: readAnnotations("Get a public URL"), Icons: icons()}, handle(t.getURL))
+	mcp.AddTool(server, &mcp.Tool{Name: ToolListFolders, Title: "List your folders", Description: _listFoldersDescription, InputSchema: schemaFor[ListFoldersInput](), OutputSchema: listFoldersSchema(), Annotations: readAnnotations("List your folders"), Icons: icons()}, handle(t.listFolders))
+	_skills.register(server)
 
 	handler := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return server }, &mcp.StreamableHTTPOptions{
 		Stateless:           true,
@@ -206,8 +217,24 @@ func New(p Params) http.Handler {
 	return setupPage(renderSetupPage(p.EndpointURL), auth.RequireBearerToken(verifier(p.Auth), &auth.RequireBearerTokenOptions{
 		ResourceMetadataURL:    p.ResourceMetadataURL,
 		AllowMissingExpiration: true,
-	})(handler))
+	})(negotiate(handler, p.MaxBodyBytes)))
 }
+
+// capabilities advertise a stateless server: tools, and the skill files as
+// resources with the Skills extension, but no notifications, as there is no
+// session to send them on (no logging, and the tool and resource lists never
+// change while the server runs). Every protocol version the SDK speaks is
+// offered, newest first, so a client that supports the stateless 2026-07-28
+// protocol (server/discover, no initialize handshake) gets it, and older
+// clients negotiate their own.
+func capabilities() *mcp.ServerCapabilities {
+	caps := &mcp.ServerCapabilities{Tools: &mcp.ToolCapabilities{ListChanged: false}, Resources: &mcp.ResourceCapabilities{ListChanged: false}}
+	caps.AddExtension(ExtensionSkills, map[string]any{"directoryRead": true})
+	return caps
+}
+
+// _skills are the built-in skills, loaded once.
+var _skills = mustLoadSkills(_skillFiles)
 
 // verifier accepts access tokens; the user ID travels in the token info.
 func verifier(controller authctrl.Controller) auth.TokenVerifier {
@@ -217,6 +244,16 @@ func verifier(controller authctrl.Controller) auth.TokenVerifier {
 			return nil, auth.ErrInvalidToken
 		}
 		return &auth.TokenInfo{UserID: monoflake.ID(rs.UserID).String()}, nil
+	}
+}
+
+// icons are the permahost.io icon as data URIs, so they show whichever host
+// the server is reached on: the SVG for any size, and a PNG for clients that
+// don't draw SVG.
+func icons() []mcp.Icon {
+	return []mcp.Icon{
+		{Source: brand.DataURI(brand.IconSVGType, brand.IconSVG), MIMEType: brand.IconSVGType, Sizes: []string{"any"}},
+		{Source: brand.DataURI(brand.IconPNGType, brand.IconPNG), MIMEType: brand.IconPNGType, Sizes: []string{"128x128"}},
 	}
 }
 

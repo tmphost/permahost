@@ -6,6 +6,7 @@ package mcp
 
 import (
 	"context"
+	"encoding/json"
 	"html/template"
 	"io"
 	"net/http"
@@ -25,6 +26,20 @@ import (
 )
 
 const _endpoint = "https://mcp.t.io/mcp"
+
+// TestManifest keeps the served manifest equal to the server.json published
+// to the MCP Registry, except for the remote, which is this server's.
+func TestManifest(t *testing.T) {
+	raw, err := os.ReadFile("../../../../server.json")
+	require.NoError(t, err)
+	var want map[string]any
+	require.NoError(t, json.Unmarshal(raw, &want))
+	want["remotes"] = []any{map[string]any{"type": "streamable-http", "url": _endpoint}}
+
+	var got map[string]any
+	require.NoError(t, json.Unmarshal(Manifest(_endpoint), &got))
+	assert.Equal(t, want, got)
+}
 
 func newSetupServer(t *testing.T) *httptest.Server {
 	t.Helper()
@@ -121,11 +136,4 @@ func TestSetupPage_ListsEveryTool(t *testing.T) {
 		listed = append(listed, tool.Name)
 	}
 	assert.ElementsMatch(t, registered, listed)
-}
-
-// TestSetupPage_Icon keeps the page's icon equal to the app's favicon.
-func TestSetupPage_Icon(t *testing.T) {
-	favicon, err := os.ReadFile("../../../../frontend/public/favicon.svg")
-	require.NoError(t, err)
-	assert.Equal(t, string(favicon), string(_icon))
 }

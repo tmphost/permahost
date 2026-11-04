@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/valyala/fasthttp"
 
+	"github.com/tmphost/permahost/backend/internal/brand"
 	"github.com/tmphost/permahost/backend/internal/controller/credit"
 	domainctrl "github.com/tmphost/permahost/backend/internal/controller/domain"
 	mockdomain "github.com/tmphost/permahost/backend/internal/controller/domain/mocks"
@@ -147,6 +148,13 @@ func TestCustomDomainHandler(t *testing.T) {
 	res, body = get(http.MethodGet, "www.custom.io", "/")
 	assert.Equal(t, http.StatusPaymentRequired, res.StatusCode)
 	assert.Contains(t, body, "paused")
+
+	// The site's own favicon.ico wins; without one, ours is shown.
+	domains.EXPECT().GetDomainFolder(gomock.Any(), "www.custom.io").Return(int64(1000), nil)
+	folders.EXPECT().OpenPublicFile(gomock.Any(), &entity.OpenPublicFileRequest{FolderID: 1000, Path: "favicon.ico"}).Return(nil, folderctrl.ErrNotFound)
+	res, body = get(http.MethodGet, "www.custom.io", "/favicon.ico")
+	assert.Equal(t, http.StatusOK, res.StatusCode)
+	assert.Equal(t, string(brand.Favicon), body)
 
 	domains.EXPECT().GetDomainFolder(gomock.Any(), "evil.io").Return(int64(0), domainctrl.ErrNotFound)
 	res, body = get(http.MethodGet, "evil.io", "/")

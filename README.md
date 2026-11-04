@@ -82,6 +82,18 @@ Go (Fiber v3, GORM) backend and Vue 3 (Vite, Tailwind) frontend.
   A browser that opens `/mcp` without a token gets a setup page (the URL,
   sign-in and the commands for Claude, Codex, Gemini and VS Code); MCP
   clients still get the 401 that starts their OAuth sign-in.
+  The server reports the release in its `serverInfo` with a description,
+  website and icons (on the server and every tool), and negotiates every
+  protocol version the SDK speaks, the stateless 2026-07-28 one
+  (`server/discover`, no handshake) included.
+  It also serves the `permahost` Agent Skill (best practices for the tools)
+  through the MCP Skills extension (`io.modelcontextprotocol/skills`,
+  SEP-2640): `skills/list` and `skills/get` describe it,
+  `resources/directory/read` lists its files, and `resources/read` returns
+  `skill://permahost/SKILL.md`. The skill lives in
+  [backend/internal/handler/mcp/skills](backend/internal/handler/mcp/skills).
+  The server instructions and every tool and argument description stay
+  within 2000 characters, which clients such as Claude show in full.
 - Both sign in with permahost's own OAuth 2.1 server: dynamic client
   registration (`/oauth2/register`), PKCE S256, a consent page
   (`/oauth2/authorize`) and refresh tokens (`/oauth2/token`), discovered via
@@ -151,7 +163,11 @@ can change the monthly credit grant, the anonymous maximum TTL and the public UR
   the server answers, and an optional MCP domain (e.g. `mcp.permahost.io`,
   `PERMAHOSTIO_MCP_DOMAIN`) that serves only `/mcp` and its OAuth metadata, so
   MCP clients connect to `https://mcp.permahost.io/mcp`. Other hosts get a 404;
-  localhost always reaches the app.
+  localhost always reaches the app. The app and MCP hosts also publish the
+  server's manifest (the MCP Registry [server.json](server.json), naming the
+  MCP endpoint) at `/.well-known/mcp.json` and `/mcp.json`, and every host
+  answers `/favicon.ico` with the permahost icon (a folder's own
+  `favicon.ico` wins).
 - **TLS**: serve HTTPS on its own port (default 443) and redirect the app port
   to it. Certificates come from Let's Encrypt automatically (lego, TLS-ALPN-01
   challenge, so Let's Encrypt must reach the server on port 443), are renewed

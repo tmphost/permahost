@@ -33,6 +33,7 @@ var _docRowRe = regexp.MustCompile("(?m)^\\| `([a-zA-Z]+)`")
 
 // _pluginDocs are the files that teach an agent the tools.
 var _pluginDocs = []string{
+	"backend/internal/handler/mcp/skills/permahost/SKILL.md",
 	"plugin/claude/skills/permahost/SKILL.md",
 	"plugin/codex/skills/permahost/SKILL.md",
 	"plugin/codex/README.md",
@@ -106,6 +107,7 @@ func TestPluginDocsQuoteThePrices(t *testing.T) {
 	folder := fmt.Sprintf("A new folder costs %d credits a month", credit.FolderCredits)
 	storage := fmt.Sprintf("Storage costs %d credits a month per started %d MB", credit.StorageCredits, credit.StorageBlockBytes>>20)
 	for _, doc := range []string{
+		"backend/internal/handler/mcp/skills/permahost/SKILL.md",
 		"plugin/claude/skills/permahost/SKILL.md",
 		"plugin/codex/skills/permahost/SKILL.md",
 		"plugin/cursor/skills/permahost/SKILL.md",
