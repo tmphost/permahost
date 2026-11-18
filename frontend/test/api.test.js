@@ -150,6 +150,17 @@ describe('setup api', () => {
       body: '{"amount":-5,"note":"refund"}',
     })
 
+    fetch.mockResolvedValueOnce(json({ users: 3, expiresAt: '2026-12-03T00:00:00Z' }, 201))
+    expect(await api.grantCredits({ credits: 100, email: '', all: true, note: 'launch' })).toEqual({ users: 3, expiresAt: '2026-12-03T00:00:00Z' })
+    expect(fetch).toHaveBeenLastCalledWith('/api/v1/setup/credits/grants', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{"credits":100,"email":"","all":true,"note":"launch"}',
+    })
+    fetch.mockResolvedValueOnce(json({}, 500))
+    await expect(api.grantCredits({ credits: 1, all: true, note: 'x' })).rejects.toThrow('Failed to grant credits (500)')
+
     fetch.mockResolvedValueOnce(json({}, 500))
     await expect(api.fetchAdminStats()).rejects.toThrow('Failed to load stats (500)')
     fetch.mockResolvedValueOnce(json({}, 500))

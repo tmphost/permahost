@@ -168,6 +168,16 @@ export function adjustUserCredits(id, amount, note) {
   })
 }
 
+// grantCredits grants credits, which expire, as root: to one user by
+// { email } or to every user with { all: true }. It returns { users,
+// expiresAt }.
+export function grantCredits({ credits, email, all, note }) {
+  return request('POST', '/setup/credits/grants', {
+    body: { credits, email, all, note },
+    fallback: 'Failed to grant credits',
+  })
+}
+
 // filePath encodes each segment of a folder-relative path, keeping the slashes.
 export function filePath(path) {
   return path.split('/').map(encodeURIComponent).join('/')

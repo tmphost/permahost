@@ -43,6 +43,11 @@ func newEnv(t *testing.T, batch int, grant func() int) env {
 	return e
 }
 
+// expectNoExpiredGrants finds no admin grant to expire.
+func (e env) expectNoExpiredGrants(ctx context.Context, batch int) {
+	e.users.EXPECT().ListExpiredCreditGrants(ctx, _now, batch).Return(nil, nil)
+}
+
 // expectUsage makes the user host folders folders of size bytes in total
 // and domains verified domains.
 func (e env) expectUsage(ctx context.Context, userID int64, folders int, size int64, domains int) {
@@ -70,16 +75,26 @@ func TestPricing(t *testing.T) {
 func TestRenewDueCredits_ChargesHosting(t *testing.T) {
 	ctx := context.Background()
 	e := newEnv(t, 0, func() int { return 2000 })
-	e.users.EXPECT().ListUsersDueForCreditRenewal(ctx, _now, _batchSize).Return([]model.User{{ID: 1, CreditsRenewAt: _now}, {ID: 2, CreditsRenewAt: _now}}, nil)
+	e.expectNoExpiredGrants(ctx, _batchSize)
+	e.users.EXPECT().ListUsersDueForCreditRenewal(ctx, _now, _batchSize).Return([]model.User{{ID: 1, CreditsRenewAt: _now}, {ID: 2, CreditsRenewAt: _now}, {ID: 3, CreditsRenewAt: _now}}, nil)
 	// 1 folder, 30 MB (2 blocks), 1 domain: 2000 a month.
 	e.expectUsage(ctx, 1, 1, 30<<20, 1)
-	e.users.EXPECT().UpdateUserCredits(ctx, int64(1), 0, 2, _now.Add(Period)).Return(nil)
+	e.users.EXPECT().UpdateUserCredits(ctx, int64(1), 0, 2, _now.Add(Period)).Return(0, nil)
 	// 3 folders, 1 byte, 2 domains: 3000 a month, more than the grant.
 	e.expectUsage(ctx, 2, 3, 1, 2)
-	e.users.EXPECT().UpdateUserCredits(ctx, int64(2), -1000, 1, _now.Add(Period)).Return(nil)
+	e.users.EXPECT().UpdateUserCredits(ctx, int64(2), -1000, 1, _now.Add(Period)).Return(-1000, nil)
+	// The same, but admin grants pay for what the grant can't.
+	e.expectUsage(ctx, 3, 3, 1, 2)
+	e.users.EXPECT().UpdateUserCredits(ctx, int64(3), -1000, 1, _now.Add(Period)).Return(500, nil)
 	rs, err := e.c.RenewDueCredits(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, &entity.RenewDueCreditsResponse{Renewed: 2, Suspended: 1}, rs)
+	assert.Equal(t, &entity.RenewDueCreditsResponse{Renewed: 3, Suspended: 1}, rs)
+}
+
+func TestGrantExpiry(t *testing.T) {
+	assert.Equal(t, time.Date(2026, 11, 18, 0, 0, 0, 0, time.UTC), GrantExpiry(_now.Add(time.Second)), "the next 00:00 UTC after Period")
+	assert.Equal(t, _now.Add(Period), GrantExpiry(_now), "already 00:00 UTC")
+	assert.Equal(t, time.Date(2026, 11, 18, 0, 0, 0, 0, time.UTC), GrantExpiry(time.Date(2026, 10, 17, 22, 0, 0, 0, time.FixedZone("x", -3*3600))))
 }
 
 func TestFirstRenewal(t *testing.T) {
@@ -98,25 +113,31 @@ func TestRenewDueCredits_Batches(t *testing.T) {
 	ctx := context.Background()
 	e := newEnv(t, 2, nil)
 	gomock.InOrder(
+		e.users.EXPECT().ListExpiredCreditGrants(ctx, _now, 2).Return([]model.CreditGrant{{ID: 7}, {ID: 8}}, nil),
+		e.users.EXPECT().ExpireCreditGrant(ctx, model.CreditGrant{ID: 7}).Return(nil),
+		e.users.EXPECT().ExpireCreditGrant(ctx, model.CreditGrant{ID: 8}).Return(nil),
+		e.users.EXPECT().ListExpiredCreditGrants(ctx, _now, 2).Return([]model.CreditGrant{{ID: 9}}, nil),
+		e.users.EXPECT().ExpireCreditGrant(ctx, model.CreditGrant{ID: 9}).Return(nil),
 		e.users.EXPECT().ListUsersDueForCreditRenewal(ctx, _now, 2).Return([]model.User{
 			{ID: 1, CreditsRenewAt: _now}, {ID: 2, CreditsRenewAt: _now.Add(-24 * time.Hour)},
 		}, nil),
-		e.users.EXPECT().UpdateUserCredits(ctx, int64(1), DefaultMonthlyGrant, 0, _now.Add(Period)).Return(nil),
-		e.users.EXPECT().UpdateUserCredits(ctx, int64(2), DefaultMonthlyGrant, 0, _now.Add(-24*time.Hour+Period)).Return(nil),
+		e.users.EXPECT().UpdateUserCredits(ctx, int64(1), DefaultMonthlyGrant, 0, _now.Add(Period)).Return(DefaultMonthlyGrant, nil),
+		e.users.EXPECT().UpdateUserCredits(ctx, int64(2), DefaultMonthlyGrant, 0, _now.Add(-24*time.Hour+Period)).Return(DefaultMonthlyGrant, nil),
 		e.users.EXPECT().ListUsersDueForCreditRenewal(ctx, _now, 2).Return([]model.User{{ID: 3, CreditsRenewAt: _now}}, nil),
-		e.users.EXPECT().UpdateUserCredits(ctx, int64(3), DefaultMonthlyGrant, 0, _now.Add(Period)).Return(nil),
+		e.users.EXPECT().UpdateUserCredits(ctx, int64(3), DefaultMonthlyGrant, 0, _now.Add(Period)).Return(DefaultMonthlyGrant, nil),
 	)
 	for _, id := range []int64{1, 2, 3} {
 		e.expectUsage(ctx, id, 0, 0, 0)
 	}
 	rs, err := e.c.RenewDueCredits(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, 3, rs.Renewed)
+	assert.Equal(t, &entity.RenewDueCreditsResponse{Renewed: 3, Expired: 3}, rs, "grants expire before renewals")
 }
 
 func TestRenewDueCredits_NothingDue(t *testing.T) {
 	ctx := context.Background()
 	e := newEnv(t, 2, nil)
+	e.expectNoExpiredGrants(ctx, 2)
 	e.users.EXPECT().ListUsersDueForCreditRenewal(ctx, _now, 2).Return(nil, nil)
 	rs, err := e.c.RenewDueCredits(ctx)
 	require.NoError(t, err)
@@ -126,8 +147,27 @@ func TestRenewDueCredits_NothingDue(t *testing.T) {
 func TestRenewDueCredits_Errors(t *testing.T) {
 	ctx := context.Background()
 
+	t.Run("list grants", func(t *testing.T) {
+		e := newEnv(t, 2, nil)
+		e.users.EXPECT().ListExpiredCreditGrants(ctx, _now, 2).Return(nil, errBoom)
+		rs, err := e.c.RenewDueCredits(ctx)
+		assert.ErrorIs(t, err, errBoom)
+		assert.Equal(t, &entity.RenewDueCreditsResponse{}, rs)
+	})
+
+	t.Run("expire", func(t *testing.T) {
+		e := newEnv(t, 2, nil)
+		e.users.EXPECT().ListExpiredCreditGrants(ctx, _now, 2).Return([]model.CreditGrant{{ID: 7}, {ID: 8}}, nil)
+		e.users.EXPECT().ExpireCreditGrant(ctx, model.CreditGrant{ID: 7}).Return(nil)
+		e.users.EXPECT().ExpireCreditGrant(ctx, model.CreditGrant{ID: 8}).Return(errBoom)
+		rs, err := e.c.RenewDueCredits(ctx)
+		assert.ErrorIs(t, err, errBoom)
+		assert.Equal(t, &entity.RenewDueCreditsResponse{Expired: 1}, rs)
+	})
+
 	t.Run("list", func(t *testing.T) {
 		e := newEnv(t, 2, nil)
+		e.expectNoExpiredGrants(ctx, 2)
 		e.users.EXPECT().ListUsersDueForCreditRenewal(ctx, _now, 2).Return(nil, errBoom)
 		rs, err := e.c.RenewDueCredits(ctx)
 		assert.ErrorIs(t, err, errBoom)
@@ -136,6 +176,7 @@ func TestRenewDueCredits_Errors(t *testing.T) {
 
 	t.Run("usage", func(t *testing.T) {
 		e := newEnv(t, 2, nil)
+		e.expectNoExpiredGrants(ctx, 2)
 		e.users.EXPECT().ListUsersDueForCreditRenewal(ctx, _now, 2).Return([]model.User{{ID: 1, CreditsRenewAt: _now}}, nil)
 		e.folders.EXPECT().GetUserFolderUsage(ctx, int64(1)).Return(0, int64(0), errBoom)
 		rs, err := e.c.RenewDueCredits(ctx)
@@ -145,11 +186,12 @@ func TestRenewDueCredits_Errors(t *testing.T) {
 
 	t.Run("update", func(t *testing.T) {
 		e := newEnv(t, 2, nil)
+		e.expectNoExpiredGrants(ctx, 2)
 		e.users.EXPECT().ListUsersDueForCreditRenewal(ctx, _now, 2).Return([]model.User{{ID: 1, CreditsRenewAt: _now}, {ID: 2, CreditsRenewAt: _now}}, nil)
 		e.expectUsage(ctx, 1, 0, 0, 0)
 		e.expectUsage(ctx, 2, 0, 0, 0)
-		e.users.EXPECT().UpdateUserCredits(ctx, int64(1), DefaultMonthlyGrant, 0, gomock.Any()).Return(nil)
-		e.users.EXPECT().UpdateUserCredits(ctx, int64(2), DefaultMonthlyGrant, 0, gomock.Any()).Return(errBoom)
+		e.users.EXPECT().UpdateUserCredits(ctx, int64(1), DefaultMonthlyGrant, 0, gomock.Any()).Return(DefaultMonthlyGrant, nil)
+		e.users.EXPECT().UpdateUserCredits(ctx, int64(2), DefaultMonthlyGrant, 0, gomock.Any()).Return(0, errBoom)
 		rs, err := e.c.RenewDueCredits(ctx)
 		assert.ErrorIs(t, err, errBoom)
 		assert.Equal(t, 1, rs.Renewed)

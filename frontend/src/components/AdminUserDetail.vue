@@ -79,8 +79,9 @@ async function save() {
     const rs = await adjustUserCredits(props.id, signed, note.value.trim())
     user.value = rs.user
     activities.value.unshift(rs.activity)
+    const expires = rs.expiresAt ? `, expiring ${formatDate(rs.expiresAt)}` : ''
     notifySuccess(
-      `${mode.value === 'grant' ? 'Granted' : 'Deducted'} ${amount.value.toLocaleString()} credits. Balance: ${rs.activity.current.toLocaleString()}.`,
+      `${mode.value === 'grant' ? 'Granted' : 'Deducted'} ${amount.value.toLocaleString()} credits${expires}. Balance: ${rs.activity.current.toLocaleString()}.`,
     )
     amount.value = null
     note.value = ''
@@ -163,8 +164,8 @@ onMounted(async () => {
       >
         <h2 class="text-sm font-bold text-gray-900 dark:text-zinc-100">Adjust credits</h2>
         <p class="text-xs text-gray-500 dark:text-zinc-400 mb-4">
-          Changes the balance hosting is charged from, until the next renewal resets it to the monthly grant minus the monthly
-          cost. A balance at zero or more resumes paused sites at once.
+          Granted credits expire 30 days later, at 00:00 UTC; renewals keep them until then. A deduction takes the credits that expire
+          first. A balance at zero or more resumes paused sites at once.
         </p>
 
         <div class="space-y-4">

@@ -78,9 +78,28 @@ type (
 	}
 
 	// AdjustCreditsResponse is the POST /setup/users/:id/credits result.
+	// ExpiresAt is when what is left of a grant expires; empty for a
+	// deduction.
 	AdjustCreditsResponse struct {
-		User     AdminUser      `json:"user"`
-		Activity CreditActivity `json:"activity"`
+		User      AdminUser      `json:"user"`
+		Activity  CreditActivity `json:"activity"`
+		ExpiresAt string         `json:"expiresAt"`
+	}
+
+	// GrantCreditsRequest is the POST /setup/credits/grants body: email
+	// names one user, or all grants to every user.
+	GrantCreditsRequest struct {
+		Credits int    `json:"credits"`
+		Email   string `json:"email"`
+		All     bool   `json:"all"`
+		Note    string `json:"note"`
+	}
+
+	// GrantCreditsResponse is the POST /setup/credits/grants result: how
+	// many users got the grant, and when it expires.
+	GrantCreditsResponse struct {
+		Users     int    `json:"users"`
+		ExpiresAt string `json:"expiresAt"`
 	}
 
 	// ListCreditActivitiesResponse is GET /setup/users/:id/credits. Next is

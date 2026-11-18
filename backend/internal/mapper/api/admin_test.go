@@ -34,6 +34,20 @@ func TestFromHTTPRequestToListAdminUsersRequestEntity(t *testing.T) {
 	assert.Nil(t, read("/setup/users?limit=-1"), "negative limit")
 }
 
+func TestFromHTTPRequestToGrantCreditsRequestEntity(t *testing.T) {
+	read := func(body string) *entity.GrantCreditsRequest {
+		var got *entity.GrantCreditsRequest
+		req := httptest.NewRequest(http.MethodGet, "/setup/credits/grants", strings.NewReader(body))
+		run(t, "/setup/credits/grants", req, func(c fiber.Ctx) {
+			got = FromHTTPRequestToGrantCreditsRequestEntity(c)
+		})
+		return got
+	}
+	assert.Equal(t, &entity.GrantCreditsRequest{Credits: 5, Email: "a@x", All: true, Note: "n"}, read(`{"credits":5,"email":"a@x","all":true,"note":"n"}`))
+	assert.Equal(t, &entity.GrantCreditsRequest{}, read(`{}`), "the controller validates")
+	assert.Nil(t, read(`{`), "bad JSON")
+}
+
 func TestFromHTTPRequestToAdjustCreditsRequestEntity(t *testing.T) {
 	read := func(id, body string) *entity.AdjustCreditsRequest {
 		var got *entity.AdjustCreditsRequest
@@ -105,8 +119,13 @@ func TestAdminResponses(t *testing.T) {
 
 	assert.JSONEq(t, `{"user":`+userJSON+`}`, string(FromGetAdminUserResponseEntityToHTTPResponse(&entity.GetAdminUserResponse{User: user})))
 
-	assert.JSONEq(t, `{"user":`+userJSON+`,"activity":`+actJSON+`}`,
+	assert.JSONEq(t, `{"user":`+userJSON+`,"activity":`+actJSON+`,"expiresAt":""}`,
 		string(FromAdjustCreditsResponseEntityToHTTPResponse(&entity.AdjustCreditsResponse{User: user, Activity: act})))
+	expires := time.Date(2026, 12, 3, 0, 0, 0, 0, time.UTC)
+	assert.JSONEq(t, `{"user":`+userJSON+`,"activity":`+actJSON+`,"expiresAt":"2026-12-03T00:00:00Z"}`,
+		string(FromAdjustCreditsResponseEntityToHTTPResponse(&entity.AdjustCreditsResponse{User: user, Activity: act, ExpiresAt: expires})))
+	assert.JSONEq(t, `{"users":3,"expiresAt":"2026-12-03T00:00:00Z"}`,
+		string(FromGrantCreditsResponseEntityToHTTPResponse(&entity.GrantCreditsResponse{Users: 3, ExpiresAt: expires})))
 
 	assert.JSONEq(t, `{"activities":[`+actJSON+`],"next":""}`,
 		string(FromListCreditActivitiesResponseEntityToHTTPResponse(&entity.ListCreditActivitiesResponse{Activities: []entity.CreditActivity{act}})))

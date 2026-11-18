@@ -10,6 +10,11 @@ Go (Fiber v3, GORM) backend and Vue 3 (Vite, Tailwind) frontend.
   change it on /setup). A cron job running daily at 00:00 UTC renews due
   accounts: the balance is reset to the grant minus the month's hosting cost
   (unused credits do not carry over) and the renewal moves 30 days forward.
+- Root can also grant credits to one user or to every user (`/setup`, Users
+  and Grant credits). Granted credits expire 30 days later at 00:00 UTC, when
+  the daily job takes back whatever is left of them. Renewals keep them, and
+  use them for any hosting cost the monthly grant can't cover. Charges spend
+  the credits that expire first.
 - Hosting is permanent while the account has credits. Monthly prices:
 
   | What | Credits |
@@ -18,8 +23,8 @@ Go (Fiber v3, GORM) backend and Vue 3 (Vite, Tailwind) frontend.
   | Storage | 500 a month per started 25 MB of the account's files, charged when an upload starts a new block |
   | Custom domain | 500 setup + 500 a month, charged when its CNAME is verified |
 
-- A balance below zero after renewal pauses every site of the account (HTTP
-  402) until a later renewal brings it back to zero or above. Nothing is
+- A balance below zero pauses every site of the account (HTTP 402) until a
+  later renewal or a root grant brings it back to zero or above. Nothing is
   deleted. `GET /api/v1/users/me/usage` shows what an account hosts and its
   monthly cost.
 

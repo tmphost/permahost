@@ -11,17 +11,19 @@ const (
 	// CreditOpGrant is the grant a new account starts with.
 	CreditOpGrant uint8 = iota + 1
 	// CreditOpRenewal resets the balance to the grant minus the monthly
-	// cost.
+	// cost, plus what is left of live admin grants.
 	CreditOpRenewal
 	// CreditOpSpend pays for hosting: a folder, a storage block or a
 	// custom domain.
 	CreditOpSpend
 	// CreditOpRefund gives back what a failed operation was paid with.
 	CreditOpRefund
-	// CreditOpAdminGrant adds credits root granted.
+	// CreditOpAdminGrant adds credits root granted; they expire.
 	CreditOpAdminGrant
 	// CreditOpAdminDeduct takes away credits root deducted.
 	CreditOpAdminDeduct
+	// CreditOpExpiry takes away what is left of an expired admin grant.
+	CreditOpExpiry
 )
 
 // CreditActivity is one change to a user's credit balance. It is written

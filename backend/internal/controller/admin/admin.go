@@ -4,13 +4,14 @@
 
 // Package admin implements the root-only setup page's view of every
 // account: totals and daily stats, users with their balance and usage, each
-// user's credit history, and granting or deducting one user's credits with
-// a note.
+// user's credit history, granting or deducting one user's credits with a
+// note, and granting credits to every user at once.
 //
-// An adjustment changes the same balance the hosting charges draw from, so
-// it lasts until the next renewal resets the balance to the monthly grant
-// minus the monthly cost. Sites are paused while the balance is below zero,
-// so a grant that lifts it to zero or more resumes them at once.
+// A grant adds to the balance the hosting charges draw from and expires
+// creditctrl.GrantExpiry later; renewals keep it until then. A deduction
+// takes the credits that expire first. Sites are paused while the balance
+// is below zero, so a grant that lifts it to zero or more resumes them at
+// once.
 package admin
 
 //go:generate mockgen -source=admin.go -destination=mocks/admin.go -package=mocks
@@ -45,7 +46,8 @@ const (
 	// MaxNoteLength is the longest note, in characters.
 	MaxNoteLength = 500
 
-	_day = 24 * time.Hour
+	_day       = 24 * time.Hour
+	_batchSize = 500
 )
 
 var (
@@ -70,6 +72,9 @@ type (
 		GetUser(ctx context.Context, rq *entity.GetAdminUserRequest) (*entity.GetAdminUserResponse, error)
 		// AdjustCredits grants or deducts a user's credits and records it.
 		AdjustCredits(ctx context.Context, rq *entity.AdjustCreditsRequest) (*entity.AdjustCreditsResponse, error)
+		// GrantCredits grants credits to one user, named by email, or to
+		// every user.
+		GrantCredits(ctx context.Context, rq *entity.GrantCreditsRequest) (*entity.GrantCreditsResponse, error)
 		// ListCreditActivities returns a page of a user's credit history,
 		// newest first.
 		ListCreditActivities(ctx context.Context, rq *entity.ListCreditActivitiesRequest) (*entity.ListCreditActivitiesResponse, error)
@@ -83,22 +88,28 @@ type (
 		// Grant returns the current monthly grant; it can change at runtime.
 		Grant func() int
 		Now   func() time.Time
+		// BatchSize is how many users a grant to every user lists at once.
+		BatchSize int
 	}
 
 	controller struct {
-		users   repository.UserRepository
-		stats   repository.StatsRepository
-		credits creditctrl.Controller
-		grant   func() int
-		now     func() time.Time
+		users     repository.UserRepository
+		stats     repository.StatsRepository
+		credits   creditctrl.Controller
+		grant     func() int
+		now       func() time.Time
+		batchSize int
 	}
 )
 
 // New returns the admin controller.
 func New(p Params) Controller {
-	c := &controller{users: p.Users, stats: p.Stats, credits: p.Credits, grant: creditctrl.GrantOrDefault(p.Grant), now: p.Now}
+	c := &controller{users: p.Users, stats: p.Stats, credits: p.Credits, grant: creditctrl.GrantOrDefault(p.Grant), now: p.Now, batchSize: p.BatchSize}
 	if c.now == nil {
 		c.now = time.Now
+	}
+	if c.batchSize <= 0 {
+		c.batchSize = _batchSize
 	}
 	return c
 }
@@ -177,18 +188,20 @@ func (c *controller) GetUser(ctx context.Context, rq *entity.GetAdminUserRequest
 }
 
 func (c *controller) AdjustCredits(ctx context.Context, rq *entity.AdjustCreditsRequest) (*entity.AdjustCreditsResponse, error) {
-	note := strings.TrimSpace(rq.Note)
+	note, err := checkNote(rq.Note)
 	switch {
 	case rq.Amount == 0:
 		return nil, fmt.Errorf("%w: the amount must not be zero", ErrInvalidAdjustment)
 	case rq.Amount > MaxAdjustment || rq.Amount < -MaxAdjustment:
 		return nil, fmt.Errorf("%w: the amount must be between -%d and %d", ErrInvalidAdjustment, MaxAdjustment, MaxAdjustment)
-	case note == "":
-		return nil, fmt.Errorf("%w: a note is required", ErrInvalidAdjustment)
-	case utf8.RuneCountInString(note) > MaxNoteLength:
-		return nil, fmt.Errorf("%w: the note must be at most %d characters", ErrInvalidAdjustment, MaxNoteLength)
+	case err != nil:
+		return nil, err
 	}
-	a, err := c.users.AdjustCredits(ctx, rq.UserID, rq.Amount, ActorRoot, note)
+	var expiresAt time.Time
+	if rq.Amount > 0 {
+		expiresAt = creditctrl.GrantExpiry(c.now())
+	}
+	a, err := c.users.AdjustCredits(ctx, rq.UserID, rq.Amount, expiresAt, ActorRoot, note)
 	switch {
 	case errors.Is(err, repository.ErrNotFound):
 		return nil, ErrUserNotFound
@@ -201,7 +214,69 @@ func (c *controller) AdjustCredits(ctx context.Context, rq *entity.AdjustCredits
 	if err != nil {
 		return nil, err
 	}
-	return &entity.AdjustCreditsResponse{User: u.User, Activity: mappermodel.FromCreditActivityModelToCreditActivityEntity(a)}, nil
+	return &entity.AdjustCreditsResponse{User: u.User, Activity: mappermodel.FromCreditActivityModelToCreditActivityEntity(a), ExpiresAt: expiresAt}, nil
+}
+
+func (c *controller) GrantCredits(ctx context.Context, rq *entity.GrantCreditsRequest) (*entity.GrantCreditsResponse, error) {
+	email := strings.TrimSpace(rq.Email)
+	note, err := checkNote(rq.Note)
+	switch {
+	case rq.Credits <= 0 || rq.Credits > MaxAdjustment:
+		return nil, fmt.Errorf("%w: credits must be between 1 and %d", ErrInvalidAdjustment, MaxAdjustment)
+	case rq.All == (email != ""):
+		return nil, fmt.Errorf("%w: name one user by email, or grant to all users", ErrInvalidAdjustment)
+	case err != nil:
+		return nil, err
+	}
+	rs := &entity.GrantCreditsResponse{ExpiresAt: creditctrl.GrantExpiry(c.now())}
+	if !rq.All {
+		u, err := c.users.FindUserByEmail(ctx, email)
+		if errors.Is(err, repository.ErrNotFound) {
+			return nil, ErrUserNotFound
+		}
+		if err != nil {
+			return nil, fmt.Errorf("find user: %w", err)
+		}
+		if _, err := c.users.AdjustCredits(ctx, u.ID, rq.Credits, rs.ExpiresAt, ActorRoot, note); err != nil {
+			return nil, fmt.Errorf("grant user %d: %w", u.ID, err)
+		}
+		rs.Users = 1
+		return rs, nil
+	}
+	var after int64
+	for {
+		ids, err := c.users.ListUserIDs(ctx, after, c.batchSize)
+		if err != nil {
+			return rs, fmt.Errorf("list users: %w", err)
+		}
+		for _, id := range ids {
+			// A user deleted since the listing just doesn't get it.
+			_, err := c.users.AdjustCredits(ctx, id, rq.Credits, rs.ExpiresAt, ActorRoot, note)
+			if errors.Is(err, repository.ErrNotFound) {
+				continue
+			}
+			if err != nil {
+				return rs, fmt.Errorf("grant user %d: %w", id, err)
+			}
+			rs.Users++
+		}
+		if len(ids) < c.batchSize {
+			return rs, nil
+		}
+		after = ids[len(ids)-1]
+	}
+}
+
+// checkNote trims a note and checks that it is set and not too long.
+func checkNote(note string) (string, error) {
+	note = strings.TrimSpace(note)
+	switch {
+	case note == "":
+		return "", fmt.Errorf("%w: a note is required", ErrInvalidAdjustment)
+	case utf8.RuneCountInString(note) > MaxNoteLength:
+		return "", fmt.Errorf("%w: the note must be at most %d characters", ErrInvalidAdjustment, MaxNoteLength)
+	}
+	return note, nil
 }
 
 func (c *controller) ListCreditActivities(ctx context.Context, rq *entity.ListCreditActivitiesRequest) (*entity.ListCreditActivitiesResponse, error) {

@@ -6,6 +6,7 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
+import AdminGrant from '../components/AdminGrant.vue'
 import AdminOverview from '../components/AdminOverview.vue'
 import AdminUserDetail from '../components/AdminUserDetail.vue'
 import AdminUsers from '../components/AdminUsers.vue'
@@ -26,8 +27,8 @@ const PRIMARY =
 const SECONDARY =
   'rounded-lg border border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-2.5 text-[11px] font-black uppercase tracking-widest text-gray-900 dark:text-zinc-100 hover:border-gray-300 dark:hover:border-zinc-600 transition-colors'
 
-// The setup menu: one section at a time. Overview and Users manage accounts;
-// every other section edits the server settings, which one Save stores
+// The setup menu: one section at a time. Overview, Users and Grant credits
+// manage accounts; every other section edits the server settings, which one Save stores
 // together.
 const SECTIONS = [
   { id: 'overview', label: 'Overview', icon: 'M3 3v18h18M7 15l4-4 3 3 5-6' },
@@ -36,6 +37,7 @@ const SECTIONS = [
     label: 'Users',
     icon: 'M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0z',
   },
+  { id: 'grant', label: 'Grant credits', icon: 'M12 4.5v15m7.5-7.5h-15' },
   {
     id: 'domain',
     label: 'Domains',
@@ -69,7 +71,7 @@ const SECTIONS = [
   },
 ]
 // ACCOUNT_SECTIONS are the sections that don't edit the server settings.
-const ACCOUNT_SECTIONS = ['overview', 'users']
+const ACCOUNT_SECTIONS = ['overview', 'users', 'grant']
 
 const { notifyError, notifySuccess } = useToasts()
 
@@ -302,6 +304,7 @@ onMounted(refresh)
           <AdminOverview v-if="section === 'overview'" @error="onError" />
           <AdminUserDetail v-else-if="section === 'users' && userId" :id="userId" :key="userId" @back="userId = ''" @error="onError" />
           <AdminUsers v-else-if="section === 'users'" @open="userId = $event" @error="onError" />
+          <AdminGrant v-else-if="section === 'grant'" @error="onError" />
 
           <!-- Settings: kept mounted while Overview or Users is open, so unsaved edits survive. -->
           <form v-show="editingSettings" id="setup-form" data-test="setup-form" @submit.prevent="save">
@@ -430,7 +433,9 @@ onMounted(refresh)
                 />
                 <p class="mt-1 text-[11px] text-gray-400 dark:text-zinc-500" data-test="setup-grant-hint">
                   To grant or deduct one account's credits, open
-                  <button type="button" class="font-bold underline hover:text-gray-900 dark:hover:text-zinc-100" data-test="setup-grant-users" @click="openSection('users')">Users</button>.
+                  <button type="button" class="font-bold underline hover:text-gray-900 dark:hover:text-zinc-100" data-test="setup-grant-users" @click="openSection('users')">Users</button>; to
+                  grant every account credits, open
+                  <button type="button" class="font-bold underline hover:text-gray-900 dark:hover:text-zinc-100" data-test="setup-grant-all" @click="openSection('grant')">Grant credits</button>.
                 </p>
               </section>
 

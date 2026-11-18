@@ -196,9 +196,14 @@ describe('AdminUserDetail', () => {
     resolve({
       user: { ...USER, credits: 1000, paused: false },
       activity: { id: 'n', ops: 'admin_grant', change: 1500, current: 1000, actor: 'root', note: 'goodwill', createdAt: ago(0) },
+      expiresAt: '2026-12-03T00:00:00Z',
     })
     await flushPromises()
-    expect(useToasts().toasts.value.at(-1)).toMatchObject({ type: 'success', message: `Granted ${(1500).toLocaleString()} credits. Balance: ${(1000).toLocaleString()}.` })
+    const expires = new Date('2026-12-03T00:00:00Z').toLocaleDateString(undefined, { dateStyle: 'medium' })
+    expect(useToasts().toasts.value.at(-1)).toMatchObject({
+      type: 'success',
+      message: `Granted ${(1500).toLocaleString()} credits, expiring ${expires}. Balance: ${(1000).toLocaleString()}.`,
+    })
     expect(wrapper.find('[data-test="admin-user-balance"]').text()).toBe((1000).toLocaleString())
     expect(wrapper.find('[data-test="admin-user-paused"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="credits-note"]').text()).toBe('goodwill')
@@ -214,6 +219,7 @@ describe('AdminUserDetail', () => {
     adjustUserCredits.mockResolvedValueOnce({
       user: { ...USER, credits: 200 },
       activity: { id: 'n', ops: 'admin_deduct', change: -100, current: 200, actor: 'root', note: 'chargeback', createdAt: ago(0) },
+      expiresAt: '',
     })
     await wrapper.find('[data-test="admin-adjust"]').trigger('submit')
     await flushPromises()

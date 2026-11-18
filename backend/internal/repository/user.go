@@ -36,13 +36,18 @@ type (
 		// ListUsersDueForCreditRenewal returns up to limit users whose
 		// credit renewal time is at or before now, oldest first.
 		ListUsersDueForCreditRenewal(ctx context.Context, now time.Time, limit int) ([]model.User, error)
-		// UpdateUserCredits sets a user's balance, the storage blocks paid
-		// for and the next renewal time.
-		UpdateUserCredits(ctx context.Context, id int64, credits, storageBlocks int, renewAt time.Time) error
-		// SpendCredits takes n credits from a user in one atomic update, or
-		// returns ErrInsufficientCredits and takes none.
+		// UpdateUserCredits renews a user: it sets the monthly part of the
+		// balance to credits, the storage blocks paid for and the next
+		// renewal time, and returns the new balance. What is left of live
+		// admin grants stays on top; when credits is below zero, they pay
+		// for as much of it as they can. An unknown user is left alone.
+		UpdateUserCredits(ctx context.Context, id int64, credits, storageBlocks int, renewAt time.Time) (int, error)
+		// SpendCredits takes n credits from a user in one transaction, or
+		// returns ErrInsufficientCredits and takes none. Like every charge,
+		// it takes the credits that expire first: the monthly part expires
+		// at renewal, an admin grant at its ExpiresAt.
 		SpendCredits(ctx context.Context, id int64, n int) error
-		// RefundCredits gives n spent credits back.
+		// RefundCredits gives n spent credits back to the monthly part.
 		RefundCredits(ctx context.Context, id int64, n int) error
 		// PayStorageBlocks raises the storage blocks a user has paid for
 		// this period to blocks, at price credits per block added, and
@@ -58,10 +63,20 @@ type (
 		SearchUsers(ctx context.Context, q string, before int64, limit int) ([]model.User, error)
 		// AdjustCredits adds amount (negative to deduct) to a user's
 		// balance and records it as an admin grant or deduction by actor,
-		// with note, in one transaction. A deduction that would take the
-		// balance below zero returns ErrInsufficientCredits and changes
-		// nothing; an unknown user returns ErrNotFound.
-		AdjustCredits(ctx context.Context, id int64, amount int, actor, note string) (model.CreditActivity, error)
+		// with note, in one transaction. A grant is kept as a credit grant
+		// that expires at expiresAt; a deduction takes the credits that
+		// expire first. A deduction that would take the balance below zero
+		// returns ErrInsufficientCredits and changes nothing; an unknown
+		// user returns ErrNotFound.
+		AdjustCredits(ctx context.Context, id int64, amount int, expiresAt time.Time, actor, note string) (model.CreditActivity, error)
+		// ListUserIDs returns up to limit user IDs above after, in order.
+		ListUserIDs(ctx context.Context, after int64, limit int) ([]int64, error)
+		// ListExpiredCreditGrants returns up to limit admin grants that
+		// expired at or before now and still have credits left.
+		ListExpiredCreditGrants(ctx context.Context, now time.Time, limit int) ([]model.CreditGrant, error)
+		// ExpireCreditGrant takes what is left of an admin grant (one
+		// ListExpiredCreditGrants returned) away from its user.
+		ExpireCreditGrant(ctx context.Context, g model.CreditGrant) error
 		// ListCreditActivities returns up to limit of a user's credit
 		// activities, newest first, with IDs below before (0: from the
 		// newest).
@@ -124,8 +139,9 @@ func (r *userRepository) ListUsersDueForCreditRenewal(ctx context.Context, now t
 	return users, nil
 }
 
-func (r *userRepository) UpdateUserCredits(ctx context.Context, id int64, credits, storageBlocks int, renewAt time.Time) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+func (r *userRepository) UpdateUserCredits(ctx context.Context, id int64, credits, storageBlocks int, renewAt time.Time) (int, error) {
+	balance := 0
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var old model.User
 		if err := tx.Select("credits").Where("id = ?", id).Take(&old).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -133,13 +149,31 @@ func (r *userRepository) UpdateUserCredits(ctx context.Context, id int64, credit
 			}
 			return err
 		}
+		// Lock the user, so no charge takes from the grants meanwhile.
 		err := tx.Model(&model.User{}).Where("id = ?", id).
-			Updates(map[string]any{"credits": credits, "storage_blocks_paid": storageBlocks, "credits_renew_at": renewAt}).Error
+			Updates(map[string]any{"storage_blocks_paid": storageBlocks, "credits_renew_at": renewAt}).Error
 		if err != nil {
 			return err
 		}
-		return r.record(tx, id, model.CreditOpRenewal, credits-old.Credits)
+		grants, err := liveGrants(tx, id)
+		if err != nil {
+			return err
+		}
+		left := granted(grants)
+		// The grants pay for what the monthly grant can't.
+		if err := takeFromGrants(tx, grants, 0, renewAt, min(max(-credits, 0), left)); err != nil {
+			return err
+		}
+		balance = credits + left
+		if err := tx.Model(&model.User{}).Where("id = ?", id).Update("credits", balance).Error; err != nil {
+			return err
+		}
+		return r.record(tx, id, model.CreditOpRenewal, balance-old.Credits)
 	})
+	if err != nil {
+		return 0, err
+	}
+	return balance, nil
 }
 
 func (r *userRepository) SpendCredits(ctx context.Context, id int64, n int) error {
@@ -152,6 +186,9 @@ func (r *userRepository) SpendCredits(ctx context.Context, id int64, n int) erro
 		}
 		if res.RowsAffected == 0 {
 			return ErrInsufficientCredits
+		}
+		if err := drawGrants(tx, id, n); err != nil {
+			return err
 		}
 		return r.record(tx, id, model.CreditOpSpend, -n)
 	})
@@ -185,6 +222,9 @@ func (r *userRepository) PayStorageBlocks(ctx context.Context, id int64, blocks,
 				return res.Error
 			}
 			paid = true
+			if err := drawGrants(tx, id, cost); err != nil {
+				return err
+			}
 			return r.record(tx, id, model.CreditOpSpend, -cost)
 		})
 		if err != nil {
@@ -234,7 +274,7 @@ func (r *userRepository) SearchUsers(ctx context.Context, q string, before int64
 // _likeEscaper makes LIKE wildcards in a search match themselves.
 var _likeEscaper = strings.NewReplacer(`\`, `\\`, "%", `\%`, "_", `\_`)
 
-func (r *userRepository) AdjustCredits(ctx context.Context, id int64, amount int, actor, note string) (model.CreditActivity, error) {
+func (r *userRepository) AdjustCredits(ctx context.Context, id int64, amount int, expiresAt time.Time, actor, note string) (model.CreditActivity, error) {
 	a := model.CreditActivity{UserID: id, Ops: model.CreditOpAdminGrant, Change: amount, Actor: actor, Note: note}
 	if amount < 0 {
 		a.Ops = model.CreditOpAdminDeduct
@@ -258,6 +298,9 @@ func (r *userRepository) AdjustCredits(ctx context.Context, id int64, amount int
 				return res.Error
 			}
 			applied = true
+			if err := r.adjustGrants(tx, id, amount, expiresAt); err != nil {
+				return err
+			}
 			a.ID = r.ids.NextID()
 			return tx.Create(&a).Error
 		})

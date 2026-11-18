@@ -17,6 +17,11 @@
 // then. When the grant cannot pay for it, the balance goes below zero and
 // the account's sites are paused until it is paid for again; nothing is
 // deleted.
+//
+// Root can also grant credits to one user or to everyone. Those expire
+// GrantExpiry later; renewals keep them, and use them for what the monthly
+// grant can't pay for. The daily job takes what is left of an expired
+// grant away before it renews accounts.
 package credit
 
 //go:generate mockgen -source=credit.go -destination=mocks/credit.go -package=mocks
@@ -56,8 +61,9 @@ const (
 type (
 	// Controller renews credits and reports usage.
 	Controller interface {
-		// RenewDueCredits renews every account whose renewal time has
-		// passed and charges its hosting for the next period.
+		// RenewDueCredits expires every admin grant whose time has passed,
+		// then renews every account whose renewal time has passed and
+		// charges its hosting for the next period.
 		RenewDueCredits(ctx context.Context) (*entity.RenewDueCreditsResponse, error)
 		// GetUsage reports what an account hosts and what it costs.
 		GetUsage(ctx context.Context, rq *entity.GetUsageRequest) (*entity.GetUsageResponse, error)
@@ -122,6 +128,17 @@ func NextRenewal(renewAt, now time.Time) time.Time {
 	return renewAt.Add(periods * Period)
 }
 
+// GrantExpiry is when an admin grant made at grantedAt expires: Period
+// later, at the next 00:00 UTC, so it lines up with a run of the daily job.
+func GrantExpiry(grantedAt time.Time) time.Time {
+	at := grantedAt.UTC().Add(Period)
+	day := at.Truncate(24 * time.Hour)
+	if day.Equal(at) {
+		return day
+	}
+	return day.Add(24 * time.Hour)
+}
+
 // CurrentPricing is what hosting costs.
 func CurrentPricing() entity.Pricing {
 	return entity.Pricing{
@@ -146,6 +163,9 @@ func MonthlyCost(u entity.Usage) int {
 func (c *controller) RenewDueCredits(ctx context.Context) (*entity.RenewDueCreditsResponse, error) {
 	now, grant := c.now(), c.grant()
 	rs := &entity.RenewDueCreditsResponse{}
+	if err := c.expireGrants(ctx, now, rs); err != nil {
+		return rs, err
+	}
 	for {
 		// Each renewed user's renewal time moves past now, so the next page
 		// only returns users not yet handled.
@@ -158,17 +178,39 @@ func (c *controller) RenewDueCredits(ctx context.Context) (*entity.RenewDueCredi
 			if err != nil {
 				return rs, fmt.Errorf("usage of user %d: %w", u.ID, err)
 			}
-			credits := grant - MonthlyCost(usage)
-			if err := c.users.UpdateUserCredits(ctx, u.ID, credits, StorageBlocks(usage.StorageBytes), NextRenewal(u.CreditsRenewAt, now)); err != nil {
+			balance, err := c.users.UpdateUserCredits(ctx, u.ID, grant-MonthlyCost(usage), StorageBlocks(usage.StorageBytes), NextRenewal(u.CreditsRenewAt, now))
+			if err != nil {
 				return rs, fmt.Errorf("renew user %d: %w", u.ID, err)
 			}
 			rs.Renewed++
-			if credits < 0 {
+			if balance < 0 {
 				rs.Suspended++
 			}
 		}
 		if len(users) < c.batchSize {
 			return rs, nil
+		}
+	}
+}
+
+// expireGrants takes what is left of every admin grant expired by now
+// away, counting them in rs.Expired.
+func (c *controller) expireGrants(ctx context.Context, now time.Time, rs *entity.RenewDueCreditsResponse) error {
+	for {
+		// Each expired grant has nothing left, so the next page only
+		// returns grants not yet handled.
+		grants, err := c.users.ListExpiredCreditGrants(ctx, now, c.batchSize)
+		if err != nil {
+			return fmt.Errorf("list expired grants: %w", err)
+		}
+		for _, g := range grants {
+			if err := c.users.ExpireCreditGrant(ctx, g); err != nil {
+				return fmt.Errorf("expire grant %d: %w", g.ID, err)
+			}
+			rs.Expired++
+		}
+		if len(grants) < c.batchSize {
+			return nil
 		}
 	}
 }

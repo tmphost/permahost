@@ -19,6 +19,7 @@ var _creditOps = map[uint8]string{
 	model.CreditOpRefund:      "refund",
 	model.CreditOpAdminGrant:  "admin_grant",
 	model.CreditOpAdminDeduct: "admin_deduct",
+	model.CreditOpExpiry:      "expiry",
 }
 
 // FromCreditOpToCreditOpName names a stored op; an unknown one is its

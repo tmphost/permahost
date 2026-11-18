@@ -76,13 +76,14 @@ describe('credits', () => {
   })
 
   it('opsLabel names every op and passes unknown ones through', () => {
-    expect(['grant', 'renewal', 'spend', 'refund', 'admin_grant', 'admin_deduct'].map(opsLabel)).toEqual([
+    expect(['grant', 'renewal', 'spend', 'refund', 'admin_grant', 'admin_deduct', 'expiry'].map(opsLabel)).toEqual([
       'Sign-up grant',
       'Renewal',
       'Hosting charge',
       'Refund',
       'Root grant',
       'Root deduction',
+      'Grant expired',
     ])
     expect(opsLabel('mystery')).toBe('mystery')
   })

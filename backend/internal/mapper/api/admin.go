@@ -37,6 +37,23 @@ func FromHTTPRequestToAdjustCreditsRequestEntity(c fiber.Ctx) *entity.AdjustCred
 	return &entity.AdjustCreditsRequest{UserID: id, Amount: body.Amount, Note: body.Note}
 }
 
+// FromHTTPRequestToGrantCreditsRequestEntity reads POST
+// /setup/credits/grants. Checking the amount, target and note is the
+// controller's job.
+func FromHTTPRequestToGrantCreditsRequestEntity(c fiber.Ctx) *entity.GrantCreditsRequest {
+	var body view.GrantCreditsRequest
+	if json.Unmarshal(c.Body(), &body) != nil {
+		return nil
+	}
+	return &entity.GrantCreditsRequest{Credits: body.Credits, Email: body.Email, All: body.All, Note: body.Note}
+}
+
+// FromGrantCreditsResponseEntityToHTTPResponse renders POST
+// /setup/credits/grants.
+func FromGrantCreditsResponseEntityToHTTPResponse(rs *entity.GrantCreditsResponse) []byte {
+	return marshal(view.GrantCreditsResponse{Users: rs.Users, ExpiresAt: rs.ExpiresAt.UTC().Format(time.RFC3339)})
+}
+
 // FromHTTPRequestToGetAdminUserRequestEntity reads GET /setup/users/:id.
 func FromHTTPRequestToGetAdminUserRequestEntity(c fiber.Ctx) *entity.GetAdminUserRequest {
 	id := paramID(c, "id")
@@ -87,8 +104,9 @@ func FromGetAdminUserResponseEntityToHTTPResponse(rs *entity.GetAdminUserRespons
 // /setup/users/:id/credits.
 func FromAdjustCreditsResponseEntityToHTTPResponse(rs *entity.AdjustCreditsResponse) []byte {
 	return marshal(view.AdjustCreditsResponse{
-		User:     FromAdminUserEntityToAdminUserView(rs.User),
-		Activity: FromCreditActivityEntityToCreditActivityView(rs.Activity),
+		User:      FromAdminUserEntityToAdminUserView(rs.User),
+		Activity:  FromCreditActivityEntityToCreditActivityView(rs.Activity),
+		ExpiresAt: formatOptionalTime(rs.ExpiresAt),
 	})
 }
 

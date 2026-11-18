@@ -36,6 +36,7 @@ const OPS_LABELS = {
   refund: 'Refund',
   admin_grant: 'Root grant',
   admin_deduct: 'Root deduction',
+  expiry: 'Grant expired',
 }
 
 // opsLabel names a credit activity's ops; unknown ones show as they are.
