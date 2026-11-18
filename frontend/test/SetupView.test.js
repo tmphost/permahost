@@ -15,6 +15,7 @@ vi.mock('../src/api', () => ({
   fetchAdminUser: vi.fn(),
   listAdminUserCreditActivities: vi.fn(),
   adjustUserCredits: vi.fn(),
+  grantCredits: vi.fn(),
 }))
 
 import { fetchAdminStats, fetchAdminUser, fetchSettings, listAdminUsers, saveSettings, setupLogin, setupLogout } from '../src/api'
@@ -489,7 +490,14 @@ describe('SetupView', () => {
     await flushPromises()
     expect(wrapper.find('[data-test="admin-user"]').exists()).toBe(false)
 
+    await wrapper.find('[data-test="setup-tab-credits"]').trigger('click')
+    await wrapper.find('[data-test="setup-grant-all"]').trigger('click')
+    expect(wrapper.find('[data-test="setup-tab-grant"]').attributes('aria-current')).toBe('page')
+    expect(wrapper.find('[data-test="admin-grant"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="setup-form"]').isVisible()).toBe(false)
+
     await wrapper.find('[data-test="setup-tab-domain"]').trigger('click')
+    expect(wrapper.find('[data-test="admin-grant"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="setup-form"]').isVisible()).toBe(true)
     expect(wrapper.find('#app-url').element.value).toBe('https://edited.example')
     expect(wrapper.find('[data-test="setup-save"]').attributes('form')).toBe('setup-form')

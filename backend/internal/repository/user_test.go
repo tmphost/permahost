@@ -24,7 +24,7 @@ func newDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{Logger: logger.Discard})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Folder{}, &model.Domain{}, &model.CreditActivity{}, &model.DeviceCode{}))
+	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Folder{}, &model.Domain{}, &model.CreditActivity{}, &model.CreditGrant{}, &model.DeviceCode{}))
 	return db
 }
 
@@ -79,7 +79,7 @@ func TestUserRepository_DBErrors(t *testing.T) {
 	_, err = repo.ListUsersDueForCreditRenewal(ctx, time.Now(), 10)
 	assert.Error(t, err)
 
-	assert.Error(t, repo.UpdateUserCredits(ctx, 1, 250, 0, time.Now()))
+	assert.Error(t, renew(ctx, repo, 1, 250, 0, time.Now()))
 	_, err = repo.PayStorageBlocks(ctx, 1, 1, 500)
 	assert.Error(t, err)
 	assert.Error(t, repo.RefundStorageBlocks(ctx, 1, 1, 500))
@@ -88,7 +88,7 @@ func TestUserRepository_DBErrors(t *testing.T) {
 	assert.Error(t, repo.RefundCredits(ctx, 1, 1))
 	_, err = repo.SearchUsers(ctx, "a", 0, 10)
 	assert.Error(t, err)
-	_, err = repo.AdjustCredits(ctx, 1, 1, "root", "n")
+	_, err = repo.AdjustCredits(ctx, 1, 1, _expires, "root", "n")
 	assert.Error(t, err)
 	_, err = repo.ListCreditActivities(ctx, 1, 0, 10)
 	assert.Error(t, err)
@@ -134,7 +134,7 @@ func TestUserRepository_CreditRenewal(t *testing.T) {
 	assert.Len(t, page, 1)
 
 	next := now.Add(30 * 24 * time.Hour)
-	require.NoError(t, repo.UpdateUserCredits(ctx, 3, -250, 2, next))
+	require.NoError(t, renew(ctx, repo, 3, -250, 2, next))
 	u, err := repo.FindUserByID(ctx, 3)
 	require.NoError(t, err)
 	assert.Equal(t, -250, u.Credits)
@@ -262,10 +262,10 @@ func TestUserRepository_RecordsEveryBalanceChange(t *testing.T) {
 	_, err = repo.PayStorageBlocks(ctx, 1, 2, 500)
 	require.NoError(t, err, "already paid: nothing recorded")
 	require.NoError(t, repo.RefundStorageBlocks(ctx, 1, 1, 500))
-	require.NoError(t, repo.UpdateUserCredits(ctx, 1, 300, 1, time.Now()))
-	_, err = repo.AdjustCredits(ctx, 1, 200, "root", "n")
+	require.NoError(t, renew(ctx, repo, 1, 300, 1, time.Now()))
+	_, err = repo.AdjustCredits(ctx, 1, 200, _expires, "root", "n")
 	require.NoError(t, err)
-	_, err = repo.AdjustCredits(ctx, 1, -100, "root", "n")
+	_, err = repo.AdjustCredits(ctx, 1, -100, _expires, "root", "n")
 	require.NoError(t, err)
 
 	g, sp, rf, rn := int(model.CreditOpGrant), int(model.CreditOpSpend), int(model.CreditOpRefund), int(model.CreditOpRenewal)
@@ -284,7 +284,7 @@ func TestUserRepository_RecordsEveryBalanceChange(t *testing.T) {
 	// Changes to an unknown user change and record nothing.
 	require.NoError(t, repo.RefundCredits(ctx, 99, 1))
 	require.NoError(t, repo.RefundStorageBlocks(ctx, 99, 1, 1))
-	require.NoError(t, repo.UpdateUserCredits(ctx, 99, 1, 0, time.Now()))
+	require.NoError(t, renew(ctx, repo, 99, 1, 0, time.Now()))
 	assert.Empty(t, activities(t, repo, 99))
 }
 
@@ -302,7 +302,7 @@ func TestUserRepository_RecordFailures(t *testing.T) {
 		}
 	}))
 	assert.EqualError(t, repo.SpendCredits(ctx, 1, 1), "boom")
-	assert.EqualError(t, repo.UpdateUserCredits(ctx, 1, 5, 0, time.Now()), "boom", "reading the old balance")
+	assert.EqualError(t, renew(ctx, repo, 1, 5, 0, time.Now()), "boom", "reading the old balance")
 	require.NoError(t, db.Callback().Query().Remove("fail"))
 
 	// So does writing the activity.
@@ -311,7 +311,7 @@ func TestUserRepository_RecordFailures(t *testing.T) {
 	assert.Error(t, err)
 	assert.Error(t, repo.SpendCredits(ctx, 1, 1))
 	assert.Error(t, repo.RefundCredits(ctx, 1, 1))
-	assert.Error(t, repo.UpdateUserCredits(ctx, 1, 5, 0, time.Now()))
+	assert.Error(t, renew(ctx, repo, 1, 5, 0, time.Now()))
 	_, err = repo.PayStorageBlocks(ctx, 1, 1, 1)
 	assert.Error(t, err)
 	u, err := repo.FindUserByID(ctx, 1)
@@ -323,7 +323,7 @@ func TestUserRepository_RecordFailures(t *testing.T) {
 
 	// A failing update is an error too.
 	require.NoError(t, db.Callback().Update().Before("gorm:update").Register("fail", func(tx *gorm.DB) { _ = tx.AddError(errors.New("boom")) }))
-	assert.EqualError(t, repo.UpdateUserCredits(ctx, 1, 5, 0, time.Now()), "boom")
+	assert.EqualError(t, renew(ctx, repo, 1, 5, 0, time.Now()), "boom")
 	assert.EqualError(t, repo.SpendCredits(ctx, 1, 1), "boom")
 }
 
@@ -333,27 +333,27 @@ func TestUserRepository_AdjustCredits(t *testing.T) {
 	_, err := repo.CreateUser(ctx, model.User{ID: 1, Email: "a@x", Credits: -300})
 	require.NoError(t, err)
 
-	_, err = repo.AdjustCredits(ctx, 1, -1, "root", "x")
+	_, err = repo.AdjustCredits(ctx, 1, -1, _expires, "root", "x")
 	assert.ErrorIs(t, err, ErrInsufficientCredits, "already below zero")
 
-	a, err := repo.AdjustCredits(ctx, 1, 200, "root", "goodwill")
+	a, err := repo.AdjustCredits(ctx, 1, 200, _expires, "root", "goodwill")
 	require.NoError(t, err)
 	assert.Equal(t, -100, a.Current, "a grant may leave the balance below zero")
 	assert.NotZero(t, a.ID)
 	assert.Equal(t, model.CreditOpAdminGrant, a.Ops)
 
-	a, err = repo.AdjustCredits(ctx, 1, 600, "root", "top-up")
+	a, err = repo.AdjustCredits(ctx, 1, 600, _expires, "root", "top-up")
 	require.NoError(t, err)
 	assert.Equal(t, 500, a.Current)
 
-	_, err = repo.AdjustCredits(ctx, 1, -501, "root", "too much")
+	_, err = repo.AdjustCredits(ctx, 1, -501, _expires, "root", "too much")
 	assert.ErrorIs(t, err, ErrInsufficientCredits)
-	a, err = repo.AdjustCredits(ctx, 1, -500, "root", "to zero")
+	a, err = repo.AdjustCredits(ctx, 1, -500, _expires, "root", "to zero")
 	require.NoError(t, err)
 	assert.Equal(t, 0, a.Current, "a deduction may reach zero")
 	assert.Equal(t, model.CreditOpAdminDeduct, a.Ops)
 
-	_, err = repo.AdjustCredits(ctx, 99, 1, "root", "x")
+	_, err = repo.AdjustCredits(ctx, 99, 1, _expires, "root", "x")
 	assert.ErrorIs(t, err, ErrNotFound)
 
 	u, err := repo.FindUserByID(ctx, 1)
@@ -392,25 +392,34 @@ func TestUserRepository_AdjustCreditsRace(t *testing.T) {
 				"UPDATE users SET credits = credits - 500 WHERE id = 1").Error)
 		}
 	}))
-	a, err := repo.AdjustCredits(ctx, 1, -700, "root", "x")
+	a, err := repo.AdjustCredits(ctx, 1, -700, _expires, "root", "x")
 	assert.ErrorIs(t, err, ErrInsufficientCredits, "worked out again on the new balance")
 	assert.Zero(t, a)
 
-	a, err = repo.AdjustCredits(ctx, 1, -200, "root", "x")
+	a, err = repo.AdjustCredits(ctx, 1, -200, _expires, "root", "x")
 	require.NoError(t, err)
 	assert.Equal(t, 300, a.Current)
 
 	// An update that fails after a good read is an error.
 	require.NoError(t, db.Callback().Update().Replace("race", func(tx *gorm.DB) { _ = tx.AddError(errors.New("boom")) }))
-	_, err = repo.AdjustCredits(ctx, 1, 1, "root", "x")
+	_, err = repo.AdjustCredits(ctx, 1, 1, _expires, "root", "x")
 	assert.EqualError(t, err, "boom")
 	require.NoError(t, db.Callback().Update().Remove("race"))
 
 	// So is a ledger write that fails; the balance is left as it was.
 	require.NoError(t, db.Migrator().DropTable(&model.CreditActivity{}))
-	_, err = repo.AdjustCredits(ctx, 1, 1, "root", "x")
+	_, err = repo.AdjustCredits(ctx, 1, 1, _expires, "root", "x")
 	assert.Error(t, err)
 	u, err := repo.FindUserByID(ctx, 1)
 	require.NoError(t, err)
 	assert.Equal(t, 300, u.Credits, "rolled back")
+}
+
+// _expires is when the admin grants the tests make expire.
+var _expires = time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
+
+// renew calls UpdateUserCredits for its error.
+func renew(ctx context.Context, repo UserRepository, id int64, credits, storageBlocks int, renewAt time.Time) error {
+	_, err := repo.UpdateUserCredits(ctx, id, credits, storageBlocks, renewAt)
+	return err
 }

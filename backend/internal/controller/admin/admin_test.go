@@ -25,8 +25,10 @@ import (
 var (
 	_now = time.Date(2026, 11, 2, 7, 0, 0, 0, time.UTC)
 	// _since is the first stats day: 29 days before today.
-	_since  = time.Date(2026, 10, 4, 0, 0, 0, 0, time.UTC)
-	errBoom = errors.New("boom")
+	_since = time.Date(2026, 10, 4, 0, 0, 0, 0, time.UTC)
+	// _expires is when a grant made at _now expires.
+	_expires = time.Date(2026, 12, 3, 0, 0, 0, 0, time.UTC)
+	errBoom  = errors.New("boom")
 )
 
 type env struct {
@@ -41,11 +43,12 @@ func newEnv(t *testing.T) env {
 	ctrl := gomock.NewController(t)
 	e := env{users: mockrepo.NewMockUserRepository(ctrl), stats: mockrepo.NewMockStatsRepository(ctrl), credits: mockcredit.NewMockController(ctrl)}
 	e.c = New(Params{
-		Users:   e.users,
-		Stats:   e.stats,
-		Credits: e.credits,
-		Grant:   func() int { return 2000 },
-		Now:     func() time.Time { return _now },
+		Users:     e.users,
+		Stats:     e.stats,
+		Credits:   e.credits,
+		Grant:     func() int { return 2000 },
+		Now:       func() time.Time { return _now },
+		BatchSize: 2,
 	})
 	return e
 }
@@ -62,6 +65,7 @@ func TestNewDefaultsNow(t *testing.T) {
 	c := New(Params{}).(*controller)
 	assert.WithinDuration(t, time.Now(), c.now(), time.Minute)
 	assert.Equal(t, 2000, c.grant(), "the default grant")
+	assert.Equal(t, _batchSize, c.batchSize)
 	assert.Equal(t, 30, StatsDays)
 }
 
@@ -208,7 +212,7 @@ func TestGetUser(t *testing.T) {
 func TestAdjustCredits(t *testing.T) {
 	t.Run("a grant is recorded as root with a trimmed note", func(t *testing.T) {
 		e := newEnv(t)
-		e.users.EXPECT().AdjustCredits(gomock.Any(), int64(5), 600, ActorRoot, "support refund").
+		e.users.EXPECT().AdjustCredits(gomock.Any(), int64(5), 600, _expires, ActorRoot, "support refund").
 			Return(model.CreditActivity{ID: 77, CreatedAt: _now, UserID: 5, Ops: model.CreditOpAdminGrant, Change: 600, Current: 100, Actor: ActorRoot, Note: "support refund"}, nil)
 		e.expectUser(100)
 
@@ -216,6 +220,16 @@ func TestAdjustCredits(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, entity.CreditActivity{ID: 77, UserID: 5, Ops: "admin_grant", Change: 600, Current: 100, Actor: ActorRoot, Note: "support refund", CreatedAt: _now}, rs.Activity)
 		assert.Equal(t, 100, rs.User.User.Credits)
+		assert.Equal(t, _expires, rs.ExpiresAt)
+	})
+
+	t.Run("a deduction doesn't expire", func(t *testing.T) {
+		e := newEnv(t)
+		e.users.EXPECT().AdjustCredits(gomock.Any(), int64(5), -600, time.Time{}, ActorRoot, "abuse").Return(model.CreditActivity{}, nil)
+		e.expectUser(100)
+		rs, err := e.c.AdjustCredits(context.Background(), &entity.AdjustCreditsRequest{UserID: 5, Amount: -600, Note: "abuse"})
+		require.NoError(t, err)
+		assert.True(t, rs.ExpiresAt.IsZero())
 	})
 
 	t.Run("invalid", func(t *testing.T) {
@@ -234,7 +248,7 @@ func TestAdjustCredits(t *testing.T) {
 
 	t.Run("a note of the longest length is fine", func(t *testing.T) {
 		e := newEnv(t)
-		e.users.EXPECT().AdjustCredits(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(model.CreditActivity{}, errBoom)
+		e.users.EXPECT().AdjustCredits(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(model.CreditActivity{}, errBoom)
 		_, err := e.c.AdjustCredits(context.Background(), &entity.AdjustCreditsRequest{UserID: 5, Amount: -MaxAdjustment, Note: strings.Repeat("é", MaxNoteLength)})
 		assert.ErrorIs(t, err, errBoom)
 		assert.NotErrorIs(t, err, ErrInvalidAdjustment)
@@ -246,7 +260,7 @@ func TestAdjustCredits(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			e := newEnv(t)
-			e.users.EXPECT().AdjustCredits(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(model.CreditActivity{}, tc.repo)
+			e.users.EXPECT().AdjustCredits(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(model.CreditActivity{}, tc.repo)
 			_, err := e.c.AdjustCredits(context.Background(), &entity.AdjustCreditsRequest{UserID: 5, Amount: -1, Note: "x"})
 			assert.ErrorIs(t, err, tc.want)
 		})
@@ -254,10 +268,93 @@ func TestAdjustCredits(t *testing.T) {
 
 	t.Run("reading the user back fails", func(t *testing.T) {
 		e := newEnv(t)
-		e.users.EXPECT().AdjustCredits(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(model.CreditActivity{}, nil)
+		e.users.EXPECT().AdjustCredits(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(model.CreditActivity{}, nil)
 		e.users.EXPECT().FindUserByID(gomock.Any(), int64(5)).Return(model.User{}, errBoom)
 		_, err := e.c.AdjustCredits(context.Background(), &entity.AdjustCreditsRequest{UserID: 5, Amount: 1, Note: "x"})
 		assert.ErrorIs(t, err, errBoom)
+	})
+}
+
+func TestGrantCredits(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("one user by email", func(t *testing.T) {
+		e := newEnv(t)
+		e.users.EXPECT().FindUserByEmail(ctx, "a@x").Return(model.User{ID: 5}, nil)
+		e.users.EXPECT().AdjustCredits(ctx, int64(5), 300, _expires, ActorRoot, "launch").Return(model.CreditActivity{}, nil)
+		rs, err := e.c.GrantCredits(ctx, &entity.GrantCreditsRequest{Credits: 300, Email: " a@x ", Note: " launch "})
+		require.NoError(t, err)
+		assert.Equal(t, &entity.GrantCreditsResponse{Users: 1, ExpiresAt: _expires}, rs)
+	})
+
+	t.Run("every user, in batches", func(t *testing.T) {
+		e := newEnv(t)
+		gomock.InOrder(
+			e.users.EXPECT().ListUserIDs(ctx, int64(0), 2).Return([]int64{1, 2}, nil),
+			e.users.EXPECT().AdjustCredits(ctx, int64(1), 300, _expires, ActorRoot, "launch").Return(model.CreditActivity{}, nil),
+			e.users.EXPECT().AdjustCredits(ctx, int64(2), 300, _expires, ActorRoot, "launch").Return(model.CreditActivity{}, repository.ErrNotFound),
+			e.users.EXPECT().ListUserIDs(ctx, int64(2), 2).Return([]int64{3}, nil),
+			e.users.EXPECT().AdjustCredits(ctx, int64(3), 300, _expires, ActorRoot, "launch").Return(model.CreditActivity{}, nil),
+		)
+		rs, err := e.c.GrantCredits(ctx, &entity.GrantCreditsRequest{Credits: 300, All: true, Note: "launch"})
+		require.NoError(t, err)
+		assert.Equal(t, &entity.GrantCreditsResponse{Users: 2, ExpiresAt: _expires}, rs, "a user deleted meanwhile is skipped")
+	})
+
+	t.Run("invalid", func(t *testing.T) {
+		e := newEnv(t)
+		for name, rq := range map[string]entity.GrantCreditsRequest{
+			"zero":      {Credits: 0, All: true, Note: "x"},
+			"too many":  {Credits: MaxAdjustment + 1, All: true, Note: "x"},
+			"no target": {Credits: 1, Email: "  ", Note: "x"},
+			"both":      {Credits: 1, Email: "a@x", All: true, Note: "x"},
+			"no note":   {Credits: 1, All: true},
+			"long note": {Credits: 1, All: true, Note: strings.Repeat("é", MaxNoteLength+1)},
+			"negative":  {Credits: -1, All: true, Note: "x"},
+		} {
+			_, err := e.c.GrantCredits(ctx, &rq)
+			assert.ErrorIs(t, err, ErrInvalidAdjustment, name)
+		}
+	})
+
+	t.Run("unknown user", func(t *testing.T) {
+		e := newEnv(t)
+		e.users.EXPECT().FindUserByEmail(ctx, "a@x").Return(model.User{}, repository.ErrNotFound)
+		_, err := e.c.GrantCredits(ctx, &entity.GrantCreditsRequest{Credits: 1, Email: "a@x", Note: "x"})
+		assert.ErrorIs(t, err, ErrUserNotFound)
+	})
+
+	t.Run("finding the user fails", func(t *testing.T) {
+		e := newEnv(t)
+		e.users.EXPECT().FindUserByEmail(ctx, "a@x").Return(model.User{}, errBoom)
+		_, err := e.c.GrantCredits(ctx, &entity.GrantCreditsRequest{Credits: 1, Email: "a@x", Note: "x"})
+		assert.ErrorIs(t, err, errBoom)
+	})
+
+	t.Run("granting one user fails", func(t *testing.T) {
+		e := newEnv(t)
+		e.users.EXPECT().FindUserByEmail(ctx, "a@x").Return(model.User{ID: 5}, nil)
+		e.users.EXPECT().AdjustCredits(ctx, int64(5), 1, _expires, ActorRoot, "x").Return(model.CreditActivity{}, errBoom)
+		_, err := e.c.GrantCredits(ctx, &entity.GrantCreditsRequest{Credits: 1, Email: "a@x", Note: "x"})
+		assert.ErrorIs(t, err, errBoom)
+	})
+
+	t.Run("listing users fails", func(t *testing.T) {
+		e := newEnv(t)
+		e.users.EXPECT().ListUserIDs(ctx, int64(0), 2).Return(nil, errBoom)
+		rs, err := e.c.GrantCredits(ctx, &entity.GrantCreditsRequest{Credits: 1, All: true, Note: "x"})
+		assert.ErrorIs(t, err, errBoom)
+		assert.Zero(t, rs.Users)
+	})
+
+	t.Run("granting every user fails partway", func(t *testing.T) {
+		e := newEnv(t)
+		e.users.EXPECT().ListUserIDs(ctx, int64(0), 2).Return([]int64{1, 2}, nil)
+		e.users.EXPECT().AdjustCredits(ctx, int64(1), 1, _expires, ActorRoot, "x").Return(model.CreditActivity{}, nil)
+		e.users.EXPECT().AdjustCredits(ctx, int64(2), 1, _expires, ActorRoot, "x").Return(model.CreditActivity{}, errBoom)
+		rs, err := e.c.GrantCredits(ctx, &entity.GrantCreditsRequest{Credits: 1, All: true, Note: "x"})
+		assert.ErrorIs(t, err, errBoom)
+		assert.Equal(t, 1, rs.Users, "how many got it before the failure")
 	})
 }
 

@@ -42,6 +42,7 @@ func TestAdmin_RootOnly(t *testing.T) {
 		{http.MethodGet, "/api/v1/setup/users/" + id},
 		{http.MethodGet, "/api/v1/setup/users/" + id + "/credits"},
 		{http.MethodPost, "/api/v1/setup/users/" + id + "/credits"},
+		{http.MethodPost, "/api/v1/setup/credits/grants"},
 	} {
 		res, _ := send(t, app, r.method, r.target, `{"amount":1,"note":"n"}`)
 		assert.Equal(t, http.StatusUnauthorized, res.StatusCode, r.target)
@@ -133,6 +134,35 @@ func TestAdmin_AdjustCredits(t *testing.T) {
 	} {
 		admin.EXPECT().AdjustCredits(gomock.Any(), gomock.Any()).Return(nil, tc.err)
 		res, body = send(t, app, http.MethodPost, target, `{"amount":-1,"note":"n"}`, _rootCookie)
+		assert.Equal(t, tc.status, res.StatusCode)
+		assert.JSONEq(t, tc.body, body)
+	}
+}
+
+func TestAdmin_GrantCredits(t *testing.T) {
+	app, admin := newAdminApp(t)
+	target := "/api/v1/setup/credits/grants"
+
+	admin.EXPECT().GrantCredits(gomock.Any(), &entity.GrantCreditsRequest{Credits: 300, All: true, Note: "launch"}).
+		Return(&entity.GrantCreditsResponse{Users: 12, ExpiresAt: time.Date(2026, 12, 3, 0, 0, 0, 0, time.UTC)}, nil)
+	res, body := send(t, app, http.MethodPost, target, `{"credits":300,"all":true,"note":"launch"}`, _rootCookie)
+	assert.Equal(t, http.StatusCreated, res.StatusCode)
+	assert.JSONEq(t, `{"users":12,"expiresAt":"2026-12-03T00:00:00Z"}`, body)
+
+	res, _ = send(t, app, http.MethodPost, target, `{`, _rootCookie)
+	assert.Equal(t, http.StatusBadRequest, res.StatusCode)
+
+	for _, tc := range []struct {
+		err    error
+		status int
+		body   string
+	}{
+		{adminctrl.ErrUserNotFound, http.StatusNotFound, `{"error":"user not found"}`},
+		{fmt.Errorf("%w: a note is required", adminctrl.ErrInvalidAdjustment), http.StatusBadRequest, `{"error":"invalid adjustment: a note is required"}`},
+		{errBoom, http.StatusInternalServerError, `{"error":"failed to grant credits"}`},
+	} {
+		admin.EXPECT().GrantCredits(gomock.Any(), gomock.Any()).Return(nil, tc.err)
+		res, body = send(t, app, http.MethodPost, target, `{"credits":1,"email":"a@x","note":"n"}`, _rootCookie)
 		assert.Equal(t, tc.status, res.StatusCode)
 		assert.JSONEq(t, tc.body, body)
 	}

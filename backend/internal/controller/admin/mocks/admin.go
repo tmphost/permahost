@@ -80,6 +80,21 @@ func (mr *MockControllerMockRecorder) GetUser(ctx, rq interface{}) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUser", reflect.TypeOf((*MockController)(nil).GetUser), ctx, rq)
 }
 
+// GrantCredits mocks base method.
+func (m *MockController) GrantCredits(ctx context.Context, rq *entity.GrantCreditsRequest) (*entity.GrantCreditsResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GrantCredits", ctx, rq)
+	ret0, _ := ret[0].(*entity.GrantCreditsResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GrantCredits indicates an expected call of GrantCredits.
+func (mr *MockControllerMockRecorder) GrantCredits(ctx, rq interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GrantCredits", reflect.TypeOf((*MockController)(nil).GrantCredits), ctx, rq)
+}
+
 // ListCreditActivities mocks base method.
 func (m *MockController) ListCreditActivities(ctx context.Context, rq *entity.ListCreditActivitiesRequest) (*entity.ListCreditActivitiesResponse, error) {
 	m.ctrl.T.Helper()

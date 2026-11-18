@@ -110,6 +110,26 @@ type (
 	AdjustCreditsResponse struct {
 		User     AdminUser
 		Activity CreditActivity
+		// ExpiresAt is when what is left of a grant is taken away; zero
+		// for a deduction.
+		ExpiresAt time.Time
+	}
+
+	// GrantCreditsRequest grants credits to one user, named by Email, or
+	// to every user, with All set.
+	GrantCreditsRequest struct {
+		Credits int
+		Email   string
+		All     bool
+		Note    string
+	}
+
+	// GrantCreditsResponse reports a grant.
+	GrantCreditsResponse struct {
+		// Users is how many users got the grant.
+		Users int
+		// ExpiresAt is when what is left of the grant is taken away.
+		ExpiresAt time.Time
 	}
 
 	// ListCreditActivitiesRequest asks for a page of a user's credit

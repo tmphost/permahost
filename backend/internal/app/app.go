@@ -481,10 +481,10 @@ func (a *App) renewCredits() {
 	defer cancel()
 	rs, err := a.credits.RenewDueCredits(ctx)
 	if err != nil {
-		log.Printf("credit renewal: renewed %d before failing: %v", rs.Renewed, err)
+		log.Printf("credit renewal: expired %d grants and renewed %d accounts before failing: %v", rs.Expired, rs.Renewed, err)
 		return
 	}
-	log.Printf("credit renewal: renewed %d accounts, %d of them paused", rs.Renewed, rs.Suspended)
+	log.Printf("credit renewal: expired %d grants, renewed %d accounts, %d of them paused", rs.Expired, rs.Renewed, rs.Suspended)
 }
 
 func (a *App) verifyDomains() {

@@ -58,6 +58,25 @@ func (h *Admin) GetUser(c fiber.Ctx) error {
 	return sendJSON(c, fiber.StatusOK, mapper.FromGetAdminUserResponseEntityToHTTPResponse(rs))
 }
 
+// GrantCredits grants credits to one user, named by email, or to every
+// user.
+func (h *Admin) GrantCredits(c fiber.Ctx) error {
+	rq := mapper.FromHTTPRequestToGrantCreditsRequestEntity(c)
+	if rq == nil {
+		return fiber.ErrBadRequest
+	}
+	rs, err := h.controller.GrantCredits(c.Context(), rq)
+	switch {
+	case errors.Is(err, adminctrl.ErrUserNotFound):
+		return sendError(c, fiber.StatusNotFound, err.Error())
+	case errors.Is(err, adminctrl.ErrInvalidAdjustment):
+		return sendError(c, fiber.StatusBadRequest, err.Error())
+	case err != nil:
+		return sendError(c, fiber.StatusInternalServerError, "failed to grant credits")
+	}
+	return sendJSON(c, fiber.StatusCreated, mapper.FromGrantCreditsResponseEntityToHTTPResponse(rs))
+}
+
 // AdjustCredits grants or deducts one user's credits.
 func (h *Admin) AdjustCredits(c fiber.Ctx) error {
 	rq := mapper.FromHTTPRequestToAdjustCreditsRequestEntity(c)

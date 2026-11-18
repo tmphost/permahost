@@ -152,6 +152,7 @@ func New(p Params) {
 	r.Get("/setup/users/:id", AuthenticateRoot(p.Setup), admin.GetUser)
 	r.Get("/setup/users/:id/credits", AuthenticateRoot(p.Setup), admin.ListCreditActivities)
 	r.Post("/setup/users/:id/credits", AuthenticateRoot(p.Setup), admin.AdjustCredits)
+	r.Post("/setup/credits/grants", AuthenticateRoot(p.Setup), admin.GrantCredits)
 }
 
 func sendJSON(c fiber.Ctx, status int, payload []byte) error {

@@ -5,11 +5,13 @@
 package entity
 
 type (
-	// RenewDueCreditsResponse reports how many accounts were renewed, and
-	// how many of them the grant could not pay for.
+	// RenewDueCreditsResponse reports how many accounts were renewed, how
+	// many of them the grant could not pay for, and how many admin grants
+	// expired.
 	RenewDueCreditsResponse struct {
 		Renewed   int
 		Suspended int
+		Expired   int
 	}
 
 	// Pricing is what hosting costs, in credits.
