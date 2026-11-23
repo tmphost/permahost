@@ -1,6 +1,6 @@
 // Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Commercial
 
 /**
  * The copyright notice every source file carries, and the rules about it.
@@ -19,7 +19,7 @@
 export const NOTICE_LINES = Object.freeze([
   'Copyright 2026 Contextual, Inc. https://permahost.io',
   'This notice may not be modified or removed.',
-  'SPDX-License-Identifier: AGPL-3.0-only',
+  'SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Commercial',
 ])
 
 const slashes = (lines) => lines.map((line) => `// ${line}`).join('\n')

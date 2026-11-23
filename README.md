@@ -142,7 +142,7 @@ make test    # 100% coverage is enforced on both sides
 
 [plugin/](plugin/) packages the MCP server for AI clients, each with
 instructions on when and how to use its tools (Apache-2.0, unlike the
-AGPL server). Each package connects to `https://mcp.permahost.io/mcp`:
+dual-licensed server). Each package connects to `https://mcp.permahost.io/mcp`:
 
 | Client | Install |
 | --- | --- |
@@ -216,3 +216,11 @@ docker run -p 2027:2027 -v permahost-data:/data \
 ```
 
 Settings and the SQLite database live in the `/data` volume.
+
+## License
+
+permahost is dual-licensed: use it under the [GNU AGPL v3.0](LICENSE)
+(`AGPL-3.0-only`), or under a commercial license from Contextual, Inc. for use
+the AGPL does not allow. Every source file says so in its header:
+`SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Commercial`. The agent
+plugins in [plugin/](plugin/) are Apache-2.0.

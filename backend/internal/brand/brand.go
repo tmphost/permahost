@@ -1,6 +1,6 @@
 // Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Commercial
 
 // Package brand holds the permahost.io icon, built into the binary so every
 // host (app, MCP and folder subdomains) and the MCP server can show it.

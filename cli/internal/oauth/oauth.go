@@ -1,6 +1,6 @@
 // Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Commercial
 
 // Package oauth signs the CLI in to a permahost server with OAuth 2.1: the
 // authorization code flow with PKCE and a loopback redirect, plus refresh.

@@ -43,4 +43,4 @@ upload.
 ## License
 
 This plugin is licensed under the [Apache License 2.0](LICENSE). The permahost
-server it connects to is AGPL-3.0-only.
+server it connects to is dual-licensed: AGPL-3.0-only or a commercial license.

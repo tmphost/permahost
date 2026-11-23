@@ -1,6 +1,6 @@
 // Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Commercial
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
