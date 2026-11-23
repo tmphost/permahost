@@ -1,6 +1,6 @@
 # Copyright 2026 Contextual, Inc. https://permahost.io
 # This notice may not be modified or removed.
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Commercial
 
 .PHONY: build frontend backend cli test test-backend test-frontend test-cli coverage mocks lint lint-backend lint-cli lint-frontend copyright copyright-fix docker dev dev-backend dev-frontend
 

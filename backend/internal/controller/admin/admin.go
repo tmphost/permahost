@@ -1,6 +1,6 @@
 // Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Commercial
 
 // Package admin implements the root-only setup page's view of every
 // account: totals and daily stats, users with their balance and usage, each

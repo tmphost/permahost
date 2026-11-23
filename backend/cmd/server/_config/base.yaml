@@ -1,6 +1,6 @@
 # Copyright 2026 Contextual, Inc. https://permahost.io
 # This notice may not be modified or removed.
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Commercial
 
 # Values here (and the environment) are defaults. Once root saves settings on
 # the /setup page, the settings file overrides the app URL, sites domain, tls,

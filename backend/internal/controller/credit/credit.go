@@ -1,6 +1,6 @@
 // Copyright 2026 Contextual, Inc. https://permahost.io
 // This notice may not be modified or removed.
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Commercial
 
 // Package credit implements hosting billing. Every account gets a monthly
 // credit grant (DefaultMonthlyGrant unless root changed it), renewed every
