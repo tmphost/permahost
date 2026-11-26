@@ -141,7 +141,7 @@ func TestCustomDomainHandler(t *testing.T) {
 	res, body := get(http.MethodGet, "www.custom.io", "/site/a.html")
 	assert.Equal(t, http.StatusOK, res.StatusCode)
 	assert.Equal(t, "<p>", body)
-	assert.Equal(t, _sandboxOwnOrigin, res.Header.Get("Content-Security-Policy"))
+	assert.Equal(t, _sandbox, res.Header.Get("Content-Security-Policy"))
 
 	domains.EXPECT().GetDomainFolder(gomock.Any(), "www.custom.io").Return(int64(1000), nil)
 	folders.EXPECT().OpenPublicFile(gomock.Any(), gomock.Any()).Return(nil, folderctrl.ErrSuspended)
