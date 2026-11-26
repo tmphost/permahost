@@ -328,7 +328,7 @@ func TestPublic(t *testing.T) {
 	assert.Equal(t, http.StatusOK, res.StatusCode)
 	assert.Equal(t, "<p>", body)
 	assert.Equal(t, "text/html; charset=utf-8", res.Header.Get("Content-Type"))
-	assert.Equal(t, _sandbox, res.Header.Get("Content-Security-Policy"))
+	assert.Equal(t, _sandboxOwnOrigin, res.Header.Get("Content-Security-Policy"))
 	assert.Equal(t, "nosniff", res.Header.Get("X-Content-Type-Options"))
 	assert.Equal(t, "Sun, 18 Oct 2026 12:00:00 GMT", res.Header.Get("Last-Modified"))
 
@@ -413,7 +413,7 @@ func TestPublic_Path(t *testing.T) {
 	res, body := get(http.MethodGet, "/files/7/000000rs/site/a%20b.html")
 	assert.Equal(t, http.StatusOK, res.StatusCode)
 	assert.Equal(t, "<p>", body)
-	assert.Equal(t, _sandbox, res.Header.Get("Content-Security-Policy"))
+	assert.Equal(t, _sandbox, res.Header.Get("Content-Security-Policy"), "the app's origin stays opaque")
 
 	e.folders.EXPECT().OpenPublicFile(gomock.Any(), &entity.OpenPublicFileRequest{UserID: 7, FolderID: 1000, Path: ""}).Return(nil, folderctrl.ErrNotFound)
 	res, body = get(http.MethodGet, "/files/7/000000rs/")
