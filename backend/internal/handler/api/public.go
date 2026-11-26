@@ -19,8 +19,17 @@ import (
 
 // _sandbox keeps uploaded pages working (scripts, forms, popups) but in an
 // opaque origin, so they can't read or set cookies of any permahost origin,
-// or call the API as the visitor, even when served on the app's origin.
+// or call the API as the visitor. Pages served below /files/ on the app's
+// origin get it.
 const _sandbox = "sandbox allow-scripts allow-forms allow-popups allow-modals allow-downloads"
+
+// _sandboxOwnOrigin is _sandbox for pages on a host of their own: a folder
+// host or a custom domain. Keeping their origin lets a page import its own
+// module scripts and use storage (Cache API, localStorage, IndexedDB); an
+// opaque origin blocks both. Each folder's host is its own origin, so pages
+// still can't reach the app or another folder, and the app's cookies carry
+// the __Host- prefix, which a folder host can't set or overwrite.
+const _sandboxOwnOrigin = _sandbox + " allow-same-origin"
 
 // Public serves folders to anyone: on folder hosts, <folderID>.file.<domain>,
 // with subdomains on, else below /files/<userID>/<folderID>/, and on their
@@ -45,7 +54,7 @@ func (h *Public) Serve(c fiber.Ctx) error {
 	if rq == nil {
 		return c.Next()
 	}
-	return h.send(c, rq, orFavicon(rq))
+	return h.send(c, rq, _sandboxOwnOrigin, orFavicon(rq))
 }
 
 // ServePath answers /files/<userID>/<folderID>/<path> when subdomains are
@@ -62,7 +71,7 @@ func (h *Public) ServePath(c fiber.Ctx) error {
 	if rq.Path == "" && !strings.HasSuffix(c.Path(), "/") {
 		return c.Redirect().Status(fiber.StatusMovedPermanently).To(c.Params("folder") + "/")
 	}
-	return h.send(c, rq, notFound)
+	return h.send(c, rq, _sandbox, notFound)
 }
 
 // NewCustomDomainHandler returns the handler of hosts that are neither the
@@ -87,7 +96,7 @@ func (h *Public) ServeDomain(c fiber.Ctx) error {
 	if rq == nil {
 		return notFound(c)
 	}
-	return h.send(c, rq, orFavicon(rq))
+	return h.send(c, rq, _sandboxOwnOrigin, orFavicon(rq))
 }
 
 // orFavicon is what a folder host answers when rq names no file: our icon
@@ -99,9 +108,9 @@ func orFavicon(rq *entity.OpenPublicFileRequest) fiber.Handler {
 	return notFound
 }
 
-// send answers with the requested file, or with missing when there is no
-// such file.
-func (h *Public) send(c fiber.Ctx, rq *entity.OpenPublicFileRequest, missing fiber.Handler) error {
+// send answers with the requested file under the sandbox policy csp, or
+// with missing when there is no such file.
+func (h *Public) send(c fiber.Ctx, rq *entity.OpenPublicFileRequest, csp string, missing fiber.Handler) error {
 	if c.Method() != fiber.MethodGet && c.Method() != fiber.MethodHead {
 		return c.SendStatus(fiber.StatusMethodNotAllowed)
 	}
@@ -117,7 +126,7 @@ func (h *Public) send(c fiber.Ctx, rq *entity.OpenPublicFileRequest, missing fib
 		return c.Status(fiber.StatusInternalServerError).SendString("Something went wrong.")
 	}
 	c.Set(fiber.HeaderContentType, rs.ContentType)
-	c.Set(fiber.HeaderContentSecurityPolicy, _sandbox)
+	c.Set(fiber.HeaderContentSecurityPolicy, csp)
 	c.Set(fiber.HeaderXContentTypeOptions, "nosniff")
 	c.Set(fiber.HeaderCacheControl, "public, max-age=60")
 	c.Set(fiber.HeaderLastModified, rs.ModTime.UTC().Format(http.TimeFormat))

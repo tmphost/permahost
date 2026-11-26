@@ -547,6 +547,7 @@ func TestFileHosting(t *testing.T) {
 	assert.Equal(t, "<h1>hi</h1>", body)
 	assert.Equal(t, "text/html; charset=utf-8", res.Header.Get("Content-Type"))
 	assert.Contains(t, res.Header.Get("Content-Security-Policy"), "sandbox")
+	assert.NotContains(t, res.Header.Get("Content-Security-Policy"), "allow-same-origin", "pages on the app's origin")
 	res, _ = call(http.MethodGet, "/files/8/"+id+"/site/index%20page.html", "", "")
 	assert.Equal(t, http.StatusNotFound, res.StatusCode, "the path names another owner")
 	res, _ = call(http.MethodGet, "/files/7/"+id, "", "")
