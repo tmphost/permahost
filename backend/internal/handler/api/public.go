@@ -18,17 +18,18 @@ import (
 )
 
 // _sandbox keeps uploaded pages working (scripts, forms, popups) but in an
-// opaque origin, so they can't read or set cookies of any permahost origin,
-// or call the API as the visitor. Pages served below /files/ on the app's
-// origin get it.
+// opaque origin, so they can't read or set cookies of any origin, or call
+// the API as the visitor. Pages below /files/ on the app's origin and on
+// custom domains, which may share cookies with the owner's other hosts,
+// get it.
 const _sandbox = "sandbox allow-scripts allow-forms allow-popups allow-modals allow-downloads"
 
-// _sandboxOwnOrigin is _sandbox for pages on a host of their own: a folder
-// host or a custom domain. Keeping their origin lets a page import its own
+// _sandboxOwnOrigin is _sandbox for pages on their folder's own subdomain,
+// <folderID>.file.<domain>. Keeping that origin lets a page import its own
 // module scripts and use storage (Cache API, localStorage, IndexedDB); an
-// opaque origin blocks both. Each folder's host is its own origin, so pages
-// still can't reach the app or another folder, and the app's cookies carry
-// the __Host- prefix, which a folder host can't set or overwrite.
+// opaque origin blocks both. The subdomain belongs to that folder alone, so
+// pages still can't reach the app or another folder, and the app's cookies
+// carry the __Host- prefix, which a folder host can't set or overwrite.
 const _sandboxOwnOrigin = _sandbox + " allow-same-origin"
 
 // Public serves folders to anyone: on folder hosts, <folderID>.file.<domain>,
@@ -96,7 +97,7 @@ func (h *Public) ServeDomain(c fiber.Ctx) error {
 	if rq == nil {
 		return notFound(c)
 	}
-	return h.send(c, rq, _sandboxOwnOrigin, orFavicon(rq))
+	return h.send(c, rq, _sandbox, orFavicon(rq))
 }
 
 // orFavicon is what a folder host answers when rq names no file: our icon

@@ -53,10 +53,11 @@ Go (Fiber v3, GORM) backend and Vue 3 (Vite, Tailwind) frontend.
   (`PERMAHOSTIO_FILES_SUBDOMAINS`, `PERMAHOSTIO_FILES_PUBLIC_DOMAIN`, which defaults
   to the sites domain; needs `*.file.<publicDomain>` DNS and a certificate, which the
   built-in TLS obtains when it is the sites domain). Both are served with `Content-Security-Policy:
-  sandbox`, so hosted pages never run with the app's origin. Folder hosts and custom
-  domains add `allow-same-origin`: each is its own origin, so pages there can import
-  their own module scripts and use storage (Cache API, localStorage, IndexedDB).
-  Pages below `/files/` stay in an opaque origin, since they share the app's host.
+  sandbox`, so hosted pages never run with the app's origin. Folder hosts add
+  `allow-same-origin`: each folder's subdomain is its own origin, so pages there can
+  import their own module scripts and use storage (Cache API, localStorage,
+  IndexedDB). Pages below `/files/` (the app's host) and on custom domains stay in an
+  opaque origin.
 
 ## Custom domains
 
