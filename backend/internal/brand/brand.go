@@ -24,7 +24,7 @@ var (
 
 // Version is the permahost release, as in server.json and
 // frontend/package.json; the MCP server reports it in its serverInfo.
-const Version = "0.1.2"
+const Version = "0.1.3"
 
 // Media types of the icons.
 const (
